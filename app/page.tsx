@@ -82,7 +82,7 @@ import { LangMenu } from "@/components/Menus";
 import { AiActionKey, AiPanel, aiErrorText } from "@/components/AiPanel";
 import { TidyState } from "@/components/ui";
 import { AiSettings, DEFAULT_AI, hasKey, isSecureUrl, loadAiSettings, proposeBehavior, proposeDescription, pushHistory, saveAiSettings } from "@/lib/ai";
-import { tidyFrame } from "@/lib/tidy";
+import { carryFrame, tidyFrame } from "@/lib/tidy";
 import { migrateKinds, readProject, saveProject } from "@/lib/project";
 import { ColorPanel } from "@/components/ColorPanel";
 import { MotionPanel, ShapePanel, TypePanel } from "@/components/ThemePanel";
@@ -1915,7 +1915,17 @@ export default function Page() {
 
   const patchFrame = (id: string, patch: Partial<Frame>) => {
     snapshotFor("frame:" + id + ":" + Object.keys(patch).join(","));
-    setFrames((fs) => fs.map((f) => (f.id === id ? { ...f, ...patch } : f)));
+    const f = framesRef.current.find((x) => x.id === id);
+    const resized = !!f && ((patch.w !== undefined && patch.w !== frameW(f)) || (patch.h !== undefined && patch.h !== frameH(f)));
+    if (f && resized) {
+      /* a window changing size carries its parts across rather than leaving them
+       * hanging over the new edge: see carryFrame in lib/tidy.ts */
+      const carried = carryFrame(groupsRef.current, f, { ...f, ...patch }, framesRef.current, widthsRef.current);
+      setFrames(carried.frames);
+      setGroups(carried.groups);
+      return;
+    }
+    setFrames((fs) => fs.map((x) => (x.id === id ? { ...x, ...patch } : x)));
   };
 
   /** the tidy button's state for the screen in play; the layout pass runs only when the document changes */

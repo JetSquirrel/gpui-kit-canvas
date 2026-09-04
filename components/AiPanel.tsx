@@ -184,6 +184,13 @@ export function AiPanel({ p, settings, onSettings }: { p: Palette; settings: AiS
           <div>
             <Label p={p}>{t("aiBaseUrl", lang)}</Label>
             <Input label={t("aiBaseUrl", lang)} value={settings.baseUrl} onChange={(baseUrl) => onSettings({ ...settings, baseUrl })} placeholder={spec.baseUrl} p={p} />
+            {/* said here rather than after the failure, so the base URL can be
+                changed before a request is ever sent */}
+            {spec.needsProxy && (
+              <div style={{ fontSize: 12, lineHeight: 1.5, color: p.warning, marginTop: 8, padding: "0 4px" }}>
+                {t("aiNeedsProxy", lang)}
+              </div>
+            )}
           </div>
           <div>
             <Label

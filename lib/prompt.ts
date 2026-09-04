@@ -122,7 +122,7 @@ function itemJa(it: Item): string {
     case "toolbar":
       return `${(it.tabs ?? []).map((tab) => ico(tab.icon) ?? "空").join("・")} のゴーストボタンが並ぶツールバー`;
     case "statusBar":
-      return `ステータスバー。左に${it.icon ? `${ico(it.icon)} と` : ""}${q(it.label)}${hasText(it.supporting) ? `、右に${q(it.supporting!)}` : ""}`;
+      return `ステータスバー。左に ${it.icon ? `${ico(it.icon)} と` : ""}${q(it.label)}${hasText(it.supporting) ? `、右に${q(it.supporting!)}` : ""}`;
     case "breadcrumb":
       return `${labelsOf(it, "ja")}のパンくずリスト（末尾が現在位置）`;
     case "button":
@@ -410,7 +410,7 @@ function itemZh(it: Item): string {
     case "toolbar":
       return `由 ${(it.tabs ?? []).map((tab) => ico(tab.icon) ?? "空").join("、")} 幽灵按钮组成的工具栏`;
     case "statusBar":
-      return `状态栏，左侧为${it.icon ? `${ico(it.icon)} 与` : ""}${q(it.label)}${hasText(it.supporting) ? `，右侧为${q(it.supporting!)}` : ""}`;
+      return `状态栏，左侧为 ${it.icon ? `${ico(it.icon)} 与` : ""}${q(it.label)}${hasText(it.supporting) ? `，右侧为${q(it.supporting!)}` : ""}`;
     case "breadcrumb":
       return `面包屑：${labelsOf(it, "zh")}（末项为当前位置）`;
     case "button":

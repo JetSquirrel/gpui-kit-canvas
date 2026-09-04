@@ -307,6 +307,11 @@ const UI = {
   aiModel: { ja: "モデル ID", en: "Model ID", zh: "模型 ID" },
   aiKey: { ja: "API キー", en: "API key", zh: "API 密钥" },
   aiGetKey: { ja: "キーを取得", en: "Get a key", zh: "获取密钥" },
+  aiNeedsProxy: {
+    ja: "このプロバイダは CORS ヘッダを返さないため、ブラウザから直接は呼べません。ベース URL には自分で立てたプロキシを指定してください。",
+    en: "This provider sends no CORS headers, so a browser cannot call it directly. Point the base URL at a proxy you run.",
+    zh: "该服务商不返回 CORS 头，浏览器无法直接调用。请把基础 URL 指向你自己搭的代理。",
+  },
   aiKeyHint: {
     ja: "キーはこのブラウザにだけ保存され、プロバイダへ直接送られます。",
     en: "Stored only in this browser and sent straight to the provider.",

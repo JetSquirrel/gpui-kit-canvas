@@ -7,7 +7,7 @@ import { Lang } from "./i18n";
  * prompt and a fixed JSON answer shape, and the result is only applied after the
  * author has looked at it. Coordinates are never touched by the model. */
 
-export type Provider = "claude" | "openai" | "gemini" | "deepseek";
+export type Provider = "claude" | "openai" | "gemini" | "deepseek" | "kimi";
 
 export type AiSettings = {
   provider: Provider;
@@ -16,12 +16,40 @@ export type AiSettings = {
   key: string;
 };
 
-export const PROVIDERS: { key: Provider; label: string; baseUrl: string; model: string; keysUrl?: string }[] = [
+export const PROVIDERS: {
+  key: Provider;
+  label: string;
+  baseUrl: string;
+  model: string;
+  keysUrl?: string;
+  /** the endpoint sends no CORS headers, so a browser needs a proxy in front of it */
+  needsProxy?: boolean;
+}[] = [
   { key: "openai", label: "OpenAI", baseUrl: "https://api.openai.com/v1", model: "gpt-5.6-luna", keysUrl: "https://platform.openai.com/api-keys" },
   { key: "claude", label: "Claude", baseUrl: "https://api.anthropic.com", model: "claude-sonnet-5", keysUrl: "https://console.anthropic.com/settings/keys" },
   { key: "gemini", label: "Gemini", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", model: "gemini-3.8-flash", keysUrl: "https://aistudio.google.com/apikey" },
   { key: "deepseek", label: "DeepSeek", baseUrl: "https://api.deepseek.com/v1", model: "deepseek-v4-flash", keysUrl: "https://platform.deepseek.com/api_keys" },
+  /* Kimi Code speaks the OpenAI protocol at /coding/v1, so it goes through the
+   * generic branch below. `kimi-for-coding` is the model every membership tier
+   * can call; `kimi-for-coding-highspeed`, `k3-256k` and `k3` need higher tiers
+   * and can be typed into the model field.
+   *
+   * As of 2026-09-04 neither api.kimi.com/coding/v1 (OpenAI) nor
+   * api.kimi.com/coding/ (Anthropic) answers a CORS preflight — OPTIONS returns
+   * 404 and the POST carries no access-control-allow-origin — so a browser
+   * cannot reach it directly and the base URL has to point at a proxy. */
+  {
+    key: "kimi",
+    label: "Kimi Code",
+    baseUrl: "https://api.kimi.com/coding/v1",
+    model: "kimi-for-coding",
+    keysUrl: "https://www.kimi.com/code",
+    needsProxy: true,
+  },
 ];
+
+/* Kimi Code's terms require the client to keep its real identity, so nothing
+ * here sets or rewrites a User-Agent; the browser sends its own. */
 
 export const providerSpec = (k: Provider) => PROVIDERS.find((p) => p.key === k) ?? PROVIDERS[0];
 

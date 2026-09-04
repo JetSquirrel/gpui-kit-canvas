@@ -75,10 +75,14 @@ export const TRAFFIC_INSET = 9;
 
 /** the `lg` step: what a panel spends at its own boundary */
 export const WINDOW_MARGIN = 16;
+/** width of a part that spans a window of this width, with a margin on both sides */
+export const contentWidth = (w: number) => w - WINDOW_MARGIN * 2;
+/** width of one of two parts sharing a row in a window of this width, with a margin-sized gutter between them */
+export const halfWidth = (w: number) => (contentWidth(w) - WINDOW_MARGIN) / 2;
 /** width of a part that spans the window with a margin on both sides */
-export const CONTENT_W = WINDOW_W - WINDOW_MARGIN * 2;
+export const CONTENT_W = contentWidth(WINDOW_W);
 /** width of one of two parts sharing a row, with a margin-sized gutter between them */
-export const HALF_W = (CONTENT_W - WINDOW_MARGIN) / 2;
+export const HALF_W = halfWidth(WINDOW_W);
 /** width presets offered in the inspector: sidebar, two columns, with margins, edge to edge */
 export const WIDTH_PRESETS = [SIDEBAR_W, HALF_W, CONTENT_W, WINDOW_W];
 /** height presets for free-form panels: half the window, the whole window */
@@ -2088,6 +2092,56 @@ export type Frame = {
 export const frameW = (f: Frame) => f.w ?? WINDOW_W;
 export const frameH = (f: Frame) => f.h ?? WINDOW_H;
 export const frameRect = (f: Frame) => ({ l: f.x, t: f.y, r: f.x + frameW(f), b: f.y + frameH(f) });
+
+/** the window edge a part owns, when it is a region of the shell rather than content */
+export const regionOf = (kind: Kind) => KIND_SPEC[kind].region;
+
+/* Whether a part's `size` / `size2` is a width or a height is asked of `sizeOf`
+ * itself rather than kept as a list here, so the answer can never drift from it:
+ * nudge the number and see which extent moves. An icon button's square moves both,
+ * a text size moves only the height, and a sheet opening from the top carries its
+ * width in `size2`. */
+const probe = (it: Item, key: "size" | "size2", widths: Record<string, number>) => {
+  const cur = key === "size" ? (it.size ?? KIND_SPEC[it.kind].defSize ?? KIND_SPEC[it.kind].w) : (it.size2 ?? KIND_SPEC[it.kind].h);
+  const a = sizeOf({ ...it, [key]: cur }, widths);
+  const b = sizeOf({ ...it, [key]: cur + 8 }, widths);
+  return { cur, isWidth: b.w !== a.w && b.h === a.h, isHeight: b.h !== a.h && b.w === a.w };
+};
+
+/** A part carried from one window size to another: a part that owns the top or
+ *  bottom edge takes the new width, a part sized to the old window or content width
+ *  takes the new one, one that shared a row keeps sharing it, and a panel as tall as
+ *  the old window — or as the old window below its title bar — takes the new height.
+ *  Nothing ends up wider than the new content area or taller than the new window. */
+export function carryItemSize(it: Item, from: { w: number; h: number }, to: { w: number; h: number }, widths: Record<string, number>): Item {
+  const region = regionOf(it.kind);
+  const patch: Partial<Item> = {};
+
+  const w = probe(it, "size", widths);
+  if (w.isWidth) {
+    if (region === "top" || region === "bottom") {
+      /* a bar the author narrowed on purpose stays narrow; one that spanned the window still does */
+      if (w.cur === from.w || w.cur > to.w) patch.size = to.w;
+    } else if (w.cur === from.w) patch.size = to.w;
+    else if (w.cur === contentWidth(from.w)) patch.size = contentWidth(to.w);
+    else if (w.cur === halfWidth(from.w)) patch.size = halfWidth(to.w);
+    else if (w.cur > to.w) patch.size = to.w;
+    else if (w.cur > contentWidth(to.w)) patch.size = contentWidth(to.w);
+  }
+
+  const h = probe(it, "size2", widths);
+  if (h.isHeight) {
+    if (h.cur === from.h) patch.size2 = to.h;
+    /* a sidebar or a sheet down an edge fills the window under the title bar */
+    else if (h.cur === from.h - TITLE_BAR_H) patch.size2 = to.h - TITLE_BAR_H;
+    else if (h.cur > to.h) patch.size2 = to.h;
+  } else if (h.isWidth) {
+    /* a sheet opening from the top or bottom spans the window's width in `size2` */
+    if (h.cur === from.w || h.cur > to.w) patch.size2 = to.w;
+  }
+
+  return Object.keys(patch).length ? { ...it, ...patch } : it;
+}
 
 export type Placed = { item: Item; index: number; x: number; y: number; w: number; h: number };
 

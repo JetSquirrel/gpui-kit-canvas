@@ -1,0 +1,6 @@
+<!-- A neutral "K" monogram, not the Kimi brand mark: single-colour and
+     single-path so it works as a CSS mask like the other provider marks.
+     Swap in the official artwork if you have it. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <path d="M4 3h3.4v7.6L14.3 3H18l-6.1 6.9L18.4 21H14.6L9.9 12.6l-2.5 2.7V21H4V3z"/>
+</svg>
