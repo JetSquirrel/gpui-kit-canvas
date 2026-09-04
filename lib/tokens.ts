@@ -2545,6 +2545,9 @@ export function sizeOf(it: Item, widths: Record<string, number>) {
       return { w: n, h: 12 + 18 + 4 + 20 + 12 };
     case "bubble":
       return { w: n, h: 8 + 20 + 8 };
+    case "messageScroller":
+      /* a scroller is a free-form box: the author sets both extents */
+      return { w: n, h: it.size2 ?? s.h };
     case "chart":
       return { w: n, h: it.size2 ?? s.h };
     case "dock":
