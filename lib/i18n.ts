@@ -664,6 +664,16 @@ export function translateDefault(text: string, to: Lang): string {
   return hit ? hit[to] : text;
 }
 
+/** The same default read in `to`, when `text` is this kind's own label or
+ *  supporting text. Asking the kind first resolves defaults that share a
+ *  spelling across kinds — "标签" is both a Tag and a Label — which the flat
+ *  table above has to refuse. */
+export function translateKindText(kind: string, field: "label" | "supporting", text: string, to: Lang): string | null {
+  for (const { key } of LANGS)
+    if (KIND_TEXT[key][kind]?.[field] === text) return KIND_TEXT[to][kind]?.[field] ?? null;
+  return null;
+}
+
 /** A window's name is either the starter name or "<Window> <n>", so the number
  *  is kept while the word around it moves. */
 export function translateFrameName(name: string, to: Lang): string {

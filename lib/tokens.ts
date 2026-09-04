@@ -13,6 +13,7 @@ import {
   t,
   translateDefault,
   translateFrameName,
+  translateKindText,
 } from "./i18n";
 import type { Lang } from "./i18n";
 import { KIT_PALETTES } from "./kit-themes.gen";
@@ -1621,8 +1622,12 @@ export type Doc = {
 /** `it` with every string that is still a built-in default read in `to`.
  *  Anything the author typed does not match a default, so it is left alone. */
 export function localizeItem(it: Item, to: Lang): Item {
-  const next: Item = { ...it, label: translateDefault(it.label, to) };
-  if (it.supporting !== undefined) next.supporting = translateDefault(it.supporting, to);
+  /* a kind's own default wins over the flat table, which cannot choose between
+   * two kinds whose defaults happen to be spelled the same */
+  const text = (field: "label" | "supporting", value: string) =>
+    translateKindText(it.kind, field, value, to) ?? translateDefault(value, to);
+  const next: Item = { ...it, label: text("label", it.label) };
+  if (it.supporting !== undefined) next.supporting = text("supporting", it.supporting);
   if (it.confirm !== undefined) next.confirm = translateDefault(it.confirm, to);
   if (it.tabs) next.tabs = it.tabs.map((tab) => ({ ...tab, label: translateDefault(tab.label, to) }));
   if (it.columns) next.columns = it.columns.map((c) => ({ ...c, label: translateDefault(c.label, to) }));

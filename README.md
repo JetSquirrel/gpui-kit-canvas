@@ -80,9 +80,11 @@ Expressive phone screens to gpui-kit desktop windows.
   write a part's behaviour note or a window's description, in your language. The key stays in your
   browser and the request goes straight to the provider; there is no server in between.
 - **Export** – copy the prompt (edit it by hand first if you like) or save a window as a PNG.
-- **Three languages** – the interface, the starter document and the prompt are all available in
-  Japanese, English and Chinese. A first visit picks the language from the browser and builds the
-  starter window in it; a document you have saved keeps whatever you wrote.
+- **Three languages** – the interface, the document's own starter content and the prompt are all
+  available in Japanese, English and Chinese. A first visit picks the language from the browser, and
+  changing it moves the starter content with it: every part remembers the text it was created with,
+  so anything still at its built-in default is re-read in the new language while anything you typed
+  yourself is left exactly as it is.
 - **Alignment guides**, undo/redo, keyboard shortcuts, a favorites row in the parts panel, and
   everything is saved in your browser (localStorage).
 
@@ -234,7 +236,7 @@ Claude Code、Codex、Gemini CLI、Cursor など、プロンプトを受け取�
 - **クリックで遷移** – 部品、タイトルバーのアイコン、サイドバー・タブ・メニュー・リスト・パンくずの項目に移動先を設定できます。キャンバスに矢印が出て、プレビューで実際にクリックして確かめられます。
 - **ショートカット** – 部品にキーバインドを設定すると、プロンプトが `actions!` の定義、`bind_keys` の割り当て、tooltip の `Kbd` 表示まで要求します。
 - **編集できるデータ** – データテーブルの列はラベルと「数値」フラグ（比較できる数値なので右寄せになります）を持ち、行はセル単位で編集できます。ダイアログは確定ボタンの文言を自分で持つので、プロンプトは `OK` ではなく `削除` を要求します。
-- **3 言語** – UI・初期ドキュメント・プロンプトのすべてが日本語・英語・中国語に対応します。初回はブラウザの言語で初期ウィンドウを組み立て、保存済みのドキュメントは書いた内容がそのまま残ります。
+- **3 言語** – UI・ドキュメントの初期内容・プロンプトのすべてが日本語・英語・中国語に対応します。初回はブラウザの言語で組み立て、言語を切り替えると初期内容もついてきます。部品は作られたときの文字を覚えているので、既定値のままのものだけが新しい言語で読み直され、自分で書いた文字はそのまま残ります。
 - **レイヤーとグループ**、**テーマ**（カラー／角丸／書体／密度／影／フォーカスリング）、**整える**、**AI 補助（任意）**、**書き出し**、**補助線スナップ**、Undo/Redo。作業内容はブラウザ（localStorage）に自動保存されます。
 
 ### gpui-kit への追従
@@ -278,7 +280,7 @@ MIT
 - **点击跳转** – 可为组件、标题栏图标，以及侧边栏、标签页、菜单、列表、面包屑的条目设置目标窗口。画布上会显示流程箭头，预览中可以真的点击跳转。
 - **快捷键** – 为组件设置快捷键后，提示词会要求生成对应的 `actions!` 定义、`bind_keys` 绑定，并在 tooltip 中用 `Kbd` 展示。
 - **可编辑的数据** – 数据表格的每一列都有自己的标签和「数值」标记（标记后右对齐，符合可比较数值的排版惯例），行则按单元格编辑。对话框自带确认按钮文案，因此提示词要求的是「删除」而不是「确定」。
-- **三种语言** – 界面、初始文档和提示词都提供日文、英文、中文。首次访问会按浏览器语言生成初始窗口；已保存的文档则保留你写下的内容。
+- **三种语言** – 界面、文档的初始内容和提示词都提供日文、英文、中文。首次访问按浏览器语言生成，切换语言时初始内容也会跟着走：每个组件都记得自己被创建时的文案，因此仍是内置默认值的会用新语言重新读取，而你自己敲的字原样保留。
 - **图层与编组**、**主题**（配色／圆角／字体／密度／阴影／焦点环）、**整理**、**AI 辅助（可选）**、**导出**、**对齐辅助线**、撤销／重做。所有内容自动保存在浏览器（localStorage）中。
 
 ### 跟随 gpui-kit 更新
