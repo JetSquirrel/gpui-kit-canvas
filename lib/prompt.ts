@@ -1,33 +1,76 @@
-import { KIND_TEXT, Lang, SWIPE_TEXT, TRANSITION_TEXT, getLang } from "./i18n";
+import { KIND_TEXT, Lang, TRANSITION_TEXT, getLang } from "./i18n";
 import {
-  DEFAULT_PLATFORM,
-  Platform,
   Action,
   BACK_TARGET,
+  Column,
+  Density,
   Doc,
   FONTS,
   Frame,
   Group,
   Item,
   Kind,
+  KIND_SPEC,
   Palette,
-  PHONE_H,
-  PHONE_W,
-  SWIPE_DIRS,
+  RADII,
+  Shell,
+  DEFAULT_SHELL,
   Theme,
+  TOKEN_NAMES,
   Variant,
+  WINDOW_H,
+  WINDOW_W,
   explodeGroup,
+  frameH,
   frameOfGroup,
+  frameW,
   groupBounds,
   normalizeTheme,
   paletteOf,
+  tableRowsOf,
 } from "./tokens";
+import { iconVariant } from "./kit-icons.gen";
 
 const VARIANT_TEXT: Record<Lang, Record<Variant, string>> = {
-  ja: { filled: "塗りつぶし", tonal: "トーナル", elevated: "エレベーテッド", outlined: "アウトライン", text: "テキスト" },
-  en: { filled: "filled", tonal: "tonal", elevated: "elevated", outlined: "outlined", text: "text" },
-  zh: { filled: "填充", tonal: "色调", elevated: "浮起", outlined: "描边", text: "文字" },
+  ja: {
+    default: "標準",
+    primary: "プライマリ",
+    secondary: "セカンダリ",
+    outline: "アウトライン",
+    ghost: "ゴースト",
+    link: "リンク",
+    danger: "デンジャー",
+    warning: "ウォーニング",
+    success: "サクセス",
+    info: "インフォ",
+  },
+  en: {
+    default: "default",
+    primary: "primary",
+    secondary: "secondary",
+    outline: "outline",
+    ghost: "ghost",
+    link: "link",
+    danger: "danger",
+    warning: "warning",
+    success: "success",
+    info: "info",
+  },
+  zh: {
+    default: "默认",
+    primary: "主要",
+    secondary: "次要",
+    outline: "描边",
+    ghost: "幽灵",
+    link: "链接",
+    danger: "危险",
+    warning: "警告",
+    success: "成功",
+    info: "信息",
+  },
 };
+
+const DENSITY_SIZE: Record<Density, string> = { compact: "Size::Small", default: "Size::Medium", comfortable: "Size::Large" };
 
 const hasText = (s?: string | null) => !!s && s.trim().length > 0;
 const qj = (s: string) => `「${s.trim()}」`;
@@ -36,81 +79,117 @@ const qz = (s: string) => `“${s.trim()}”`;
 const quote = (lang: Lang) => (lang === "ja" ? qj : lang === "zh" ? qz : qe);
 const trimEnd = (s: string) => s.trim().replace(/[。.\s]+$/, "");
 
+/** an icon as the `IconName` variant the generated code will use */
+const ico = (name?: string | null) => (name ? `IconName::${iconVariant(name)}` : null);
+/** the entries of a tabs / sidebar / menu / list part, as a readable list */
+const labelsOf = (it: Item, lang: Lang) => {
+  const q = quote(lang);
+  const sep = lang === "en" ? ", " : "、";
+  return (it.tabs ?? [])
+    .map((tab) => {
+      const label = tab.label.trim() ? q(tab.label.trim()) : lang === "en" ? "unlabeled" : lang === "zh" ? "无标签" : "ラベルなし";
+      const icon = ico(tab.icon);
+      return icon ? `${label} (${icon})` : label;
+    })
+    .join(sep);
+};
+const columnsText = (columns: Column[], lang: Lang) => {
+  const q = quote(lang);
+  const numeric = lang === "en" ? " (numeric, right-aligned)" : lang === "zh" ? "（数值，右对齐）" : "（数値・右寄せ）";
+  return columns.map((c) => `${q(c.label)}${c.numeric ? numeric : ""}`).join(lang === "en" ? ", " : "、");
+};
+const selectedIndex = (it: Item) => (typeof it.value === "number" && it.value >= 0 ? it.value : null);
+const selectedLabel = (it: Item, lang: Lang) => {
+  const i = selectedIndex(it);
+  const tab = i === null ? undefined : it.tabs?.[i];
+  return tab?.label.trim() ? quote(lang)(tab.label.trim()) : null;
+};
+
 /* ================= single parts ================= */
 
 function itemJa(it: Item): string {
   const q = qj;
   const v = VARIANT_TEXT.ja[it.variant];
   const noun = KIND_TEXT.ja[it.kind]?.noun ?? it.kind;
+  const off = it.disabled ? "（無効状態）" : "";
+  const sel = selectedLabel(it, "ja");
   switch (it.kind) {
+    case "titleBar":
+      return `タイトル${q(it.label)}のタイトルバー${it.controls === "windows" ? "（ウィンドウ操作ボタンは右）" : it.controls === "none" ? "（ウィンドウ操作ボタンなし）" : "（macOS 風に左へ信号機ボタン）"}${it.icon ? `。先頭に ${ico(it.icon)}` : ""}${it.icon2 ? `、末尾に ${ico(it.icon2)}` : ""}`;
+    case "sidebar":
+      return `見出し${q(it.label)}のサイドバー${it.collapsed ? "（アイコンだけの折りたたみ状態）" : `（幅 ${it.size ?? 255}px）`}。項目は ${labelsOf(it, "ja")}${sel ? `。${sel}が選択状態` : ""}`;
+    case "toolbar":
+      return `${(it.tabs ?? []).map((tab) => ico(tab.icon) ?? "空").join("・")} のゴーストボタンが並ぶツールバー`;
+    case "statusBar":
+      return `ステータスバー。左に${it.icon ? `${ico(it.icon)} と` : ""}${q(it.label)}${hasText(it.supporting) ? `、右に${q(it.supporting!)}` : ""}`;
+    case "breadcrumb":
+      return `${labelsOf(it, "ja")}のパンくずリスト（末尾が現在位置）`;
     case "button":
-      return `${hasText(it.label) ? q(it.label) : "ラベルなし"}の${v}ボタン${it.icon ? `（${it.icon} アイコン付き）` : ""}`;
+      return `${hasText(it.label) ? q(it.label) : "ラベルなし"}の${v}ボタン${it.icon ? `（${ico(it.icon)} 付き）` : ""}${off}`;
     case "iconButton":
-      return `${it.icon ?? "空"} アイコンの${v}アイコンボタン`;
-    case "fab":
-      return `${it.icon ?? "空"} アイコンの${v} FAB${it.size && it.size >= 96 ? "（大サイズ）" : it.size && it.size <= 40 ? "（小サイズ）" : ""}`;
-    case "extendedFab":
-      return `${q(it.label)}${it.icon ? `と ${it.icon} アイコン` : ""}の拡張 FAB（${v}）`;
-    case "chip":
-      return `${q(it.label)}のチップ${it.checked ? "（選択状態）" : ""}${it.icon && !it.checked ? `（${it.icon} アイコン付き）` : ""}`;
-    case "topAppBar":
-      return `タイトル${q(it.label)}のトップアプリバー${it.icon ? `。左に ${it.icon}` : ""}${it.icon2 ? `、右に ${it.icon2}` : ""}${it.icon || it.icon2 ? " のアイコンボタン" : ""}`;
-    case "bottomNav": {
-      const tabs = (it.tabs ?? []).map((t) => `${q(t.label || "ラベルなし")}(${t.icon || "アイコンなし"})`);
-      return `${tabs.length}項目のナビゲーションバー（${tabs.join("、")}。最初の項目が選択状態）`;
-    }
-    case "searchBar":
-      return `プレースホルダー${q(it.label)}の検索バー${it.icon2 ? `（右端に ${it.icon2} アイコン）` : ""}`;
-    case "card": {
-      const style = it.variant === "elevated" ? "エレベーテッド" : it.variant === "outlined" ? "アウトライン" : "塗りつぶし";
-      return `${style}カード。上部に${it.icon ? `${it.icon} アイコンの` : ""}プレースホルダー画像、見出し${q(it.label)}${hasText(it.supporting) ? `、本文${q(it.supporting!)}` : ""}`;
-    }
-    case "listItem":
-      return `${q(it.label)}${hasText(it.supporting) ? `（サブテキスト${q(it.supporting!)}）` : ""}${it.icon ? `、先頭に ${it.icon} アイコン${it.iconFill === "none" ? "（背景なし）" : it.iconFill ? `（背景 ${it.iconFill}）` : ""}` : ""}${it.icon2 ? `、末尾に ${it.icon2}` : ""}${it.fill && it.fill !== "surfaceContainerLow" ? `、背景は ${it.fill}` : ""}`;
-    case "dialog":
-      return `見出し${q(it.label)}${hasText(it.supporting) ? `、本文${q(it.supporting!)}` : ""}${it.icon ? `、${it.icon} アイコン付き` : ""}のダイアログ（キャンセル／OK のテキストボタン）`;
-    case "snackbar":
-      return `${q(it.label)}のスナックバー${hasText(it.supporting) ? `（${q(it.supporting!)}のアクション付き）` : ""}`;
-    case "textField":
-      return `ラベル${q(it.label)}の${it.variant === "filled" ? "塗りつぶし" : "アウトライン"}テキスト入力${it.icon ? `（先頭に ${it.icon} アイコン）` : ""}${hasText(it.supporting) ? `。補助テキストは${q(it.supporting!)}` : ""}`;
-    case "switch":
-      return `${q(it.label)}のスイッチ（初期状態は${it.checked ? "オン" : "オフ"}${it.noCheck ? "、オン時のハンドルにチェックアイコンなし" : ""}）`;
+      return `${ico(it.icon) ?? "空"} の${v}アイコンボタン${it.size && it.size !== 32 ? `（${it.size}px）` : ""}${off}`;
+    case "buttonGroup":
+      return `${labelsOf(it, "ja")}が連結した${v}のボタングループ${sel ? `（${sel}が選択状態）` : ""}`;
+    case "menu":
+      return `${labelsOf(it, "ja")}の項目を持つポップアップメニュー`;
+    case "input":
+      return `プレースホルダー${q(it.label)}の入力欄${it.icon ? `（先頭に ${ico(it.icon)}）` : ""}${hasText(it.supporting) ? `。補助テキストは${q(it.supporting!)}` : ""}${off}`;
+    case "textarea":
+      return `プレースホルダー${q(it.label)}の複数行入力（高さ ${it.size2 ?? 84}px）${hasText(it.supporting) ? `。補助テキストは${q(it.supporting!)}` : ""}${off}`;
+    case "select":
+      return `現在値${q(it.label)}のセレクト。選択肢は ${labelsOf(it, "ja")}${off}`;
     case "checkbox":
-      return `${q(it.label)}のチェックボックス（初期状態は${it.checked ? "チェック済み" : "未チェック"}）`;
-    case "slider":
-      return `スライダー（初期値 ${it.value ?? 40}%）`;
-    case "text":
-      return `${it.bold ? "太字の" : ""}テキスト${q(it.label)}（${it.size ?? 28}sp）`;
-    case "image":
-      return `${it.size ?? 200}dp 角の画像${it.src ? "（指定の画像を表示）" : "プレースホルダー"}`;
-    case "divider":
-      return "区切り線";
-    case "box":
-      return `${it.size ?? PHONE_W}×${it.size2 ?? 220}dp の${it.checked ? "ボトムシート（上部にドラッグハンドル。" : "ボックス（"}背景 ${it.fill ?? "surfaceContainerLow"}、角丸は上 ${it.radiusTop ?? 28}dp・下 ${it.radiusBottom ?? 28}dp）`;
-    case "loadingIndicator":
-      return `M3 Expressive の形が変化するローディングインジケータ${it.contained ? "（コンテナ付き）" : ""}`;
-    case "linearProgress":
-      return `${it.wavy ? "波形の" : ""}リニアプログレス（${it.value === undefined ? "不確定" : `${it.value}%`}）`;
-    case "circularProgress":
-      return `${it.wavy ? "波形の" : ""}サーキュラープログレス（${it.value === undefined ? "不確定" : `${it.value}%`}）`;
-    case "splitButton":
-      return `${q(it.label)}${it.icon ? `（${it.icon} アイコン付き）` : ""}の${v}スプリットボタン（右側にメニューを開く矢印のセグメント）`;
-    case "fabMenu": {
-      const items = (it.tabs ?? []).map((t) => `${q(t.label || "ラベルなし")}(${t.icon || "アイコンなし"})`);
-      return `${v} FAB から開く FAB メニュー（開いた状態で描き、上に ${items.join("、")} の ${items.length} 項目が縦に並ぶ）`;
-    }
-    case "toolbar": {
-      const icons = (it.tabs ?? []).map((t) => t.icon || "空").join("・");
-      return `${it.variant === "filled" ? "ビブラント（primaryContainer）" : "スタンダード"}のフローティングツールバー（${icons} のアイコンボタン）`;
-    }
-    case "tabs": {
-      const labels = (it.tabs ?? []).map((t) => q(t.label || "ラベルなし"));
-      return `${labels.join("、")}の ${labels.length} つのタブ（最初のタブが選択状態）`;
-    }
+      return `${q(it.label)}のチェックボックス（初期状態は${it.checked ? "チェック済み" : "未チェック"}）${off}`;
     case "radio":
-      return `${q(it.label)}のラジオボタン（初期状態は${it.checked ? "選択" : "未選択"}）`;
+      return `${labelsOf(it, "ja")}のラジオグループ${sel ? `（${sel}が選択状態）` : ""}${off}`;
+    case "switch":
+      return `${q(it.label)}のスイッチ（初期状態は${it.checked ? "オン" : "オフ"}）${off}`;
+    case "slider":
+      return `${hasText(it.label) ? `${q(it.label)}の` : ""}スライダー（初期値 ${it.value ?? 40}%）${off}`;
+    case "label":
+      return `フォームラベル${q(it.label)}`;
+    case "panel":
+      return `${it.size ?? WINDOW_W}×${it.size2 ?? 200}px のパネル（背景 ${TOKEN_NAMES[it.fill ?? "muted"] ?? it.fill}、境界はヘアライン）`;
+    case "groupBox":
+      return `見出し${q(it.label)}のグループボックス（${it.size ?? 320}×${it.size2 ?? 160}px）${hasText(it.supporting) ? `。説明は${q(it.supporting!)}` : ""}`;
+    case "tabs":
+      return `${labelsOf(it, "ja")}の ${it.tabs?.length ?? 0} つのタブ${sel ? `（${sel}が選択状態）` : ""}`;
+    case "resizable":
+      return `${it.side === "top" || it.side === "bottom" ? "上下" : "左右"}に分かれたリサイズ可能な分割（${it.side}側のペインが ${it.value ?? 30}%、ドラッグで境界を動かせる）`;
+    case "dialog":
+      return `見出し${q(it.label)}のダイアログ${hasText(it.supporting) ? `、本文${q(it.supporting!)}` : ""}（キャンセルと${q(it.confirm || "OK")}の 2 ボタン。${q(it.confirm || "OK")}は${v}）`;
+    case "sheet":
+      return `${it.side} から開く見出し${q(it.label)}のシート（幅 ${it.size ?? 380}px、閉じるボタン付き）`;
+    case "popover":
+      return `見出し${q(it.label)}のポップオーバー${hasText(it.supporting) ? `、本文${q(it.supporting!)}` : ""}`;
+    case "notification":
+      return `${q(it.label)}の通知${hasText(it.supporting) ? `（本文${q(it.supporting!)}）` : ""}${it.icon ? `。${ico(it.icon)} アイコンは${v}色` : ""}`;
+    case "list":
+      return `${labelsOf(it, "ja")}の ${it.tabs?.length ?? 0} 行のリスト${sel ? `（${sel}が選択状態）` : ""}`;
+    case "dataTable":
+      return `列が ${columnsText(it.columns ?? [], "ja")} のデータテーブル（${tableRowsOf(it).length} 行のサンプル: ${tableRowsOf(it).map((r) => r.join(" / ")).join("、")}）`;
+    case "tree":
+      return `${(it.tabs ?? []).map((n) => q(n.label.trim())).join("、")}のツリー（先頭の空白 2 つで 1 段のネスト）`;
+    case "text":
+      return `${it.bold ? "太字の" : ""}テキスト${q(it.label)}（${it.size ?? 20}px）`;
+    case "icon":
+      return `${ico(it.icon) ?? "空"} のアイコン（${it.size ?? 16}px）`;
+    case "image":
+      return `${it.size ?? 200}×${it.size2 ?? 200}px の画像${it.src ? "（指定の画像を表示）" : "プレースホルダー"}`;
+    case "divider":
+      return "区切り線（ヘアライン）";
     case "badge":
-      return hasText(it.label) ? `${q(it.label)}と表示するバッジ` : "小さな点のバッジ";
+      return hasText(it.label) ? `${q(it.label)}と表示する${v}バッジ` : `小さな点の${v}バッジ`;
+    case "tag":
+      return `${q(it.label)}の${v}タグ${it.checked ? "（閉じるボタン付き）" : ""}`;
+    case "alert":
+      return `${v}のアラート。見出し${q(it.label)}${hasText(it.supporting) ? `、本文${q(it.supporting!)}` : ""}${it.icon ? `、${ico(it.icon)} アイコン付き` : ""}`;
+    case "progress":
+      return `${it.circle ? "円形の" : ""}プログレス（${it.value === undefined ? "不確定" : `${it.value}%`}）`;
+    case "spinner":
+      return `スピナー（${it.size ?? 20}px）`;
+    case "skeleton":
+      return `${it.size ?? 200}×${it.size2 ?? 16}px のスケルトン`;
     default:
       return noun;
   }
@@ -120,75 +199,85 @@ function itemEn(it: Item): string {
   const q = qe;
   const v = VARIANT_TEXT.en[it.variant];
   const noun = KIND_TEXT.en[it.kind]?.noun ?? it.kind;
+  const off = it.disabled ? ", disabled" : "";
+  const sel = selectedLabel(it, "en");
   switch (it.kind) {
+    case "titleBar":
+      return `a title bar titled ${q(it.label)}${it.controls === "windows" ? " with the window controls on the right" : it.controls === "none" ? " with no window controls" : " with macOS traffic lights on the left"}${it.icon ? `, ${ico(it.icon)} leading` : ""}${it.icon2 ? `, ${ico(it.icon2)} trailing` : ""}`;
+    case "sidebar":
+      return `a sidebar headed ${q(it.label)}${it.collapsed ? ", collapsed to icon width" : `, ${it.size ?? 255}px wide`}, with the entries ${labelsOf(it, "en")}${sel ? `; ${sel} is selected` : ""}`;
+    case "toolbar":
+      return `a toolbar of ghost icon buttons: ${(it.tabs ?? []).map((tab) => ico(tab.icon) ?? "empty").join(", ")}`;
+    case "statusBar":
+      return `a status bar with ${it.icon ? `${ico(it.icon)} and ` : ""}${q(it.label)} leading${hasText(it.supporting) ? ` and ${q(it.supporting!)} trailing` : ""}`;
+    case "breadcrumb":
+      return `a breadcrumb: ${labelsOf(it, "en")} (the last crumb is the current place)`;
     case "button":
-      return `a ${v} button ${hasText(it.label) ? q(it.label) : "with no label"}${it.icon ? ` with a ${it.icon} icon` : ""}`;
+      return `a ${v} button labelled ${hasText(it.label) ? q(it.label) : "nothing"}${it.icon ? ` with ${ico(it.icon)}` : ""}${off}`;
     case "iconButton":
-      return `a ${v} icon button with the ${it.icon ?? "empty"} icon`;
-    case "fab":
-      return `a ${it.size && it.size >= 96 ? "large " : it.size && it.size <= 40 ? "small " : ""}${v} FAB with the ${it.icon ?? "empty"} icon`;
-    case "extendedFab":
-      return `a ${v} extended FAB ${q(it.label)}${it.icon ? ` with a ${it.icon} icon` : ""}`;
-    case "chip":
-      return `a chip ${q(it.label)}${it.checked ? " (selected)" : ""}${it.icon && !it.checked ? ` with a ${it.icon} icon` : ""}`;
-    case "topAppBar":
-      return `a top app bar titled ${q(it.label)}${it.icon ? ` with a ${it.icon} icon button on the left` : ""}${it.icon2 ? `${it.icon ? " and" : " with"} ${it.icon2} on the right` : ""}`;
-    case "bottomNav": {
-      const tabs = (it.tabs ?? []).map((t) => `${q(t.label || "unlabeled")} (${t.icon || "no icon"})`);
-      return `a navigation bar with ${tabs.length} destinations: ${tabs.join(", ")}; the first one is selected`;
-    }
-    case "searchBar":
-      return `a search bar with the placeholder ${q(it.label)}${it.icon2 ? ` and a ${it.icon2} icon at the end` : ""}`;
-    case "card": {
-      const style = it.variant === "elevated" ? "an elevated" : it.variant === "outlined" ? "an outlined" : "a filled";
-      return `${style} card with a placeholder image${it.icon ? ` (${it.icon} icon)` : ""} on top, the headline ${q(it.label)}${hasText(it.supporting) ? ` and the body ${q(it.supporting!)}` : ""}`;
-    }
-    case "listItem":
-      return `${q(it.label)}${hasText(it.supporting) ? ` with supporting text ${q(it.supporting!)}` : ""}${it.icon ? `, a leading ${it.icon} icon${it.iconFill === "none" ? " (no background circle)" : it.iconFill ? ` (on a ${it.iconFill} circle)` : ""}` : ""}${it.icon2 ? `, a trailing ${it.icon2} icon` : ""}${it.fill && it.fill !== "surfaceContainerLow" ? `, on a ${it.fill} background` : ""}`;
-    case "dialog":
-      return `a dialog headed ${q(it.label)}${hasText(it.supporting) ? ` with the body ${q(it.supporting!)}` : ""}${it.icon ? ` and a ${it.icon} icon` : ""}, with Cancel and OK text buttons`;
-    case "snackbar":
-      return `a snackbar ${q(it.label)}${hasText(it.supporting) ? ` with a ${q(it.supporting!)} action` : ""}`;
-    case "textField":
-      return `${it.variant === "filled" ? "a filled" : "an outlined"} text field labeled ${q(it.label)}${it.icon ? ` with a leading ${it.icon} icon` : ""}${hasText(it.supporting) ? `; supporting text ${q(it.supporting!)}` : ""}`;
-    case "switch":
-      return `a switch ${q(it.label)} (initially ${it.checked ? "on" : "off"}${it.noCheck ? "; no check icon on the handle when on" : ""})`;
+      return `a ${v} icon button showing ${ico(it.icon) ?? "no icon"}${it.size && it.size !== 32 ? ` at ${it.size}px` : ""}${off}`;
+    case "buttonGroup":
+      return `a ${v} button group of ${labelsOf(it, "en")}${sel ? `, with ${sel} selected` : ""}`;
+    case "menu":
+      return `a popup menu with the items ${labelsOf(it, "en")}`;
+    case "input":
+      return `an input placeholdered ${q(it.label)}${it.icon ? ` with a ${ico(it.icon)} prefix` : ""}${hasText(it.supporting) ? `, help text ${q(it.supporting!)}` : ""}${off}`;
+    case "textarea":
+      return `a textarea placeholdered ${q(it.label)}, ${it.size2 ?? 84}px tall${hasText(it.supporting) ? `, help text ${q(it.supporting!)}` : ""}${off}`;
+    case "select":
+      return `a select currently reading ${q(it.label)}, offering ${labelsOf(it, "en")}${off}`;
     case "checkbox":
-      return `a checkbox ${q(it.label)} (initially ${it.checked ? "checked" : "unchecked"})`;
-    case "slider":
-      return `a slider (initial value ${it.value ?? 40}%)`;
-    case "text":
-      return `${it.bold ? "bold " : ""}text ${q(it.label)} at ${it.size ?? 28}sp`;
-    case "image":
-      return `a ${it.size ?? 200}dp square image${it.src ? " (use the provided image)" : " placeholder"}`;
-    case "divider":
-      return "a divider";
-    case "box":
-      return `a ${it.size ?? PHONE_W}×${it.size2 ?? 220}dp ${it.checked ? "bottom sheet with a drag handle at the top" : "box"} (background ${it.fill ?? "surfaceContainerLow"}, corner radius ${it.radiusTop ?? 28}dp top / ${it.radiusBottom ?? 28}dp bottom)`;
-    case "loadingIndicator":
-      return `the M3 Expressive shape-morphing loading indicator${it.contained ? " (contained)" : ""}`;
-    case "linearProgress":
-      return `a ${it.wavy ? "wavy " : ""}linear progress indicator (${it.value === undefined ? "indeterminate" : `${it.value}%`})`;
-    case "circularProgress":
-      return `a ${it.wavy ? "wavy " : ""}circular progress indicator (${it.value === undefined ? "indeterminate" : `${it.value}%`})`;
-    case "splitButton":
-      return `a ${v} split button ${q(it.label)}${it.icon ? ` with a ${it.icon} icon` : ""} and a trailing menu segment with a down arrow`;
-    case "fabMenu": {
-      const items = (it.tabs ?? []).map((t) => `${q(t.label || "unlabeled")} (${t.icon || "no icon"})`);
-      return `a FAB menu opening from a ${v} FAB, drawn open with ${items.length} items stacked above it: ${items.join(", ")}`;
-    }
-    case "toolbar": {
-      const icons = (it.tabs ?? []).map((t) => t.icon || "empty").join(", ");
-      return `a ${it.variant === "filled" ? "vibrant (primaryContainer)" : "standard"} floating toolbar with the icon buttons ${icons}`;
-    }
-    case "tabs": {
-      const labels = (it.tabs ?? []).map((t) => q(t.label || "unlabeled"));
-      return `a tab row with ${labels.length} tabs: ${labels.join(", ")}; the first one is selected`;
-    }
+      return `a checkbox labelled ${q(it.label)}, initially ${it.checked ? "checked" : "unchecked"}${off}`;
     case "radio":
-      return `a radio button ${q(it.label)} (initially ${it.checked ? "selected" : "unselected"})`;
+      return `a radio group of ${labelsOf(it, "en")}${sel ? `, with ${sel} selected` : ""}${off}`;
+    case "switch":
+      return `a switch labelled ${q(it.label)}, initially ${it.checked ? "on" : "off"}${off}`;
+    case "slider":
+      return `a slider${hasText(it.label) ? ` labelled ${q(it.label)}` : ""} at ${it.value ?? 40}%${off}`;
+    case "label":
+      return `a form label reading ${q(it.label)}`;
+    case "panel":
+      return `a ${it.size ?? WINDOW_W}×${it.size2 ?? 200}px panel on ${TOKEN_NAMES[it.fill ?? "muted"] ?? it.fill} with a hairline boundary`;
+    case "groupBox":
+      return `a group box titled ${q(it.label)}, ${it.size ?? 320}×${it.size2 ?? 160}px${hasText(it.supporting) ? `, described as ${q(it.supporting!)}` : ""}`;
+    case "tabs":
+      return `${it.tabs?.length ?? 0} tabs: ${labelsOf(it, "en")}${sel ? `, with ${sel} selected` : ""}`;
+    case "resizable":
+      return `a ${it.side === "top" || it.side === "bottom" ? "vertical" : "horizontal"} resizable split whose ${it.side} pane starts at ${it.value ?? 30}% and can be dragged`;
+    case "dialog":
+      return `a dialog headed ${q(it.label)}${hasText(it.supporting) ? `, body ${q(it.supporting!)}` : ""}, with Cancel and a ${v} ${q(it.confirm || "OK")} button`;
+    case "sheet":
+      return `a sheet opening from the ${it.side}, headed ${q(it.label)}, ${it.size ?? 380}px wide, with a close affordance`;
+    case "popover":
+      return `a popover headed ${q(it.label)}${hasText(it.supporting) ? `, body ${q(it.supporting!)}` : ""}`;
+    case "notification":
+      return `a notification reading ${q(it.label)}${hasText(it.supporting) ? ` with the body ${q(it.supporting!)}` : ""}${it.icon ? `, its ${ico(it.icon)} icon in the ${v} colour` : ""}`;
+    case "list":
+      return `a list of ${it.tabs?.length ?? 0} rows: ${labelsOf(it, "en")}${sel ? `, with ${sel} selected` : ""}`;
+    case "dataTable":
+      return `a data table with the columns ${columnsText(it.columns ?? [], "en")} and ${tableRowsOf(it).length} sample rows: ${tableRowsOf(it).map((r) => r.join(" / ")).join("; ")}`;
+    case "tree":
+      return `a tree of ${(it.tabs ?? []).map((n) => q(n.label.trim())).join(", ")} (two leading spaces is one level of nesting)`;
+    case "text":
+      return `${it.bold ? "bold " : ""}text reading ${q(it.label)} at ${it.size ?? 20}px`;
+    case "icon":
+      return `a ${ico(it.icon) ?? "blank"} icon at ${it.size ?? 16}px`;
+    case "image":
+      return `a ${it.size ?? 200}×${it.size2 ?? 200}px image${it.src ? " showing the supplied picture" : " placeholder"}`;
+    case "divider":
+      return "a hairline divider";
     case "badge":
-      return hasText(it.label) ? `a badge reading ${q(it.label)}` : "a small dot badge";
+      return hasText(it.label) ? `a ${v} badge reading ${q(it.label)}` : `a small ${v} dot badge`;
+    case "tag":
+      return `a ${v} tag reading ${q(it.label)}${it.checked ? " with a close affordance" : ""}`;
+    case "alert":
+      return `a ${v} alert headed ${q(it.label)}${hasText(it.supporting) ? `, body ${q(it.supporting!)}` : ""}${it.icon ? `, with a ${ico(it.icon)} icon` : ""}`;
+    case "progress":
+      return `a ${it.circle ? "circular " : ""}progress indicator${it.value === undefined ? ", indeterminate" : ` at ${it.value}%`}`;
+    case "spinner":
+      return `a ${it.size ?? 20}px spinner`;
+    case "skeleton":
+      return `a ${it.size ?? 200}×${it.size2 ?? 16}px skeleton`;
     default:
       return noun;
   }
@@ -198,75 +287,85 @@ function itemZh(it: Item): string {
   const q = qz;
   const v = VARIANT_TEXT.zh[it.variant];
   const noun = KIND_TEXT.zh[it.kind]?.noun ?? it.kind;
+  const off = it.disabled ? "（禁用状态）" : "";
+  const sel = selectedLabel(it, "zh");
   switch (it.kind) {
+    case "titleBar":
+      return `标题为${q(it.label)}的标题栏${it.controls === "windows" ? "（窗口控件在右侧）" : it.controls === "none" ? "（无窗口控件）" : "（macOS 风格，左侧红黄绿按钮）"}${it.icon ? `，前置 ${ico(it.icon)}` : ""}${it.icon2 ? `，后置 ${ico(it.icon2)}` : ""}`;
+    case "sidebar":
+      return `标题为${q(it.label)}的侧边栏${it.collapsed ? "（折叠为仅图标）" : `（宽 ${it.size ?? 255}px）`}，条目为 ${labelsOf(it, "zh")}${sel ? `，${sel}为选中项` : ""}`;
+    case "toolbar":
+      return `由 ${(it.tabs ?? []).map((tab) => ico(tab.icon) ?? "空").join("、")} 幽灵按钮组成的工具栏`;
+    case "statusBar":
+      return `状态栏，左侧为${it.icon ? `${ico(it.icon)} 与` : ""}${q(it.label)}${hasText(it.supporting) ? `，右侧为${q(it.supporting!)}` : ""}`;
+    case "breadcrumb":
+      return `面包屑：${labelsOf(it, "zh")}（末项为当前位置）`;
     case "button":
-      return `${hasText(it.label) ? q(it.label) : "无标签"}的${v}按钮${it.icon ? `（带 ${it.icon} 图标）` : ""}`;
+      return `文字为${hasText(it.label) ? q(it.label) : "无标签"}的${v}按钮${it.icon ? `（带 ${ico(it.icon)}）` : ""}${off}`;
     case "iconButton":
-      return `${it.icon ?? "空"} 图标的${v}图标按钮`;
-    case "fab":
-      return `${it.icon ?? "空"} 图标的${v} FAB${it.size && it.size >= 96 ? "（大尺寸）" : it.size && it.size <= 40 ? "（小尺寸）" : ""}`;
-    case "extendedFab":
-      return `${q(it.label)}${it.icon ? `和 ${it.icon} 图标` : ""}的扩展 FAB（${v}）`;
-    case "chip":
-      return `${q(it.label)}标签片${it.checked ? "（选中状态）" : ""}${it.icon && !it.checked ? `（带 ${it.icon} 图标）` : ""}`;
-    case "topAppBar":
-      return `标题为${q(it.label)}的顶部应用栏${it.icon ? `，左侧是 ${it.icon}` : ""}${it.icon2 ? `，右侧是 ${it.icon2}` : ""}${it.icon || it.icon2 ? " 图标按钮" : ""}`;
-    case "bottomNav": {
-      const tabs = (it.tabs ?? []).map((t) => `${q(t.label || "无标签")}(${t.icon || "无图标"})`);
-      return `${tabs.length}个项目的导航栏（${tabs.join("、")}，第一项为选中状态）`;
-    }
-    case "searchBar":
-      return `占位文字为${q(it.label)}的搜索栏${it.icon2 ? `（右端有 ${it.icon2} 图标）` : ""}`;
-    case "card": {
-      const style = it.variant === "elevated" ? "浮起" : it.variant === "outlined" ? "描边" : "填充";
-      return `${style}卡片。顶部是${it.icon ? `${it.icon} 图标的` : ""}占位图片，标题${q(it.label)}${hasText(it.supporting) ? `，正文${q(it.supporting!)}` : ""}`;
-    }
-    case "listItem":
-      return `${q(it.label)}${hasText(it.supporting) ? `（辅助文本${q(it.supporting!)}）` : ""}${it.icon ? `，前置 ${it.icon} 图标${it.iconFill === "none" ? "（无背景）" : it.iconFill ? `（背景 ${it.iconFill}）` : ""}` : ""}${it.icon2 ? `，后置 ${it.icon2}` : ""}${it.fill && it.fill !== "surfaceContainerLow" ? `，背景为 ${it.fill}` : ""}`;
-    case "dialog":
-      return `标题${q(it.label)}${hasText(it.supporting) ? `、正文${q(it.supporting!)}` : ""}${it.icon ? `、带 ${it.icon} 图标` : ""}的对话框（取消／确定文字按钮）`;
-    case "snackbar":
-      return `${q(it.label)}消息条${hasText(it.supporting) ? `（带${q(it.supporting!)}操作）` : ""}`;
-    case "textField":
-      return `标签为${q(it.label)}的${it.variant === "filled" ? "填充" : "描边"}文本输入框${it.icon ? `（前置 ${it.icon} 图标）` : ""}${hasText(it.supporting) ? `，辅助文本为${q(it.supporting!)}` : ""}`;
-    case "switch":
-      return `${q(it.label)}开关（初始状态为${it.checked ? "开" : "关"}${it.noCheck ? "，开启时手柄上不显示勾选图标" : ""}）`;
+      return `显示 ${ico(it.icon) ?? "空"} 的${v}图标按钮${it.size && it.size !== 32 ? `（${it.size}px）` : ""}${off}`;
+    case "buttonGroup":
+      return `由 ${labelsOf(it, "zh")} 相连组成的${v}按钮组${sel ? `（${sel}为选中项）` : ""}`;
+    case "menu":
+      return `包含 ${labelsOf(it, "zh")} 的弹出菜单`;
+    case "input":
+      return `占位文本为${q(it.label)}的输入框${it.icon ? `（前置 ${ico(it.icon)}）` : ""}${hasText(it.supporting) ? `，辅助文本为${q(it.supporting!)}` : ""}${off}`;
+    case "textarea":
+      return `占位文本为${q(it.label)}的多行输入框（高 ${it.size2 ?? 84}px）${hasText(it.supporting) ? `，辅助文本为${q(it.supporting!)}` : ""}${off}`;
+    case "select":
+      return `当前值为${q(it.label)}的下拉选择，选项为 ${labelsOf(it, "zh")}${off}`;
     case "checkbox":
-      return `${q(it.label)}复选框（初始状态为${it.checked ? "已勾选" : "未勾选"}）`;
-    case "slider":
-      return `滑块（初始值 ${it.value ?? 40}%）`;
-    case "text":
-      return `${it.bold ? "粗体" : ""}文本${q(it.label)}（${it.size ?? 28}sp）`;
-    case "image":
-      return `${it.size ?? 200}dp 见方的图片${it.src ? "（显示指定的图片）" : "占位符"}`;
-    case "divider":
-      return "分割线";
-    case "box":
-      return `${it.size ?? PHONE_W}×${it.size2 ?? 220}dp 的${it.checked ? "底部面板（顶部带拖动条，" : "容器框（"}背景 ${it.fill ?? "surfaceContainerLow"}，圆角上 ${it.radiusTop ?? 28}dp、下 ${it.radiusBottom ?? 28}dp）`;
-    case "loadingIndicator":
-      return `M3 Expressive 形状变化的加载指示器${it.contained ? "（带容器）" : ""}`;
-    case "linearProgress":
-      return `${it.wavy ? "波浪形" : ""}线性进度条（${it.value === undefined ? "不确定进度" : `${it.value}%`}）`;
-    case "circularProgress":
-      return `${it.wavy ? "波浪形" : ""}圆形进度条（${it.value === undefined ? "不确定进度" : `${it.value}%`}）`;
-    case "splitButton":
-      return `${q(it.label)}${it.icon ? `（带 ${it.icon} 图标）` : ""}的${v}拆分按钮（右侧为带向下箭头的菜单段）`;
-    case "fabMenu": {
-      const items = (it.tabs ?? []).map((t) => `${q(t.label || "无标签")}(${t.icon || "无图标"})`);
-      return `从${v} FAB 展开的 FAB 菜单（按展开状态绘制，上方纵向排列 ${items.length} 项：${items.join("、")}）`;
-    }
-    case "toolbar": {
-      const icons = (it.tabs ?? []).map((t) => t.icon || "空").join("、");
-      return `${it.variant === "filled" ? "鲜明（primaryContainer）" : "标准"}样式的悬浮工具栏（图标按钮：${icons}）`;
-    }
-    case "tabs": {
-      const labels = (it.tabs ?? []).map((t) => q(t.label || "无标签"));
-      return `${labels.join("、")}这 ${labels.length} 个标签页（第一个为选中状态）`;
-    }
+      return `文字为${q(it.label)}的复选框（初始${it.checked ? "已勾选" : "未勾选"}）${off}`;
     case "radio":
-      return `${q(it.label)}单选按钮（初始状态为${it.checked ? "选中" : "未选中"}）`;
+      return `选项为 ${labelsOf(it, "zh")} 的单选组${sel ? `（${sel}为选中项）` : ""}${off}`;
+    case "switch":
+      return `文字为${q(it.label)}的开关（初始${it.checked ? "开" : "关"}）${off}`;
+    case "slider":
+      return `${hasText(it.label) ? `${q(it.label)}的` : ""}滑块（初始值 ${it.value ?? 40}%）${off}`;
+    case "label":
+      return `表单标签${q(it.label)}`;
+    case "panel":
+      return `${it.size ?? WINDOW_W}×${it.size2 ?? 200}px 的面板（背景 ${TOKEN_NAMES[it.fill ?? "muted"] ?? it.fill}，边界为发丝线）`;
+    case "groupBox":
+      return `标题为${q(it.label)}的分组框（${it.size ?? 320}×${it.size2 ?? 160}px）${hasText(it.supporting) ? `，说明为${q(it.supporting!)}` : ""}`;
+    case "tabs":
+      return `${it.tabs?.length ?? 0} 个标签页：${labelsOf(it, "zh")}${sel ? `（${sel}为选中项）` : ""}`;
+    case "resizable":
+      return `${it.side === "top" || it.side === "bottom" ? "上下" : "左右"}可调分栏（${it.side}侧面板初始占 ${it.value ?? 30}%，可拖动分隔条）`;
+    case "dialog":
+      return `标题为${q(it.label)}的对话框${hasText(it.supporting) ? `，正文${q(it.supporting!)}` : ""}（含取消与${q(it.confirm || "确定")}两个按钮，${q(it.confirm || "确定")}为${v}样式）`;
+    case "sheet":
+      return `从${it.side}侧打开、标题为${q(it.label)}的抽屉面板（宽 ${it.size ?? 380}px，带关闭按钮）`;
+    case "popover":
+      return `标题为${q(it.label)}的浮层${hasText(it.supporting) ? `，正文${q(it.supporting!)}` : ""}`;
+    case "notification":
+      return `内容为${q(it.label)}的通知${hasText(it.supporting) ? `（正文${q(it.supporting!)}）` : ""}${it.icon ? `，${ico(it.icon)} 图标使用${v}色` : ""}`;
+    case "list":
+      return `${it.tabs?.length ?? 0} 行的列表：${labelsOf(it, "zh")}${sel ? `（${sel}为选中行）` : ""}`;
+    case "dataTable":
+      return `列为 ${columnsText(it.columns ?? [], "zh")} 的数据表格（${tableRowsOf(it).length} 行示例：${tableRowsOf(it).map((r) => r.join(" / ")).join("；")}）`;
+    case "tree":
+      return `包含 ${(it.tabs ?? []).map((n) => q(n.label.trim())).join("、")} 的树（标签前每 2 个空格代表一级缩进）`;
+    case "text":
+      return `${it.bold ? "粗体" : ""}文本${q(it.label)}（${it.size ?? 20}px）`;
+    case "icon":
+      return `${ico(it.icon) ?? "空"} 图标（${it.size ?? 16}px）`;
+    case "image":
+      return `${it.size ?? 200}×${it.size2 ?? 200}px 的图片${it.src ? "（显示指定图片）" : "占位图"}`;
+    case "divider":
+      return "分割线（发丝线）";
     case "badge":
-      return hasText(it.label) ? `显示${q(it.label)}的徽标` : "小圆点徽标";
+      return hasText(it.label) ? `显示${q(it.label)}的${v}徽标` : `小圆点${v}徽标`;
+    case "tag":
+      return `文字为${q(it.label)}的${v}标签块${it.checked ? "（带关闭按钮）" : ""}`;
+    case "alert":
+      return `${v}提示条，标题${q(it.label)}${hasText(it.supporting) ? `，正文${q(it.supporting!)}` : ""}${it.icon ? `，带 ${ico(it.icon)} 图标` : ""}`;
+    case "progress":
+      return `${it.circle ? "环形" : ""}进度条（${it.value === undefined ? "不确定" : `${it.value}%`}）`;
+    case "spinner":
+      return `加载指示器（${it.size ?? 20}px）`;
+    case "skeleton":
+      return `${it.size ?? 200}×${it.size2 ?? 16}px 的骨架屏`;
     default:
       return noun;
   }
@@ -282,31 +381,26 @@ function groupText(g: Group, lang: Lang): string {
   const kind = g.items[0].kind;
   const vt = VARIANT_TEXT[lang];
   const same = g.items.every((it) => it.variant === g.items[0].variant);
+  const variant = vt[g.items[0].variant];
   if (lang === "ja") {
-    if (kind === "listItem") return `${g.items.length}項目のリスト。上から ${g.items.map(itemJa).join("、")}`;
-    if (kind === "chip") return `${g.items.map((it) => q(it.label) + (it.checked ? "(選択中)" : "")).join("")}のチップが横に並ぶチップグループ`;
-    if (kind === "iconButton") return `${g.items.map((it) => it.icon ?? "空").join("・")} のアイコンボタンが連結したボタングループ`;
+    if (kind === "iconButton") return `${g.items.map((it) => ico(it.icon) ?? "空").join("・")} のアイコンボタンが 1 つの ButtonGroup として連結`;
     const names = same
       ? g.items.map((it) => q(it.label || "ラベルなし")).join("")
       : g.items.map((it) => `${q(it.label || "ラベルなし")}(${vt[it.variant]})`).join("");
-    return `${names}の${g.items.length}つのボタンが横に連結したボタングループ${same ? `（${vt[g.items[0].variant]}）` : ""}`;
+    return `${names}の ${g.items.length} つのボタンが 1 つの ButtonGroup として横に連結${same ? `（${variant}）` : ""}`;
   }
   if (lang === "zh") {
-    if (kind === "listItem") return `${g.items.length}项的列表，从上到下依次为 ${g.items.map(itemZh).join("、")}`;
-    if (kind === "chip") return `由${g.items.map((it) => q(it.label) + (it.checked ? "(选中)" : "")).join("")}横向排列组成的标签片组`;
-    if (kind === "iconButton") return `由 ${g.items.map((it) => it.icon ?? "空").join("、")} 图标按钮相连组成的按钮组`;
+    if (kind === "iconButton") return `${g.items.map((it) => ico(it.icon) ?? "空").join("、")} 图标按钮相连组成一个 ButtonGroup`;
     const names = same
       ? g.items.map((it) => q(it.label || "无标签")).join("")
       : g.items.map((it) => `${q(it.label || "无标签")}(${vt[it.variant]})`).join("");
-    return `由${names}这 ${g.items.length} 个按钮横向相连组成的按钮组${same ? `（${vt[g.items[0].variant]}）` : ""}`;
+    return `${names}这 ${g.items.length} 个按钮横向相连组成一个 ButtonGroup${same ? `（${variant}）` : ""}`;
   }
-  if (kind === "listItem") return `a list of ${g.items.length} items, top to bottom: ${g.items.map(itemEn).join("; ")}`;
-  if (kind === "chip") return `a chip group: ${g.items.map((it) => q(it.label) + (it.checked ? " (selected)" : "")).join(", ")}`;
-  if (kind === "iconButton") return `a connected group of icon buttons: ${g.items.map((it) => it.icon ?? "empty").join(", ")}`;
+  if (kind === "iconButton") return `one ButtonGroup of connected icon buttons: ${g.items.map((it) => ico(it.icon) ?? "empty").join(", ")}`;
   const names = same
     ? g.items.map((it) => q(it.label || "unlabeled")).join(", ")
     : g.items.map((it) => `${q(it.label || "unlabeled")} (${vt[it.variant]})`).join(", ");
-  return `a connected button group of ${g.items.length}${same ? ` ${vt[g.items[0].variant]}` : ""} buttons: ${names}`;
+  return `one ButtonGroup of ${g.items.length}${same ? ` ${variant}` : ""} connected buttons: ${names}`;
 }
 
 /** short name for a run when it is referred to again (as a container or a neighbour) */
@@ -315,7 +409,6 @@ function groupName(g: Group, lang: Lang): string {
   const noun = KIND_TEXT[lang][it.kind]?.noun ?? it.kind;
   const q = quote(lang);
   if (g.items.length > 1) return lang === "en" ? `the ${noun} group` : lang === "zh" ? `${noun}组` : `${noun}のグループ`;
-  if (it.kind === "box") return lang === "en" ? (it.checked ? "the bottom sheet" : "the box") : lang === "zh" ? (it.checked ? "底部面板" : "容器框") : it.checked ? "ボトムシート" : "ボックス";
   if (hasText(it.label) && it.kind !== "text") return lang === "en" ? `the ${q(it.label)} ${noun}` : `${q(it.label)}${noun}`;
   return lang === "en" ? `the ${noun}` : noun;
 }
@@ -325,15 +418,19 @@ function groupName(g: Group, lang: Lang): string {
 function actionText(a: Action, frames: Frame[], lang: Lang): string | null {
   const q = quote(lang);
   if (a.to === BACK_TARGET) {
-    return lang === "ja" ? "前の画面に戻る（入ったときの遷移を逆再生する）" : lang === "zh" ? "返回上一个屏幕（反向播放进入时的过渡动画）" : "goes back to the previous screen (playing the entry transition in reverse)";
+    return lang === "ja"
+      ? "前のビューに戻る"
+      : lang === "zh"
+        ? "返回上一个视图"
+        : "goes back to the previous view";
   }
   const target = frames.find((f) => f.id === a.to);
   if (!target) return null;
   const tr = TRANSITION_TEXT[lang][a.transition];
-  const name = q(target.name || (lang === "en" ? "screen" : lang === "zh" ? "屏幕" : "画面"));
-  if (lang === "ja") return `${name}画面へ${a.transition !== "none" ? `${tr}で` : ""}遷移する`;
-  if (lang === "zh") return `${a.transition !== "none" ? `以${tr}的方式` : ""}跳转到${name}屏幕`;
-  return `opens the ${name} screen${a.transition !== "none" ? ` with ${tr}` : ""}`;
+  const name = q(target.name || (lang === "en" ? "window" : lang === "zh" ? "窗口" : "ウィンドウ"));
+  if (lang === "ja") return `${name}のビューを開く${a.transition !== "none" ? `（${tr}）` : "（即座に切り替える）"}`;
+  if (lang === "zh") return `打开${name}视图${a.transition !== "none" ? `（${tr}）` : "（立即切换）"}`;
+  return `opens the ${name} view${a.transition !== "none" ? ` with ${tr}` : " immediately"}`;
 }
 
 function slotName(it: Item, slot: string, lang: Lang): string {
@@ -341,13 +438,13 @@ function slotName(it: Item, slot: string, lang: Lang): string {
     const i = Number(slot.slice(4));
     const tab = it.tabs?.[i];
     const q = quote(lang);
-    const label = tab?.label ? q(tab.label) : `#${i + 1}`;
-    return lang === "ja" ? `${label}の項目` : lang === "zh" ? `${label}项` : `the ${label} destination`;
+    const label = tab?.label.trim() ? q(tab.label.trim()) : `#${i + 1}`;
+    return lang === "ja" ? `${label}の項目` : lang === "zh" ? `${label}项` : `the ${label} entry`;
   }
-  const icon = slot === "icon2" ? it.icon2 : it.icon;
-  if (lang === "ja") return `${slot === "icon2" ? "右" : "左"}の ${icon ?? ""} アイコンボタン`;
-  if (lang === "zh") return `${slot === "icon2" ? "右侧" : "左侧"}的 ${icon ?? ""} 图标按钮`;
-  return `the ${icon ?? ""} icon button on the ${slot === "icon2" ? "right" : "left"}`;
+  const icon = ico(slot === "icon2" ? it.icon2 : it.icon);
+  if (lang === "ja") return `${slot === "icon2" ? "末尾" : "先頭"}の ${icon ?? ""} アイコンボタン`;
+  if (lang === "zh") return `${slot === "icon2" ? "后置" : "前置"}的 ${icon ?? ""} 图标按钮`;
+  return `the ${icon ?? ""} icon button at the ${slot === "icon2" ? "trailing" : "leading"} edge`;
 }
 
 function notes(g: Group, frames: Frame[], lang: Lang): string[] {
@@ -355,19 +452,40 @@ function notes(g: Group, frames: Frame[], lang: Lang): string[] {
   const q = quote(lang);
   for (const it of g.items) {
     const noun = KIND_TEXT[lang][it.kind]?.noun ?? it.kind;
-    const name = hasText(it.label) && it.kind !== "text" ? (lang === "en" ? `The ${q(it.label)} ${noun}` : `${q(it.label)}${noun}`) : lang === "en" ? `The ${noun}` : hasText(it.label) ? (lang === "ja" ? `テキスト${q(it.label)}` : `文本${q(it.label)}`) : noun;
+    const name =
+      hasText(it.label) && it.kind !== "text"
+        ? lang === "en"
+          ? `The ${q(it.label)} ${noun}`
+          : `${q(it.label)}${noun}`
+        : lang === "en"
+          ? `The ${noun}`
+          : hasText(it.label)
+            ? lang === "ja"
+              ? `テキスト${q(it.label)}`
+              : `文本${q(it.label)}`
+            : noun;
     const parts: string[] = [];
     if (it.action) {
       const a = actionText(it.action, frames, lang);
-      if (a) parts.push(lang === "ja" ? `タップすると${a}` : lang === "zh" ? `点击后${a}` : `${a} when tapped`);
+      if (a) parts.push(lang === "ja" ? `クリックすると${a}` : lang === "zh" ? `点击后${a}` : `${a} when clicked`);
     }
     for (const [slot, action] of Object.entries(it.actions ?? {})) {
       if (!action) continue;
       const a = actionText(action, frames, lang);
       if (!a) continue;
       const s = slotName(it, slot, lang);
-      if (lang === "en") out.push(`Tapping ${s} of ${name.replace(/^The /, "the ")} ${a}.`);
-      else parts.push(lang === "ja" ? `${s}をタップすると${a}` : `点击${s}后${a}`);
+      if (lang === "en") out.push(`Clicking ${s} of ${name.replace(/^The /, "the ")} ${a}.`);
+      else parts.push(lang === "ja" ? `${s}をクリックすると${a}` : `点击${s}后${a}`);
+    }
+    if (hasText(it.shortcut)) {
+      const key = it.shortcut!.trim();
+      parts.push(
+        lang === "ja"
+          ? `キーバインドは ${key}（actions! で action を定義し、bind_keys で割り当て、ボタンの tooltip に Kbd で表示する）`
+          : lang === "zh"
+            ? `快捷键为 ${key}（用 actions! 定义 action，用 bind_keys 绑定，并在按钮 tooltip 中用 Kbd 显示）`
+            : `is bound to ${key} (declare the action with actions!, bind it with bind_keys, and show it with Kbd in the button's tooltip)`,
+      );
     }
     if (it.toggle) {
       const vt = VARIANT_TEXT[lang];
@@ -377,22 +495,22 @@ function notes(g: Group, frames: Frame[], lang: Lang): string[] {
       const label = it.toggle.label !== undefined && it.toggle.label !== it.label ? it.toggle.label : undefined;
       if (lang === "ja") {
         if (label !== undefined) changes.push(`ラベルが${qj(label)}に変わる`);
-        if (icon) changes.push(`アイコンが ${icon} に変わる`);
+        if (icon) changes.push(`アイコンが ${ico(icon)} に変わる`);
         else if (icon === null) changes.push("アイコンが消える");
         if (variant) changes.push(`スタイルが${vt[variant]}に変わる`);
-        parts.push(`タップするたびにオン／オフが切り替わるトグルボタンにする${changes.length ? `（オンのときは${changes.join("、")}）` : ""}`);
+        parts.push(`クリックごとにオン／オフが切り替わる Toggle にする${changes.length ? `（オンのときは${changes.join("、")}）` : ""}`);
       } else if (lang === "zh") {
         if (label !== undefined) changes.push(`文字变为${qz(label)}`);
-        if (icon) changes.push(`图标变为 ${icon}`);
+        if (icon) changes.push(`图标变为 ${ico(icon)}`);
         else if (icon === null) changes.push("图标消失");
         if (variant) changes.push(`样式变为${vt[variant]}`);
-        parts.push(`做成每次点击都切换开/关状态的切换按钮${changes.length ? `（开启时${changes.join("、")}）` : ""}`);
+        parts.push(`做成每次点击都切换开/关状态的 Toggle${changes.length ? `（开启时${changes.join("、")}）` : ""}`);
       } else {
         if (label !== undefined) changes.push(`the label becomes ${qe(label)}`);
-        if (icon) changes.push(`the icon becomes ${icon}`);
+        if (icon) changes.push(`the icon becomes ${ico(icon)}`);
         else if (icon === null) changes.push("the icon disappears");
         if (variant) changes.push(`the style becomes ${vt[variant]}`);
-        parts.push(`is a toggle button that flips on / off with every tap${changes.length ? ` (when on, ${changes.join(" and ")})` : ""}`);
+        parts.push(`is a Toggle that flips on / off with every click${changes.length ? ` (when on, ${changes.join(" and ")})` : ""}`);
       }
     }
     if (hasText(it.note)) parts.push(trimEnd(it.note!));
@@ -400,24 +518,6 @@ function notes(g: Group, frames: Frame[], lang: Lang): string[] {
     if (lang === "ja") out.push(`${name}は、${parts.join("。また、")}。`);
     else if (lang === "zh") out.push(`${name}：${parts.join("；")}。`);
     else out.push(`${name} ${parts.join(". It also ")}.`);
-  }
-  return out;
-}
-
-function swipeNotes(f: Frame, frames: Frame[], lang: Lang): string[] {
-  const out: string[] = [];
-  const q = quote(lang);
-  const screen = lang === "en" ? "screen" : lang === "zh" ? "屏幕" : "画面";
-  for (const d of SWIPE_DIRS) {
-    const to = f.swipe?.[d.key];
-    if (!to) continue;
-    const a = actionText({ to, transition: d.transition }, frames, lang);
-    if (!a) continue;
-    const sw = SWIPE_TEXT[lang][d.key];
-    const name = q(f.name || screen);
-    if (lang === "ja") out.push(`${name}画面は、${sw}すると指の動きに追従して${a}。`);
-    else if (lang === "zh") out.push(`${name}屏幕：${sw}时跟随手指移动并${a}。`);
-    else out.push(`The ${name} screen ${a} when ${sw}; the screen follows the finger while dragging.`);
   }
   return out;
 }
@@ -432,8 +532,11 @@ const contains = (o: Rect, i: Rect, tol = 2) => i.l >= o.l - tol && i.t >= o.t -
 const overlapArea = (a: Rect, b: Rect) =>
   Math.max(0, Math.min(a.r, b.r) - Math.max(a.l, b.l)) * Math.max(0, Math.min(a.b, b.b) - Math.max(a.t, b.t));
 
+/** a window region owns its edge, so it never becomes another part's container */
+const REGION_KINDS: Kind[] = ["titleBar", "statusBar", "sidebar", "sheet"];
+
 /** Groups keep their canvas order (later = drawn on top). A run that sits fully inside an
- *  earlier, larger one is nested in it, so a box with parts on it reads as one container. */
+ *  earlier, larger one is nested in it, so a panel with parts on it reads as one container. */
 function layoutTree(groups: Group[], widths: Record<string, number>): LNode[] {
   const nodes: LNode[] = groups.map((g) => ({ g, bb: groupBounds(g, widths), children: [] }));
   const roots: LNode[] = [];
@@ -441,7 +544,7 @@ function layoutTree(groups: Group[], widths: Record<string, number>): LNode[] {
     let parent: LNode | null = null;
     for (let j = 0; j < i; j++) {
       const c = nodes[j];
-      if (c.g.items[0].kind === "topAppBar" || c.g.items[0].kind === "bottomNav") continue;
+      if (REGION_KINDS.includes(c.g.items[0].kind)) continue;
       if (contains(c.bb, n.bb) && area(c.bb) > area(n.bb) && (!parent || area(c.bb) < area(parent.bb))) parent = c;
     }
     (parent ? parent.children : roots).push(n);
@@ -449,13 +552,15 @@ function layoutTree(groups: Group[], widths: Record<string, number>): LNode[] {
   return roots;
 }
 
-/** Siblings whose vertical extents overlap and that sit side by side form one row. */
+/** Siblings whose vertical extents overlap and that sit side by side form one
+ *  row, except a window region, which owns its edge and stands on its own. */
 function rowsOf(nodes: LNode[]): LNode[][] {
   const sorted = [...nodes].sort((a, b) => a.bb.t - b.bb.t || a.bb.l - b.bb.l);
   const out: LNode[][] = [];
+  const isRegion = (n: LNode) => REGION_KINDS.includes(n.g.items[0].kind);
   for (const n of sorted) {
     const row = out[out.length - 1];
-    if (row) {
+    if (row && !isRegion(n) && !row.some(isRegion)) {
       const rt = Math.min(...row.map((r) => r.bb.t));
       const rb = Math.max(...row.map((r) => r.bb.b));
       const cy = (n.bb.t + n.bb.b) / 2;
@@ -472,29 +577,30 @@ function rowsOf(nodes: LNode[]): LNode[][] {
   return out;
 }
 
-/** where a rect sits inside a container, in words */
-function zone(bb: Rect, within: Rect, lang: Lang, phone: boolean): string {
+/** where a rect sits inside a container, in words. Leading and trailing are used
+ *  rather than left and right, the way the Design Guides ask. */
+function zone(bb: Rect, within: Rect, lang: Lang): string {
   const w = within.r - within.l;
   const h = within.b - within.t;
   const cy = (bb.t + bb.b) / 2 - within.t;
   const cx = (bb.l + bb.r) / 2 - within.l;
   const bw = bb.r - bb.l;
-  const vert = cy < h * (phone ? 0.22 : 0.3) ? 0 : cy > h * (phone ? 0.8 : 0.7) ? 2 : 1;
+  const vert = cy < h * 0.28 ? 0 : cy > h * 0.72 ? 2 : 1;
   const horiz = bw >= w * 0.85 ? -1 : cx < w * 0.36 ? 0 : cx > w * 0.64 ? 2 : 1;
   if (lang === "ja") {
     const v = ["上部", "中央付近", "下部"][vert];
     if (horiz === 1) return `${v}の中央に`;
-    const hh = horiz < 0 ? "" : ["左寄せで", "", "右寄せで"][horiz];
+    const hh = horiz < 0 ? "" : ["先頭側に寄せて", "", "末尾側に寄せて"][horiz];
     return `${v}に${hh}`;
   }
   if (lang === "zh") {
     const v = ["上部", "中部", "下部"][vert];
     if (horiz === 1) return `${v}居中`;
-    const hh = horiz < 0 ? "" : ["靠左", "", "靠右"][horiz];
+    const hh = horiz < 0 ? "" : ["靠前置边", "", "靠后置边"][horiz];
     return `${v}${hh}`;
   }
   const v = ["Near the top", "In the middle", "Near the bottom"][vert];
-  const hh = horiz < 0 ? "" : [", aligned left", ", centered", ", aligned right"][horiz];
+  const hh = horiz < 0 ? "" : [", on the leading edge", ", centred", ", on the trailing edge"][horiz];
   return `${v}${hh}`;
 }
 
@@ -508,18 +614,18 @@ function rowText(row: LNode[], where: string, lang: Lang, within: Rect): string 
   const fillsRight = last.bb.r >= within.r - 24;
   const descs = row.map((n) => groupText(n.g, lang));
   if (lang === "ja") {
-    const stretch = fillsRight ? `。最後の${groupName(last.g, "ja")}は右端まで残りの幅いっぱいに伸ばします` : "";
-    return `${where}、左から ${descs.join("、")} を横一列に並べます（同じ行に収めて縦方向は中央揃え。縦に積んだり折り返したりしません${stretch}）。`;
+    const stretch = fillsRight ? `。最後の${groupName(last.g, "ja")}は flex_1() と min_w_0() で残りの幅いっぱいに伸ばします` : "";
+    return `${where}、先頭から ${descs.join("、")} を h_flex() で横一列に並べます（同じ行に収めて縦方向は中央揃え。折り返しません${stretch}）。`;
   }
   if (lang === "zh") {
-    const stretch = fillsRight ? `，最后的${groupName(last.g, "zh")}向右拉伸占满剩余宽度` : "";
-    return `${where}，从左到右横向排成一行：${descs.join("、")}（放在同一行并垂直居中，不要竖着堆叠或换行${stretch}）。`;
+    const stretch = fillsRight ? `，最后的${groupName(last.g, "zh")}用 flex_1() 与 min_w_0() 占满剩余宽度` : "";
+    return `${where}，用 h_flex() 从前到后横向排成一行：${descs.join("、")}（保持同一行并垂直居中，不要换行${stretch}）。`;
   }
-  const stretch = fillsRight ? `; ${groupName(last.g, "en")} stretches to fill the remaining width to the right edge` : "";
-  return `${where}, in one row from left to right: ${descs.join(", ")} (keep them on the same line, vertically centered; never stack or wrap them${stretch}).`;
+  const stretch = fillsRight ? `; ${groupName(last.g, "en")} takes the remaining width with flex_1() and min_w_0()` : "";
+  return `${where}, in one h_flex() row: ${descs.join(", ")} (keep them on the same line, vertically centred; never wrap them${stretch}).`;
 }
 
-function describeNodes(lines: string[], nodes: LNode[], within: Rect | null, widths: Record<string, number>, lang: Lang, depth: number, phone: boolean) {
+function describeNodes(lines: string[], nodes: LNode[], within: Rect | null, widths: Record<string, number>, lang: Lang, depth: number) {
   const rows = rowsOf(nodes);
   const pad = "  ".repeat(depth);
   const box: Rect = within ?? {
@@ -537,7 +643,7 @@ function describeNodes(lines: string[], nodes: LNode[], within: Rect | null, wid
       b: Math.max(...row.map((n) => n.bb.b)),
     };
     let where: string;
-    if (within) where = zone(rowRect, box, lang, phone);
+    if (within) where = zone(rowRect, box, lang);
     else where = lang === "ja" ? (i === 0 ? "まず" : "その下に") : lang === "zh" ? (i === 0 ? "首先" : "其下方") : i === 0 ? "First" : "Below that";
     /* a part that partly covers an earlier sibling is drawn on top of it */
     const overlaps: string[] = [];
@@ -551,304 +657,288 @@ function describeNodes(lines: string[], nodes: LNode[], within: Rect | null, wid
     let line = rowText(row, where, lang, box);
     if (overlaps.length) {
       const o = overlaps.join(lang === "en" ? " and " : "、");
-      line = lang === "ja" ? `${line.replace(/。$/, "")}（${o}の上に一部重ねて前面に描画）。` : lang === "zh" ? `${line.replace(/。$/, "")}（部分覆盖在${o}之上，绘制在前面）。` : `${line.replace(/\.$/, "")} (partly overlapping ${o}, drawn on top).`;
+      line =
+        lang === "ja"
+          ? `${line.replace(/。$/, "")}（${o}の上に一部重ねて前面に描画）。`
+          : lang === "zh"
+            ? `${line.replace(/。$/, "")}（部分覆盖在${o}之上，绘制在前面）。`
+            : `${line.replace(/\.$/, "")} (partly overlapping ${o}, drawn on top).`;
     }
     lines.push(`${pad}- ${line}`);
     for (const n of row) {
       if (!n.children.length) continue;
       const name = groupName(n.g, lang);
       lines.push(
-        `${pad}  - ${lang === "ja" ? `${name}の中には次を重ねて配置します（ボックス側を背景にし、以下はその前面に載せる。位置はボックス内での相対位置）:` : lang === "zh" ? `${name}内部叠放以下内容（以容器为背景，下列组件绘制在其前面，位置为容器内的相对位置）：` : `Inside ${name}, layered on top of it (the container is the background; positions are relative to it):`}`,
+        `${pad}  - ${
+          lang === "ja"
+            ? `${name}の中には次を配置します（コンテナ側を背景にし、位置はコンテナ内での相対位置）:`
+            : lang === "zh"
+              ? `${name}内部放置以下内容（以容器为背景，位置为容器内的相对位置）：`
+              : `Inside ${name} (the container is the background; positions are relative to it):`
+        }`,
       );
-      describeNodes(lines, n.children, n.bb, widths, lang, depth + 2, false);
+      describeNodes(lines, n.children, n.bb, widths, lang, depth + 2);
     }
   });
 }
 
-function describeScreen(lines: string[], groups: Group[], frameRect: Rect | null, widths: Record<string, number>, lang: Lang) {
+function describeWindow(lines: string[], groups: Group[], rect: Rect | null, widths: Record<string, number>, lang: Lang) {
   if (!groups.length) return;
   const roots = layoutTree(groups, widths);
-  describeNodes(lines, roots, frameRect, widths, lang, 0, true);
+  describeNodes(lines, roots, rect, widths, lang, 0);
 }
 
-/* ---------- color palette ---------- */
+/* ---------- the theme ---------- */
 
-function paletteLines(p: Palette): string[] {
-  const row = (pairs: [string, string][]) => `- ${pairs.map(([k, v]) => `${k} ${v}`).join(" / ")}`;
+/** the tokens worth stating outright; everything else follows gpui-kit's own
+ *  fallbacks, which is how these values were resolved in the first place */
+const STATED_TOKENS: (keyof Palette)[] = [
+  "background",
+  "foreground",
+  "border",
+  "input",
+  "ring",
+  "muted",
+  "mutedForeground",
+  "accent",
+  "accentForeground",
+  "primary",
+  "primaryForeground",
+  "secondary",
+  "secondaryForeground",
+  "danger",
+  "warning",
+  "success",
+  "info",
+  "popover",
+  "groupBox",
+  "sidebar",
+  "sidebarForeground",
+  "sidebarBorder",
+  "sidebarAccent",
+  "titleBar",
+  "titleBarBorder",
+  "statusBar",
+  "tabBar",
+  "tabActive",
+  "list",
+  "listActive",
+  "tableHead",
+  "tableRowBorder",
+  "selection",
+  "link",
+];
+
+/** the palette as a gpui-kit ThemeConfig, ready to drop into a theme file */
+function themeJson(p: Palette, th: Theme): string[] {
+  const radius = RADII.find((r) => r.key === th.radius)?.radius ?? p.radius;
+  const font = FONTS.find((f) => f.key === th.font);
+  const colors = STATED_TOKENS.map((field) => {
+    const name = TOKEN_NAMES[field] ?? field;
+    return `    "${name}": "${p[field]}"`;
+  }).join(",\n");
   return [
-    row([
-      ["primary", p.primary],
-      ["onPrimary", p.onPrimary],
-      ["primaryContainer", p.primaryContainer],
-      ["onPrimaryContainer", p.onPrimaryContainer],
-    ]),
-    row([
-      ["secondaryContainer", p.secondaryContainer],
-      ["onSecondaryContainer", p.onSecondaryContainer],
-      ["tertiaryContainer", p.tertiaryContainer],
-      ["onTertiaryContainer", p.onTertiaryContainer],
-    ]),
-    row([
-      ["surface", p.surface],
-      ["surfaceContainerLow", p.surfaceContainerLow],
-      ["surfaceContainer", p.surfaceContainer],
-      ["surfaceContainerHigh", p.surfaceContainerHigh],
-      ["surfaceContainerHighest", p.surfaceContainerHighest],
-    ]),
-    row([
-      ["onSurface", p.onSurface],
-      ["onSurfaceVariant", p.onSurfaceVariant],
-      ["outline", p.outline],
-      ["outlineVariant", p.outlineVariant],
-    ]),
-    row([
-      ["inverseSurface", p.inverseSurface],
-      ["inverseOnSurface", p.inverseOnSurface],
-      ["inversePrimary", p.inversePrimary],
-    ]),
-    row([
-      ["error", p.error],
-      ["onError", p.onError],
-      ["errorContainer", p.errorContainer],
-      ["onErrorContainer", p.onErrorContainer],
-    ]),
+    "```json",
+    "{",
+    `  "$schema": "https://github.com/longbridge/gpui-kit/raw/refs/heads/main/.theme-schema.json",`,
+    `  "name": ${JSON.stringify(p.label)},`,
+    `  "mode": "${p.dark ? "dark" : "light"}",`,
+    `  "radius": ${radius},`,
+    `  "radius.lg": ${radius + 2},`,
+    ...(font && font.key !== "system" ? [`  "font.family": ${JSON.stringify(font.themeValue)},`] : []),
+    `  "shadow": ${th.shadow},`,
+    '  "colors": {',
+    colors,
+    "  }",
+    "}",
+    "```",
   ];
 }
 
-/* ---------- per-component style notes ---------- */
-
-/** How each kind should look; only the kinds on the canvas are written out.
- *  `boxSheet` is the box note used when at least one box has its handle on. */
-const STYLE_NOTES: Record<Lang, Partial<Record<Kind | "boxSheet", string>>> = {
+const THEME_NOTES: Record<
+  Lang,
+  {
+    radius: (label: string, px: number) => string;
+    font: (name: string, value: string) => string;
+    density: (label: string, size: string) => string;
+    shadow: (on: boolean) => string;
+    focusRing: (on: boolean) => string;
+    motion: (reduced: boolean) => string;
+  }
+> = {
   ja: {
-    button:
-      "ボタン: 高さ 56dp のミディアムサイズで、角は完全な丸（ピル型）。塗りつぶしは primary、トーナルは secondaryContainer、アウトラインは outline の 1dp 枠。横に連結したボタングループは 3dp の隙間で並べ、隣り合う内側の角だけ 8dp に小さくし、外側の角は丸のままにする（M3 Expressive の Connected button group）。",
-    iconButton:
-      "アイコンボタン: 48dp の円形。塗りつぶし・トーナル・アウトライン・スタンダードを指定通りに使い分ける。連結したアイコンボタン群は Connected button group として実装する。",
-    fab: "FAB: 通常は 56dp・角丸 16dp、大サイズは 96dp・角丸 28dp、小サイズは 40dp・角丸 12dp。トーナルは primaryContainer、塗りつぶしは primary。画面端から 16dp 離して浮かせ、影は Level 3。",
-    extendedFab: "拡張 FAB: 高さ 56dp、角丸 16dp、左にアイコン・右にラベル。",
-    chip: "チップ: 高さ 32dp、角丸 8dp。選択状態は secondaryContainer で塗り、先頭にチェックアイコンを出す。横並びのチップグループは 8dp 間隔で、はみ出す場合は横スクロール。",
-    topAppBar:
-      "トップアプリバー: 高さ 64dp、背景は surface。背景はステータスバーの後ろまで伸ばし、その分（システムインセット）だけ上に余白を取る。タイトルは titleLarge、左右のアイコンボタンは 48dp。スクロール時に surfaceContainer へ色が変わる標準の挙動でよい。",
-    bottomNav:
-      "ナビゲーションバー: 高さ 80dp、背景は surfaceContainer。背景は画面下端のジェスチャーナビゲーション領域まで伸ばし、その分（システムインセット）だけ下に余白を取る。選択中の項目は secondaryContainer のピル型インジケータ（幅 64dp・高さ 32dp）で示し、アイコンは塗りつぶし、ラベルは labelMedium。",
-    searchBar: "検索バー: 高さ 56dp、角は完全な丸、背景は surfaceContainerHigh。先頭に検索アイコン、末尾に指定のアイコン。",
-    card: "カード: 角丸 20dp、上部に画像領域。塗りつぶしは surfaceContainerHighest、エレベーテッドは surfaceContainerLow に Level 1 の影、アウトラインは outlineVariant の 1dp 枠。見出しは titleMedium、本文は bodyMedium、内側の余白は 16dp。",
-    listItem:
-      "リスト項目: 高さ 72dp、先頭アイコンは 24dp（指定がなければ primaryContainer の 40dp の円の上）、主テキストは bodyLarge、サブテキストは bodyMedium の onSurfaceVariant。背景は指定のロール（指定がなければ surfaceContainerLow）。上下に連結したリストは 3dp の隙間で並べ、外側の角を 28dp、隣り合う内側の角を 8dp にする（M3 Expressive のリスト表現）。",
-    dialog: "ダイアログ: 幅 312dp、角丸 28dp、背景は surfaceContainerHigh。見出しは headlineSmall、本文は bodyMedium、下部右寄せにテキストボタン。",
-    snackbar: "スナックバー: 高さ 48dp、角丸 8dp、背景は inverseSurface、文字は inverseOnSurface。アクションは inversePrimary のテキストボタン。画面下部から 16dp 上に表示し、数秒で消える。",
-    textField:
-      "テキスト入力: 高さ 56dp。アウトラインは角丸 16dp・枠 outline、塗りつぶしは surfaceContainerHighest に下線。フォーカス時はラベルが上に浮き、枠が primary の 2dp になる。補助テキストは bodySmall で下に出す。",
-    switch: "スイッチ: M3 標準サイズ（トラック 52×32dp）。オンは primary、オフは surfaceContainerHighest に outline の枠。ラベルは左、スイッチは右端。",
-    checkbox: "チェックボックス: 18dp の四角、角丸 2dp、チェック時は primary。ラベルは右に bodyLarge。",
-    slider: "スライダー: M3 Expressive の太いトラック（高さ 16dp）と縦長のハンドル（幅 4dp・高さ 44dp）。ハンドルの左は primary、右は secondaryContainer。ドラッグで値を変えられる。",
-    text: "テキスト: 指定の sp サイズ。見出しは onSurface、説明文は onSurfaceVariant、行間はサイズの 1.3〜1.5 倍。タップしてもリップルなどの反応は付けない。",
-    image: "画像: 角丸 20dp、指定がなければ surfaceContainerHighest のプレースホルダー。アスペクト比を保って中央でクロップ。",
-    divider: "区切り線: 1dp の outlineVariant、左右に 16dp の余白。",
-    box: "ボックス: 指定した背景色と角丸を持つ単なるコンテナ。中に重ねる部品の背景として使い、独自の挙動は付けない。",
-    boxSheet:
-      "ボックス / ボトムシート: 指定した背景色と角丸を持つコンテナ。ドラッグハンドル付きと書いたものだけはモーダルボトムシート（ModalBottomSheet）として下から出し、それ以外のボックスは単なる背景コンテナにする。",
-    loadingIndicator:
-      "ローディング表示: M3 Expressive の形が変化する LoadingIndicator（回転しながら多角形の間を変形するもの）を使う。コンテナ付きは secondaryContainer の円の中に置く。",
-    linearProgress: "リニアプログレス: M3 Expressive の太いバー。波形指定のときは進行中に波打つ wavy スタイルにする。トラックは secondaryContainer、進捗は primary。",
-    circularProgress: "サーキュラープログレス: M3 Expressive の太いストローク。波形指定のときは波打つ wavy スタイルにする。",
-    splitButton:
-      "スプリットボタン: M3 Expressive の SplitButton。左のセグメントが主アクション、右の矢印セグメントがメニューを開く。2 つのセグメントは 2dp の隙間で並べ、外側の角は完全な丸、隣り合う内側の角は 8dp。メニューを開くと矢印が回転し、セグメントの角が丸くなる。",
-    fabMenu:
-      "FAB メニュー: M3 Expressive の FloatingActionButtonMenu。閉じているときは通常の FAB、タップすると項目が上に向かって順に現れ、FAB のアイコンが close に変わる。各項目は高さ 56dp、角は完全な丸、アイコンとラベル付きで右揃え。",
-    toolbar:
-      "フローティングツールバー: M3 Expressive の HorizontalFloatingToolbar。高さ 64dp、角は完全な丸、画面下端から 16dp 上に浮かせ、内容の上に重ねる。スタンダードは surfaceContainer、ビブラントは primaryContainer。中のアイコンボタンは 48dp。",
-    tabs: "タブ: M3 のプライマリタブ。高さ 48dp、ラベルは titleSmall、選択中のタブは primary の文字とラベル幅の 3dp インジケータ（上の角丸）、下に outlineVariant の区切り線。タブをタップすると内容が切り替わる。",
-    radio: "ラジオボタン: 20dp の円。選択時は primary の枠と中央の点、未選択は onSurfaceVariant の枠。同じグループ内では 1 つだけ選べる。ラベルは右に bodyLarge。",
-    badge: "バッジ: 文字なしは 6dp の点、文字ありは高さ 16dp のピル。背景は error、文字は onError の labelSmall。アイコンや項目の右上に重ねて置く。",
+    radius: (label, px) => `角丸は ${label}（theme.radius ${px}px / radius.lg ${px + 2}px）。丸みはテーマから読み、円やピルには radius_full() を使います。`,
+    font: (name, value) => `書体は ${name}（theme の font.family は ${value}）。基準文字サイズは 16px です。`,
+    density: (label, size) => `既定の密度は ${label}（コンポーネントの既定は ${size}）。ツールバーやデータ中心の領域はローカルにまとめて一段小さくします。`,
+    shadow: (on) => (on ? "theme.shadow は有効です。最も強い影は最前面の決定レイヤーだけに使い、同一レイヤー内は背景とヘアラインで階層を示します。" : "theme.shadow は無効です。階層は背景とヘアラインだけで示します。"),
+    focusRing: (on) => (on ? "theme.focus_ring は有効です。フォーカスリングが切り取られないようにしてください。" : "theme.focus_ring は無効ですが、キーボードのフォーカスが分かる別の表現を必ず用意してください。"),
+    motion: (reduced) => (reduced ? "モーションは控えめです。ビューの切り替えは即座に行い、装飾的なアニメーションは入れません。" : "モーションは標準です。状態の変化が分かる程度の短いトランジションにとどめ、OS の「視差を減らす」設定を尊重します。"),
   },
   en: {
-    button:
-      "Buttons: medium size, 56dp tall, fully rounded (pill). Filled uses primary, tonal uses secondaryContainer, outlined has a 1dp outline border. A connected button group is a row with 3dp gaps where only the inner adjoining corners shrink to 8dp and the outer corners stay round (the M3 Expressive connected button group).",
-    iconButton:
-      "Icon buttons: 48dp circles in the filled / tonal / outlined / standard style as specified. A connected run of icon buttons is a connected button group.",
-    fab: "FAB: 56dp with 16dp corners; large is 96dp with 28dp corners; small is 40dp with 12dp corners. Tonal uses primaryContainer, filled uses primary. Float it 16dp from the screen edge with a level 3 shadow.",
-    extendedFab: "Extended FAB: 56dp tall, 16dp corners, icon on the left and label on the right.",
-    chip: "Chips: 32dp tall, 8dp corners. The selected state fills with secondaryContainer and shows a leading check icon. A chip group is a row with 8dp gaps that scrolls horizontally when it overflows.",
-    topAppBar:
-      "Top app bar: 64dp tall on surface, with its background extended behind the status bar (pad the top by the system inset). Title in titleLarge, 48dp icon buttons on each side. The standard tint to surfaceContainer on scroll is fine.",
-    bottomNav:
-      "Navigation bar: 80dp tall on surfaceContainer, with its background extended down through the gesture navigation area (pad the bottom by the system inset). The active destination shows a secondaryContainer pill indicator (64×32dp), a filled icon and a labelMedium label.",
-    searchBar: "Search bar: 56dp tall, fully rounded, on surfaceContainerHigh, with a leading search icon and the specified trailing icon.",
-    card: "Cards: 20dp corners with an image area on top. Filled uses surfaceContainerHighest, elevated uses surfaceContainerLow with a level 1 shadow, outlined has a 1dp outlineVariant border. Headline in titleMedium, body in bodyMedium, 16dp inner padding.",
-    listItem:
-      "List items: 72dp tall, 24dp leading icon (on a 40dp primaryContainer circle unless stated), headline in bodyLarge, supporting text in bodyMedium on onSurfaceVariant, on the specified background role (surfaceContainerLow unless stated). A stacked list is a vertical run with 3dp gaps, 28dp outer corners and 8dp inner corners (the M3 Expressive list treatment).",
-    dialog: "Dialogs: 312dp wide, 28dp corners, on surfaceContainerHigh. Headline in headlineSmall, body in bodyMedium, text buttons aligned right at the bottom.",
-    snackbar: "Snackbar: 48dp tall, 8dp corners, inverseSurface background with inverseOnSurface text; the action is an inversePrimary text button. Show it 16dp above the bottom edge and dismiss after a few seconds.",
-    textField:
-      "Text fields: 56dp tall. Outlined has 16dp corners and an outline border; filled sits on surfaceContainerHighest with an underline. On focus the label floats up and the border becomes 2dp primary. Supporting text goes underneath in bodySmall.",
-    switch: "Switches: standard M3 size (52×32dp track). On is primary; off is surfaceContainerHighest with an outline border. Label on the left, switch at the trailing edge.",
-    checkbox: "Checkboxes: 18dp square with 2dp corners, primary when checked, label on the right in bodyLarge.",
-    slider: "Sliders: the M3 Expressive thick track (16dp) with a tall handle (4×44dp). Primary on the left of the handle, secondaryContainer on the right. Dragging changes the value.",
-    text: "Text: the specified sp size; headings on onSurface, descriptions on onSurfaceVariant, line height 1.3–1.5× the size. No ripple or press feedback on tap.",
-    image: "Images: 20dp corners; a surfaceContainerHighest placeholder when none is provided. Keep the aspect ratio and center-crop.",
-    divider: "Dividers: 1dp outlineVariant with 16dp horizontal insets.",
-    box: "Boxes: plain containers with the specified background token and corner radii. They are the background for whatever is layered on them and have no behavior of their own.",
-    boxSheet:
-      "Boxes / bottom sheets: containers with the specified background token and corner radii. Only the ones described with a drag handle are modal bottom sheets that slide up from the bottom; every other box is a plain background container.",
-    loadingIndicator:
-      "Loading: use the M3 Expressive shape-morphing LoadingIndicator (the rotating polygon that morphs between shapes). The contained variant sits inside a secondaryContainer circle.",
-    linearProgress: "Linear progress: the thick M3 Expressive bar; use the wavy style when specified. Track is secondaryContainer, progress is primary.",
-    circularProgress: "Circular progress: the thick M3 Expressive stroke; use the wavy style when specified.",
-    splitButton:
-      "Split button: the M3 Expressive SplitButton. The leading segment is the main action and the trailing arrow segment opens a menu. The two segments sit 2dp apart with fully rounded outer corners and 8dp inner corners; opening the menu rotates the arrow and rounds the segment.",
-    fabMenu:
-      "FAB menu: the M3 Expressive FloatingActionButtonMenu. Closed, it is a normal FAB; tapping it reveals the items upward one after another and the FAB icon becomes close. Each item is 56dp tall, fully rounded, right-aligned with an icon and a label.",
-    toolbar:
-      "Floating toolbar: the M3 Expressive HorizontalFloatingToolbar. 64dp tall, fully rounded, floating 16dp above the bottom edge over the content. Standard uses surfaceContainer, vibrant uses primaryContainer. The icon buttons inside are 48dp.",
-    tabs: "Tabs: M3 primary tabs. 48dp tall, labels in titleSmall; the selected tab has primary text and a 3dp label-width indicator with rounded top corners, with an outlineVariant divider underneath. Tapping a tab switches the content.",
-    radio: "Radio buttons: 20dp circles. Selected shows a primary ring with a center dot, unselected an onSurfaceVariant ring. Only one in a group can be selected. Label on the right in bodyLarge.",
-    badge: "Badges: a 6dp dot without text, a 16dp-tall pill with text. Background error, text onError in labelSmall. Overlay it on the top-right of an icon or item.",
+    radius: (label, px) => `Corners are ${label} (theme.radius ${px}px, radius.lg ${px + 2}px). Derive radii from the theme, and use radius_full() for circles and pills.`,
+    font: (name, value) => `The typeface is ${name} (theme font.family ${value}); the base text size is 16px.`,
+    density: (label, size) => `The default density is ${label} (components default to ${size}). Step a toolbar or a data-dense region down as a whole local context, never one isolated control.`,
+    shadow: (on) => (on ? "theme.shadow is on. Reserve the strongest elevation for the topmost decision layer and show hierarchy inside a layer with background and hairlines." : "theme.shadow is off. Show hierarchy with background and hairlines alone."),
+    focusRing: (on) => (on ? "theme.focus_ring is on; make sure no clipped region cuts a focus ring off." : "theme.focus_ring is off, so provide another visible treatment for keyboard focus."),
+    motion: (reduced) => (reduced ? "Motion is reduced: switch views instantly and add no decorative animation." : "Motion is the default: keep transitions short enough to explain a state change, and honour the system's reduce-motion setting."),
   },
   zh: {
-    button:
-      "按钮：中号，高 56dp，完全圆角（胶囊形）。填充用 primary，色调用 secondaryContainer，描边用 1dp 的 outline 边框。横向相连的按钮组以 3dp 间距排列，只把相邻的内侧圆角缩小到 8dp，外侧保持圆角（M3 Expressive 的 Connected button group）。",
-    iconButton: "图标按钮：48dp 圆形。按指定使用填充／色调／描边／标准样式。相连的图标按钮组实现为 Connected button group。",
-    fab: "FAB：常规 56dp、圆角 16dp；大尺寸 96dp、圆角 28dp；小尺寸 40dp、圆角 12dp。色调用 primaryContainer，填充用 primary。距屏幕边缘 16dp 悬浮，阴影为 Level 3。",
-    extendedFab: "扩展 FAB：高 56dp，圆角 16dp，左侧图标、右侧标签。",
-    chip: "标签片：高 32dp，圆角 8dp。选中状态用 secondaryContainer 填充并在前面显示勾选图标。横向标签片组间距 8dp，溢出时横向滚动。",
-    topAppBar:
-      "顶部应用栏：高 64dp，背景为 surface。背景延伸到状态栏后面，并按系统内边距在顶部留出空间。标题用 titleLarge，左右图标按钮 48dp。滚动时变为 surfaceContainer 的标准行为即可。",
-    bottomNav:
-      "导航栏：高 80dp，背景为 surfaceContainer。背景延伸到屏幕底部的手势导航区域，并按系统内边距在底部留出空间。选中项用 secondaryContainer 的胶囊指示器（宽 64dp、高 32dp）表示，图标为填充样式，标签用 labelMedium。",
-    searchBar: "搜索栏：高 56dp，完全圆角，背景为 surfaceContainerHigh。前置搜索图标，后置指定图标。",
-    card: "卡片：圆角 20dp，顶部为图片区域。填充用 surfaceContainerHighest，浮起用 surfaceContainerLow 加 Level 1 阴影，描边用 1dp 的 outlineVariant 边框。标题用 titleMedium，正文用 bodyMedium，内边距 16dp。",
-    listItem:
-      "列表项：高 72dp，前置图标 24dp（未指定时放在 40dp 的 primaryContainer 圆形上），主文本用 bodyLarge，辅助文本用 bodyMedium 的 onSurfaceVariant，背景为指定的颜色角色（未指定则为 surfaceContainerLow）。上下相连的列表以 3dp 间距排列，外侧圆角 28dp，相邻内侧圆角 8dp（M3 Expressive 的列表样式）。",
-    dialog: "对话框：宽 312dp，圆角 28dp，背景为 surfaceContainerHigh。标题用 headlineSmall，正文用 bodyMedium，底部右对齐放文字按钮。",
-    snackbar: "消息条：高 48dp，圆角 8dp，背景为 inverseSurface，文字为 inverseOnSurface。操作为 inversePrimary 的文字按钮。显示在距屏幕底部 16dp 处，数秒后消失。",
-    textField:
-      "文本输入框：高 56dp。描边样式圆角 16dp、边框为 outline；填充样式背景为 surfaceContainerHighest 并带下划线。聚焦时标签上浮，边框变为 2dp 的 primary。辅助文本用 bodySmall 显示在下方。",
-    switch: "开关：M3 标准尺寸（轨道 52×32dp）。开为 primary，关为 surfaceContainerHighest 加 outline 边框。标签在左，开关靠右。",
-    checkbox: "复选框：18dp 方形，圆角 2dp，勾选时为 primary。标签在右侧，用 bodyLarge。",
-    slider: "滑块：M3 Expressive 的粗轨道（高 16dp）和竖长手柄（宽 4dp、高 44dp）。手柄左侧为 primary，右侧为 secondaryContainer。可拖动改变数值。",
-    text: "文本：指定的 sp 字号。标题用 onSurface，说明文字用 onSurfaceVariant，行高为字号的 1.3〜1.5 倍。点击时不加涟漪等反馈。",
-    image: "图片：圆角 20dp，未指定时使用 surfaceContainerHighest 的占位符。保持宽高比并居中裁剪。",
-    divider: "分割线：1dp 的 outlineVariant，左右留 16dp 边距。",
-    box: "容器框：只是带指定背景色和圆角的容器，作为叠放在其上的组件的背景，本身没有任何行为。",
-    boxSheet: "容器框／底部面板：带指定背景色和圆角的容器。只有描述中带拖动条的才做成从底部滑出的模态底部面板（ModalBottomSheet），其余容器框只是普通的背景容器。",
-    loadingIndicator: "加载指示：使用 M3 Expressive 形状变化的 LoadingIndicator（旋转并在多边形之间变形）。带容器的放在 secondaryContainer 的圆形中。",
-    linearProgress: "线性进度条：M3 Expressive 的粗进度条。指定波浪形时使用进行中波动的 wavy 样式。轨道为 secondaryContainer，进度为 primary。",
-    circularProgress: "圆形进度条：M3 Expressive 的粗描边。指定波浪形时使用 wavy 样式。",
-    splitButton:
-      "拆分按钮：M3 Expressive 的 SplitButton。左段为主操作，右侧箭头段打开菜单。两段间距 2dp，外侧完全圆角，相邻内侧圆角 8dp。打开菜单时箭头旋转、段变为圆形。",
-    fabMenu:
-      "FAB 菜单：M3 Expressive 的 FloatingActionButtonMenu。关闭时是普通 FAB，点击后各项依次向上展开，FAB 图标变为 close。每项高 56dp，完全圆角，带图标和标签并右对齐。",
-    toolbar:
-      "悬浮工具栏：M3 Expressive 的 HorizontalFloatingToolbar。高 64dp，完全圆角，悬浮在距屏幕底部 16dp 处并覆盖在内容之上。标准样式用 surfaceContainer，鲜明样式用 primaryContainer。内部图标按钮 48dp。",
-    tabs: "标签页：M3 的主标签页。高 48dp，标签用 titleSmall，选中项文字为 primary 并带与标签同宽的 3dp 指示条（上方圆角），下方为 outlineVariant 分割线。点击标签切换内容。",
-    radio: "单选按钮：20dp 圆形。选中时为 primary 的圆环加中心圆点，未选中为 onSurfaceVariant 圆环。同一组内只能选一个。标签在右侧，用 bodyLarge。",
-    badge: "徽标：无文字时为 6dp 圆点，有文字时为高 16dp 的胶囊。背景为 error，文字为 onError 的 labelSmall。叠放在图标或项目的右上角。",
-  },
-};
-
-/* ---------- theme: shape, type, motion ---------- */
-
-const FONT_NOTE: Record<Lang, (name: string) => string> = {
-  ja: (n) => `書体は ${n} を使う。`,
-  en: (n) => `Use ${n} as the typeface.`,
-  zh: (n) => `字体使用 ${n}。`,
-};
-
-const THEME_NOTES: Record<Lang, { shape: Record<Theme["shape"], string>; emphasized: string; plainType: string; motion: Record<Theme["motion"], string> }> = {
-  ja: {
-    shape: {
-      square: "角丸は控えめにする: M3 の shape スケールを全体に小さく取り（ボタン・チップは 8〜12dp、カードや画像は 8dp、ダイアログは 12dp 程度）、ピル型は使わない。",
-      rounded: "角丸は M3 Expressive の標準値のまま（ボタンはピル型、カードは 20dp、ダイアログは 28dp）。",
-      full: "角丸は最大限に取る: ボタン・チップ・入力欄はピル型、カードや画像は 32dp、ダイアログやシートは 40dp 程度にする。",
-    },
-    emphasized: "見出し・ボタンラベル・タブは M3 Expressive の emphasized タイポグラフィ（headlineMediumEmphasized などの太めのウェイト）を使う。",
-    plainType: "タイポグラフィは M3 の標準ウェイト。",
-    motion: {
-      standard: "モーションは MotionScheme.standard()。画面遷移や状態変化は弾まない滑らかな動きにする。",
-      expressive: "モーションは MotionScheme.expressive()。画面遷移や状態変化には軽く弾むスプリングを使う。",
-    },
-  },
-  en: {
-    shape: {
-      square: "Keep corners modest: shrink the M3 shape scale throughout (buttons and chips 8–12dp, cards and images 8dp, dialogs about 12dp) and avoid pill shapes.",
-      rounded: "Corners follow the M3 Expressive defaults (pill buttons, 20dp cards, 28dp dialogs).",
-      full: "Push corners to the maximum: pill-shaped buttons, chips and text fields, 32dp cards and images, about 40dp dialogs and sheets.",
-    },
-    emphasized: "Headlines, button labels and tabs use the M3 Expressive emphasized typography (the heavier headlineMediumEmphasized and similar styles).",
-    plainType: "Typography uses the standard M3 weights.",
-    motion: {
-      standard: "Motion uses MotionScheme.standard(): smooth transitions and state changes with no bounce.",
-      expressive: "Motion uses MotionScheme.expressive(): a light spring bounce on transitions and state changes.",
-    },
-  },
-  zh: {
-    shape: {
-      square: "圆角保持克制：整体缩小 M3 的形状比例（按钮和标签片 8〜12dp，卡片和图片 8dp，对话框约 12dp），不使用胶囊形。",
-      rounded: "圆角沿用 M3 Expressive 的默认值（按钮为胶囊形，卡片 20dp，对话框 28dp）。",
-      full: "圆角尽量放大：按钮、标签片和输入框为胶囊形，卡片和图片 32dp，对话框和面板约 40dp。",
-    },
-    emphasized: "标题、按钮文字和标签页使用 M3 Expressive 的 emphasized 字体样式（headlineMediumEmphasized 等更粗的字重）。",
-    plainType: "排版使用 M3 的标准字重。",
-    motion: {
-      standard: "动效使用 MotionScheme.standard()：屏幕过渡和状态变化平滑、不回弹。",
-      expressive: "动效使用 MotionScheme.expressive()：屏幕过渡和状态变化带轻微回弹的弹簧效果。",
-    },
+    radius: (label, px) => `圆角为${label}（theme.radius ${px}px、radius.lg ${px + 2}px）。圆角一律从主题读取，圆形与胶囊形使用 radius_full()。`,
+    font: (name, value) => `字体为 ${name}（主题 font.family 为 ${value}），基准字号 16px。`,
+    density: (label, size) => `默认密度为${label}（组件默认 ${size}）。工具栏和数据密集区域应整块下调一档，而不是单独调整某个控件。`,
+    shadow: (on) => (on ? "theme.shadow 为开。最强的阴影只留给最上层的决策层，同层内用背景和发丝线表达层次。" : "theme.shadow 为关。层次仅用背景和发丝线表达。"),
+    focusRing: (on) => (on ? "theme.focus_ring 为开，注意不要让裁剪区域切掉焦点环。" : "theme.focus_ring 为关，但必须另外提供可见的键盘焦点表现。"),
+    motion: (reduced) => (reduced ? "动效为减弱：视图切换立即完成，不加装饰性动画。" : "动效为标准：过渡只需短到能说明状态变化，并遵循系统的“减少动态效果”设置。"),
   },
 };
 
 function themeLines(th: Theme, lang: Lang): string[] {
   const n = THEME_NOTES[lang];
-  const font = FONTS.find((f) => f.key === th.font);
-  const fontName = font?.key === "system" ? (lang === "ja" ? "端末のシステムフォント" : lang === "zh" ? "设备的系统字体" : "the device's system font") : (font?.label ?? "Roboto");
-  const sp = lang === "en" ? " " : "";
-  return [`- ${n.shape[th.shape]}`, `- ${FONT_NOTE[lang](fontName)}${sp}${th.emphasized ? n.emphasized : n.plainType}`, `- ${n.motion[th.motion]}`];
+  const radius = RADII.find((r) => r.key === th.radius)!;
+  const font = FONTS.find((f) => f.key === th.font)!;
+  const density = th.density;
+  const densityLabel = lang === "ja" ? { compact: "コンパクト", default: "標準", comfortable: "ゆったり" }[density] : lang === "zh" ? { compact: "紧凑", default: "标准", comfortable: "宽松" }[density] : density;
+  return [
+    `- ${n.radius(radius.label, radius.radius)}`,
+    `- ${n.font(font.label, font.themeValue)}`,
+    `- ${n.density(densityLabel, DENSITY_SIZE[density])}`,
+    `- ${n.shadow(th.shadow)}`,
+    `- ${n.focusRing(th.focusRing)}`,
+    `- ${n.motion(th.motion === "reduced")}`,
+  ];
 }
 
-/** the closing guidance; the lines that depend on the target are written for the chosen platform */
-const GENERAL: Record<Lang, (string | ((pl: Platform) => string))[]> = {
+/* ---------- the shell ---------- */
+
+const SHELL_TEXT: Record<Lang, Record<Shell, string>> = {
+  ja: {
+    single: "単一ワークスペース: タイトルバーまたはツールバーの下に 1 つの主ビューを置く骨格です。",
+    sidebar: "サイドバーワークスペース: 変化しない左のナビゲーションと、切り替わる右の詳細ビューという骨格です。ナビゲーションは内容が変わっても動かしません。",
+    masterDetail: "一覧と詳細: リサイズできる一覧ペインと詳細ペインの骨格です。一覧は走査しやすい幅を保ち、余った幅は詳細側に渡します。",
+    document: "ドキュメントワークスペース: 長く開いておく複数の対象をタブまたは DockArea で扱う骨格です。",
+    utility: "ユーティリティウィンドウ: 1 つの作業に絞り、操作の道筋を短く固定した骨格です。",
+  },
+  en: {
+    single: "A single workspace: one primary view under a title bar or toolbar.",
+    sidebar: "A sidebar workspace: persistent navigation beside a changing detail view. Keep the navigation stable while the content changes.",
+    masterDetail: "A master–detail shell: resizable collection and detail panes. Keep the collection scannable and give the detail pane the surplus width.",
+    document: "A document workspace: tabs or a DockArea for several long-lived objects.",
+    utility: "A utility window: one focused task with a short, fixed action path.",
+  },
+  zh: {
+    single: "单一工作区：标题栏或工具栏之下只有一个主视图。",
+    sidebar: "侧栏工作区：左侧导航保持不变，右侧详情视图随之切换。内容变化时导航不要移动。",
+    masterDetail: "列表与详情：可调整宽度的列表面板与详情面板。列表保持易于浏览的宽度，多余的宽度交给详情面板。",
+    document: "文档工作区：用标签页或 DockArea 承载多个长期打开的对象。",
+    utility: "工具窗口：聚焦单一任务，操作路径短而固定。",
+  },
+};
+
+/* ---------- the components in use ---------- */
+
+const API_HEAD: Record<Lang, string> = {
+  ja: "使っている部品と、対応する gpui-kit のコンポーネントです。API は必ず現物のシグネチャを確認し、似た名前を推測で書かないでください。",
+  en: "The parts in use and the gpui-kit component each one means. Check every signature against the real source; never guess a plausible-looking method.",
+  zh: "所用组件及其对应的 gpui-kit 组件。所有 API 都必须核对真实签名，不要凭相似的名字猜写。",
+};
+
+/** semantics a kind carries that its type name alone does not say */
+const KIND_NOTES: Record<Lang, Partial<Record<Kind, string>>> = {
+  ja: {
+    button: "アプリ内のコマンドはすべて Button です。Link は外部 URL とメールアドレスだけに使います。プライマリは決定領域の既定コミット（Enter で実行される操作）だけに与えます。",
+    menu: "メニュー、ドロップダウン、ポップオーバー、セレクト、コマンドパレットは互換の箱ではありません。選択・フォーカス・キーボード・閉じ方の契約がそれぞれ違うので、役割に合う標準コンポーネントを使います。",
+    dialog: "ダイアログは短く焦点の絞られた決定だけに使います。探索や多数のフィールドが必要ならページかシートにします。ボタンは対象と動詞を名指しします。",
+    sheet: "シートは既定で主対象を覆いません。内容が増えるならリサイズか閉じられるようにします。",
+    dataTable: "ヘッダー、行、集計、ローディング、インライン編集で同じ列の幾何を保ちます。比較できる数値は右寄せ、識別子と文章は左寄せです。",
+    list: "行はアイコン、ラベル、値、バッジ、末尾の操作を安定した列に置きます。任意の要素が欠けても残りのラベルが動かないようにします。",
+    tree: "階層・包含・展開が本当にある場合だけインデントします。",
+    resizable: "各領域に最小幅・既定幅・余剰の配分を決め、ユーザーが動かした分割は保存して復元時に現在のウィンドウへクランプします。",
+    badge: "バッジは素早く走査したい短い状態・件数・分類だけに使います。ほとんどはニュートラルにし、意味のある状態にだけセマンティックな variant を使います。",
+    alert: "セマンティックな色は意味のためだけに使い、装飾には使いません。色だけで意味を伝えないでください。",
+    input: "各フィールドには見えるラベルを付け、ヘルプと検証はそのフィールドの隣に置きます。",
+    progress: "処理中は送信を無効にし、入力は保持し、結果は操作の近くに表示します。",
+    statusBar: "ステータスバーは常時見える控えめな情報だけを持ちます。ここに操作の唯一の入口を置かないでください。",
+    titleBar: "TITLE_BAR_HEIGHT と macOS の信号機ボタン位置はコンポーネントに任せ、自前で描き直さないでください。",
+    sidebar: "サイドバーはラベルが安定して入る幅を持ちつつ、作業領域より明確に従属させます。最小幅・既定幅・最大幅を決めてください。",
+  },
+  en: {
+    button: "Every in-app command is a Button; Link is only for external URLs and email addresses. Primary is reserved for the default commit in a decision area, normally the action invoked by Enter.",
+    menu: "A menu, dropdown menu, popover, select and command palette are not interchangeable boxes: each owns different selection, focus, keyboard, dismissal and layout contracts. Use the one whose role matches.",
+    dialog: "Reserve dialogs for short, focused decisions; use a page or a sheet for work that needs exploration or many fields. Name the object and the verb on the buttons.",
+    sheet: "A sheet should not cover the primary object by default, and should be resizable or dismissible as its content grows.",
+    dataTable: "Repeat the column geometry through headers, rows, summaries, loading states and inline editors. Right-align comparable numbers; left-align prose and identifiers.",
+    list: "Keep icons, labels, values, badges and trailing actions on stable columns, and do not let a missing optional element move the remaining labels.",
+    tree: "Indent only for real hierarchy, containment or disclosure.",
+    resizable: "Define a minimum, a comfortable default and how each region consumes surplus. Persist user-moved splits and clamp restored values against the current window.",
+    badge: "Use Badge for a short state, count or classification worth scanning. Keep most badges neutral and reserve semantic variants for states that carry that meaning.",
+    alert: "Use a semantic colour only for its meaning, never as decoration, and never encode meaning by colour alone.",
+    input: "Give every field a visible label and place help and validation next to the field they describe.",
+    progress: "Disable submission while an operation is in flight, keep the user's input, and show the result near the action.",
+    statusBar: "The status bar carries quiet, always-visible information. Never make it the only path to a command.",
+    titleBar: "Let the component own TITLE_BAR_HEIGHT and the macOS traffic-light position instead of redrawing them.",
+    sidebar: "Give the sidebar a width that holds its labels while staying visibly subordinate to the work area, with a minimum, preferred and maximum width.",
+  },
+  zh: {
+    button: "应用内的所有命令都用 Button；Link 只用于外部 URL 和邮箱地址。primary 只留给决策区域的默认提交动作（通常是按 Enter 触发的那个）。",
+    menu: "菜单、下拉菜单、浮层、下拉选择和命令面板不是可互换的容器，各自的选择、焦点、键盘和关闭契约都不同，请按角色选用对应组件。",
+    dialog: "对话框只用于简短、聚焦的决策；需要探索或字段较多时改用页面或抽屉面板。按钮文字要点明对象和动作。",
+    sheet: "抽屉面板默认不应遮住主对象，内容变多时应可调整宽度或可关闭。",
+    dataTable: "表头、数据行、汇总行、加载态和行内编辑要保持同一套列几何。可比较的数值右对齐，文本和标识符左对齐。",
+    list: "图标、标签、数值、徽标和尾部操作要落在稳定的列上；可选元素缺失时不能让其余标签发生位移。",
+    tree: "只有真实存在层级、包含或展开关系时才使用缩进。",
+    resizable: "为每个区域定义最小宽度、舒适默认值以及如何消化多余空间。用户拖动过的分栏要持久化，并在恢复时按当前窗口尺寸做钳制。",
+    badge: "徽标只用于值得快速扫读的简短状态、计数或分类。多数徽标保持中性，语义色只用于真正带该含义的状态。",
+    alert: "语义色只用于表达含义，不作装饰，也不能仅靠颜色传递信息。",
+    input: "每个字段都要有可见标签，帮助文本和校验信息紧邻其所描述的字段。",
+    progress: "操作进行中禁用提交、保留用户输入，并在操作附近显示结果。",
+    statusBar: "状态栏承载安静且常驻的信息，不要让它成为某个命令的唯一入口。",
+    titleBar: "TITLE_BAR_HEIGHT 与 macOS 红黄绿按钮的位置交给组件本身，不要自行重绘。",
+    sidebar: "侧边栏的宽度要放得下标签，同时明显从属于工作区，并定义最小、默认与最大宽度。",
+  },
+};
+
+const GENERAL: Record<Lang, string[]> = {
   ja: [
-    "まず画面の目的から「これは何のアプリか」を判断し、そのカテゴリのアプリとして一般に期待される機能（作成・一覧・詳細・編集・削除・検索・設定など、該当するもの）を、スケッチに描かれていなくても一通り実装する。",
-    (pl: Platform) => `データは本物として扱う。ユーザーが作成したデータは${pl === "web" ? "ブラウザに（IndexedDB など）" : "端末に（Room や DataStore など）"}永続化し、${pl === "web" ? "再読み込み" : "再起動"}後も残す。ダミーやサンプルのデータは入れず、何もない状態には空の案内を表示する。入力は検証し、失敗や削除は適切に確認・通知する。`,
-    "スケッチに書かれていない振る舞いは、画面の目的と部品のラベルから補う。動作の指定がないボタンや項目は、そのラベルにふさわしい処理（保存、送信、詳細画面を開く、など）を実装し、何も起きないままにしない。",
-    "配置は意図（順序・まとまり・上下左右の位置関係）を守れば十分で、寸法や余白は内容に合わせて調整してよい。実機で崩れるなら、スケッチより動くことを優先する。",
-    (pl: Platform) => `コンポーネントは ${pl === "web" ? "Material Web" : "Jetpack Compose の material3（Expressive API を含む最新版）"} の標準部品を使い、ライブラリにある部品を独自描画しない。`,
-    "色は必ず上のカラースキームのロール名（primary、surfaceContainer など）で参照し、ハードコードした色を使わない。",
-    "余白は画面端 16dp、部品同士は 8〜16dp を基本にし、タイポグラフィは M3 の型（titleLarge、bodyMedium など）を使う。",
-    "「横一列に並べる」と書いた部品は必ず 1 つの Row（横並びコンテナ）に入れて同じ行に置き、縦に積んだり次の行に折り返したりしない。行の高さは一番高い部品に合わせ、他は縦中央に揃える。",
-    "「〜の中に重ねて配置」と書いた部品は、その容器（ボックスやカード）を背景にした Box の上に重ねて描く。重なりは意図したものなので、レイアウトの都合で分離したり順序を変えたりしない。前後関係は記述の順（後に書いたものが前面）に従う。",
-    "タップできる部品にはリップルと軽い縮小のフィードバックを付ける。「戻る」は入ったときの遷移を逆再生し、システムの戻る操作（戻るジェスチャー・戻るボタン）でも同じ動きにする。",
-    "アイコンは Material Symbols Rounded を使う。",
-    (pl: Platform) => `${pl === "web" ? "ブラウザでの" : "エミュレータや実機での"}動作検証は不要。実装が終わったら${pl === "web" ? "production build を実行し、その出力" : "署名済みの release APK "}を成果物として提供する。`,
+    "実装の前に gpui-kit のスキル（`gpui-kit` と `gpui-kit-design-guides`）を読んでください。入っていない場合は https://gpui-kit.com/llms-full.txt 、https://gpui-kit.com/docs/design-guides.md 、https://gpui-kit.com/docs/coding-guides.md を取得します。API は絶対に推測せず、現物のシグネチャを検索して確認します。React や CSS、古い GPUI の例からの類推で書かないでください。",
+    "依存は `gpui-kit` クレート 1 つだけです。GPUI は `use gpui_kit::*;`、各レイヤーは `gpui_kit::component` / `gpui_kit::base` / `gpui_kit::assets` / `gpui_kit::platform` から辿ります。",
+    "起動は `gpui_kit::application().with_assets(gpui_kit::assets::Assets).run(|cx| { gpui_kit::init(cx); ... })` の順で、最初に `gpui_kit::init(cx)` を呼び、ウィンドウのルートは `Root::new(view, window, cx)` にします。",
+    "色・角丸・間隔はすべて `cx.theme()` のセマンティックトークンと rem ベースのヘルパーから取ります。アプリのコードに生の hex や rgb(...) を書かないでください。必要なロールが無ければテーマ／トークン層に定義します。",
+    "状態を持たない部品は `RenderOnce`、状態を持つものは `Entity<T>` を view が保持して `render` では参照だけ渡します。`render` の中で状態を作らないこと。繰り返す要素の `ElementId` はドメインの値から作り、リストの添字は使いません。",
+    "すべてのコマンドはキーボードから到達できるようにします。`actions!` で action を定義し `bind_keys` で割り当て、フォーカスは常に見えるようにし、Esc は最前面のオーバーレイを閉じてフォーカスを開いた要素に戻します。",
+    "スクロールやペイン管理を div の入れ子で作り直さず、`Scrollable`、`VirtualList`、`DataTable`、`DockArea` を本来の用途で使います。主作業領域は `flex_1()` と、縮む必要のある子には `min_w_0()` / `min_h_0()` を付けます。",
+    "データは本物として扱います。ユーザーが作ったものは永続化して再起動後も残し、ダミーやサンプルデータは入れず、何もない状態には空の案内を出します。入力は検証し、破壊的な操作は対象を名指しして確認します。",
+    "ウィンドウが狭くなったときの振る舞いを決めます。主タスクを守り、リサイズできる領域は決めた最小値まで縮め、副次的なラベルやインスペクタを畳み、低頻度の操作はメニューへ移し、あふれた領域だけをスクロールさせます。操作を隠すときは必ず別の到達経路を残します。",
+    "文言は対象と動詞を名指しします。`本当によろしいですか？` と `OK` ではなく、`「Roadmap」を削除しますか？` と `削除` です。",
+    "テストは `#[gpui_kit::test]` と `TestAppContext` で書きます。仕上げに `cargo fmt`、`cargo clippy`、`cargo test` を通し、`cargo run --release` で起動できる状態にしてください。",
+    "最後に Design Guides の Design review checklist と Coding Guides の Implementation checklist を成果物に対して 1 項目ずつ確認します。",
   ],
   en: [
-    "Work out what kind of app this is from the purpose of the screens, and implement the features such an app is normally expected to have (create, list, detail, edit, delete, search, settings, whichever apply) even where the sketch does not show them.",
-    (pl: Platform) => `Treat the data as real. Persist what the user creates ${pl === "web" ? "in the browser (IndexedDB or similar) so it survives reloads" : "on the device (Room, DataStore or similar) so it survives restarts"}. Do not ship dummy or sample data; show an empty state when there is nothing yet. Validate input, and confirm or report failures and deletions appropriately.`,
-    "Fill in behavior the sketch leaves out from the purpose of the screen and the labels of the parts. A button or item with no behavior specified should do what its label implies (save, send, open a detail screen, and so on), never nothing.",
-    "The layout only needs to keep the intent (order, grouping, relative placement); sizes and spacing may be adjusted to fit the content. If something would break on a device, prefer working over matching the sketch.",
-    (pl: Platform) => `Use the standard components from ${pl === "web" ? "Material Web" : "Jetpack Compose material3 (latest, including the Expressive APIs)"}; do not custom-draw parts the library provides.`,
-    "Always reference colors through the scheme roles above (primary, surfaceContainer, …) instead of hard-coded values.",
-    "Keep 16dp screen margins and 8–16dp between parts, and use the M3 type styles (titleLarge, bodyMedium, …).",
-    "Parts described as \"in one row\" must share a single Row (horizontal container) on the same line; never stack them vertically or wrap them. The row is as tall as its tallest part and the others are vertically centered in it.",
-    "Parts described as \"layered inside\" a container are drawn on top of that container (a Box with the container as its background). The overlap is intentional: do not separate or reorder them for layout reasons. Later items in the description are drawn in front of earlier ones.",
-    "Give every tappable part ripple plus a slight press-scale. \"Back\" plays the entry transition in reverse, and the system back gesture / button must do the same.",
-    "Use Material Symbols Rounded for icons.",
-    (pl: Platform) => `Do not verify ${pl === "web" ? "in a browser" : "on an emulator or a device"}. When the implementation is done, ${pl === "web" ? "run the production build and provide its output" : "produce a signed release APK"} as the deliverable.`,
+    "Before writing code, read the gpui-kit skills (`gpui-kit` and `gpui-kit-design-guides`). If they are not installed, fetch https://gpui-kit.com/llms-full.txt, https://gpui-kit.com/docs/design-guides.md and https://gpui-kit.com/docs/coding-guides.md. Never invent an API: search the current source for the real signature, and do not translate a React, CSS or older-GPUI example by analogy.",
+    "Depend on the `gpui-kit` crate alone. GPUI is `use gpui_kit::*;`, and the layers are `gpui_kit::component`, `gpui_kit::base`, `gpui_kit::assets` and `gpui_kit::platform`.",
+    "Bootstrap with `gpui_kit::application().with_assets(gpui_kit::assets::Assets).run(|cx| { gpui_kit::init(cx); ... })`, calling `gpui_kit::init(cx)` first, and give the window a `Root::new(view, window, cx)`.",
+    "Take every colour, radius and gap from `cx.theme()` semantic tokens and the rem-based helpers. No raw hex or rgb(...) in application code; if a role does not exist, define it in the theme/token layer.",
+    "Use `RenderOnce` for stateless parts and an `Entity<T>` held by the view for stateful ones, passing a reference in `render`. Never build state inside `render`. Give repeated elements domain-derived `ElementId`s, never list indexes.",
+    "Make every command reachable from the keyboard: declare actions with `actions!`, bind them with `bind_keys`, keep focus visible, and let Escape dismiss the topmost overlay and return focus to its trigger.",
+    "Do not rebuild scrolling or pane management from nested `div`s: use `Scrollable`, `VirtualList`, `DataTable` and `DockArea` for their intended behaviour. Give the primary work area `flex_1()`, and `min_w_0()` / `min_h_0()` to children that must shrink.",
+    "Treat the data as real. Persist what the user creates so it survives a restart, ship no dummy or sample data, and show an empty state when there is nothing yet. Validate input, and confirm destructive actions with the object named.",
+    "Decide what happens as the window narrows: preserve the primary task, let resizable regions reach a documented minimum, collapse secondary labels or inspectors, move low-frequency actions into a menu, and scroll only the region that actually overflows. Never hide an action without another path to it.",
+    "Name the object and the verb in interface copy: `Delete \"Roadmap\"?` with a `Delete` button, not `Are you sure?` with `OK`.",
+    "Write tests with `#[gpui_kit::test]` and `TestAppContext`. Finish by getting `cargo fmt`, `cargo clippy` and `cargo test` clean, and leave the app runnable with `cargo run --release`.",
+    "Finish by running the Design review checklist from the Design Guides and the Implementation checklist from the Coding Guides against the work, item by item.",
   ],
   zh: [
-    "先根据屏幕目的判断这是什么类型的应用，并实现该类应用通常应有的功能（新建、列表、详情、编辑、删除、搜索、设置等，视情况而定），即使草图中没有画出。",
-    (pl: Platform) => `把数据当作真实数据处理：用户创建的数据要持久化到${pl === "web" ? "浏览器（IndexedDB 等），重新加载" : "设备（Room、DataStore 等），重启"}后仍保留。不要放入虚拟或示例数据，没有数据时显示空状态提示。校验输入，删除和失败要有适当的确认或提示。`,
-    "草图没有写明的行为，根据屏幕目的和组件标签补全。未指定行为的按钮或项目要实现与其标签相符的操作（保存、发送、打开详情页等），不要什么都不做。",
-    "布局只需保持意图（顺序、分组、相对位置），尺寸和间距可根据内容调整。若在真机上会出问题，宁可能用也不要死守草图。",
-    (pl: Platform) => `组件使用 ${pl === "web" ? "Material Web" : "Jetpack Compose material3（包含 Expressive API 的最新版）"} 的标准组件，库里已有的组件不要自行绘制。`,
-    "颜色必须通过上面配色方案的角色名（primary、surfaceContainer 等）引用，不要写死颜色值。",
-    "屏幕边缘留 16dp，组件之间 8〜16dp，排版使用 M3 的字体样式（titleLarge、bodyMedium 等）。",
-    "写明“横向排成一行”的组件必须放进同一个 Row（横向容器）并在同一行显示，不要竖着堆叠或换行。行高以最高的组件为准，其余组件垂直居中。",
-    "写明“内部叠放”的组件要绘制在该容器（容器框或卡片）之上（以容器为背景的 Box）。这种叠放是有意为之，不要因布局原因拆开或调整顺序。前后关系按描述顺序，后写的在前面。",
-    "可点击的组件加涟漪和轻微缩放反馈。“返回”反向播放进入时的过渡动画，系统返回手势／返回键也要做同样的效果。",
-    "图标使用 Material Symbols Rounded。",
-    (pl: Platform) => `不需要在${pl === "web" ? "浏览器" : "模拟器或真机"}上验证。实现完成后${pl === "web" ? "运行 production build 并提供其输出" : "生成已签名的 release APK "}作为交付物。`,
+    "动手之前请先阅读 gpui-kit 的 skill（`gpui-kit` 与 `gpui-kit-design-guides`）。若未安装，则抓取 https://gpui-kit.com/llms-full.txt 、https://gpui-kit.com/docs/design-guides.md 和 https://gpui-kit.com/docs/coding-guides.md 。绝不要凭空编造 API：请在真实源码中搜索确切签名，也不要按 React、CSS 或旧版 GPUI 的例子类推。",
+    "只依赖 `gpui-kit` 这一个 crate。GPUI 通过 `use gpui_kit::*;` 引入，各层分别是 `gpui_kit::component`、`gpui_kit::base`、`gpui_kit::assets` 和 `gpui_kit::platform`。",
+    "启动流程为 `gpui_kit::application().with_assets(gpui_kit::assets::Assets).run(|cx| { gpui_kit::init(cx); ... })`，必须先调用 `gpui_kit::init(cx)`，窗口根节点使用 `Root::new(view, window, cx)`。",
+    "所有颜色、圆角和间距都取自 `cx.theme()` 的语义 token 与基于 rem 的辅助函数。应用代码中不要出现原始 hex 或 rgb(...)；缺少所需角色时，请在主题／token 层中定义。",
+    "无状态部件用 `RenderOnce`，有状态的用 view 持有的 `Entity<T>`，在 `render` 中只传引用。不要在 `render` 里创建状态。重复元素的 `ElementId` 必须由领域数据派生，不能用列表下标。",
+    "所有命令都要能用键盘触达：用 `actions!` 定义 action、用 `bind_keys` 绑定，焦点始终可见，Esc 关闭最上层浮层并把焦点交还给触发它的元素。",
+    "不要用嵌套 `div` 重新实现滚动或分栏管理，请按用途使用 `Scrollable`、`VirtualList`、`DataTable` 和 `DockArea`。主工作区使用 `flex_1()`，需要收缩的子元素加上 `min_w_0()` / `min_h_0()`。",
+    "把数据当作真实数据：用户创建的内容要持久化并在重启后仍然存在，不要放入虚拟或示例数据，没有数据时显示空状态。校验输入，破坏性操作要点名对象后再确认。",
+    "明确窗口变窄时的行为：保住主任务，可调区域收缩到有明确定义的最小值，折叠次要标签或检查器，低频操作移入菜单，只让真正溢出的区域滚动。隐藏某个操作时必须保留另一条到达路径。",
+    "界面文案要点名对象和动作：用「删除「Roadmap」？」配「删除」按钮，而不是「确定要继续吗？」配「确定」。",
+    "用 `#[gpui_kit::test]` 与 `TestAppContext` 编写测试。收尾时让 `cargo fmt`、`cargo clippy`、`cargo test` 全部通过，并保证 `cargo run --release` 能直接运行。",
+    "最后逐项对照 Design Guides 的 Design review checklist 与 Coding Guides 的 Implementation checklist 检查成果。",
   ],
 };
 
@@ -856,103 +946,106 @@ const GENERAL: Record<Lang, (string | ((pl: Platform) => string))[]> = {
 
 const PH = {
   ja: {
-    screen: "画面",
-    intro: (title: string, brief: string) => `${title}を Material 3 Expressive のデザインで実装してください。${brief ? trimEnd(brief) + "。" : ""}`,
-    titleOnly: (name: string) => `${name}画面`,
-    titleAll: (n: number) => (n > 1 ? "このアプリ" : "この画面"),
-    target: (phone: boolean, dark: boolean, both: boolean) => `${phone ? "想定はスマホの縦画面で、" : "レイアウトは自由配置で、"}${both ? "ライトモードとダークモードの両方に対応し、端末のシステム設定に従って切り替えます。" : dark ? "ダークモード固定です。" : "ライトモード固定です。"}`,
-    platform: (pl: Platform) => (pl === "web" ? "実装先は Web（ブラウザで動くアプリ）です。" : "実装先は Android（ネイティブアプリ）です。"),
-    schemeHead: (dark: boolean) => (dark ? "ダークスキーム:" : "ライトスキーム:"),
+    window: "ウィンドウ",
+    intro: (title: string, brief: string) => `${title}を gpui-kit（Rust のデスクトップ UI フレームワーク）で実装してください。${brief ? trimEnd(brief) + "。" : ""}`,
+    titleOnly: (name: string) => `${name}ウィンドウ`,
+    titleAll: (n: number) => (n > 1 ? "このデスクトップアプリ" : "このデスクトップアプリ"),
+    target: (dark: boolean, both: boolean, w: number, h: number) =>
+      `デスクトップアプリで、既定のウィンドウサイズは ${w}×${h} です。サイズは固定ではないので、狭くなったときの振る舞いも決めてください。${both ? "ライトとダークの両方に対応し、OS の設定に従って切り替えます。" : dark ? "ダークモード固定です。" : "ライトモード固定です。"}`,
     sketch:
-      "下の画面構成は、意図を伝えるためのラフスケッチです。完成図の仕様ではないので、静止画のように再現するのではなく、この種のアプリとして普通に期待される機能を一通り備えた、実際に使える完成品として仕上げてください。",
-    hColor: "## カラー",
-    dynamic:
-      "ダイナミックカラーを使います。Android 12 以降ではユーザーの壁紙から生成されるカラースキーム（dynamicLightColorScheme / dynamicDarkColorScheme）を適用し、それが使えない端末では下の色をフォールバックにしてください。",
-    colorIntro: (label: string, fallback: boolean, th: Theme) => {
-      const scheme = `Material 3 の${th.bothModes ? "ライトとダークの" : th.dark ? "ダーク" : "ライト"}カラースキーム${th.contrast === "high" ? "（高コントラスト）" : th.contrast === "medium" ? "（中コントラスト）" : ""}`;
-      return `${fallback ? "フォールバック用のテーマ" : "テーマ"}は ${label} 系です。${scheme}に次の色を設定し、UI の色はすべてこのロール経由で参照してください。`;
-    },
-    hTheme: "## 形・文字・動き",
-    hLayout: "## 画面構成",
-    empty: "画面にはまだ部品が置かれていません。",
-    screens: (names: string[]) => `画面は ${names.length} つあり、${names.join("、")}です。`,
-    screenHead: (name: string, bg: string | undefined, has: boolean) => `${name}画面${bg ? `（背景は ${bg}）` : ""}${has ? "は上から順に次の通りです。重なっている部品はその旨を書いています。" : "はまだ空です。"}`,
-    loose: "画面の外に置かれている部品（共通パーツや参考）:",
-    freeform: "画面を上から順に説明します。",
-    hBehavior: "## 振る舞いと画面遷移",
-    hStyle: "## 各部品のスタイル",
-    styleIntro: "使っている部品ごとの目安です。数値は M3 Expressive の標準値なので、標準コンポーネントで実現できるものは標準に任せ、内容に合わせて調整して構いません。",
+      "下のウィンドウ構成は、意図を伝えるためのラフスケッチです。完成図の仕様ではないので、静止画のように再現するのではなく、この種のデスクトップアプリとして普通に期待される機能を一通り備えた、実際に使える完成品として仕上げてください。",
+    hShell: "## ウィンドウの骨格",
+    hColor: "## テーマ",
+    colorIntro: (label: string, file: string | null) =>
+      file
+        ? `テーマは gpui-kit 同梱の ${label}（${file}）です。ThemeRegistry から読み込んで適用し、UI の色はすべて cx.theme() のロール経由で参照してください。参考として主要なトークンの値を挙げます。`
+        : `テーマは ${label} です。次の ThemeConfig をテーマファイルとして追加し、UI の色はすべて cx.theme() のロール経由で参照してください。`,
+    schemeHead: (dark: boolean) => (dark ? "ダークテーマ:" : "ライトテーマ:"),
+    hTheme: "## 角丸・文字・密度・動き",
+    hLayout: "## ウィンドウ構成",
+    empty: "ウィンドウにはまだ部品が置かれていません。",
+    windows: (names: string[]) => `ウィンドウ（ビュー）は ${names.length} つあり、${names.join("、")}です。`,
+    windowHead: (name: string, size: string, bg: string | undefined, has: boolean) =>
+      `${name}ウィンドウ（${size}${bg ? `、背景は ${bg}` : ""}）${has ? "の中身は次の通りです。重なっている部品はその旨を書いています。" : "はまだ空です。"}`,
+    loose: "ウィンドウの外に置かれている部品（共通パーツや参考）:",
+    freeform: "レイアウトを上から順に説明します。",
+    hBehavior: "## 振る舞いとビューの切り替え",
+    hParts: "## 使うコンポーネント",
     hGeneral: "## 全体の指針",
   },
   en: {
-    screen: "screen",
-    intro: (title: string, brief: string) => `Please implement ${title} in the Material 3 Expressive design language.${brief ? ` ${trimEnd(brief)}.` : ""}`,
-    titleOnly: (name: string) => `the ${name} screen`,
-    titleAll: (n: number) => (n > 1 ? "this app" : "this screen"),
-    target: (phone: boolean, dark: boolean, both: boolean) => `${phone ? "Target a portrait phone screen" : "The layout is free-form"}, ${both ? "supporting both light and dark mode and following the device's system setting" : `${dark ? "dark" : "light"} mode only`}.`,
-    platform: (pl: Platform) => (pl === "web" ? "Build it for the web, as an app that runs in the browser." : "Build it for Android, as a native app."),
-    schemeHead: (dark: boolean) => (dark ? "Dark scheme:" : "Light scheme:"),
+    window: "window",
+    intro: (title: string, brief: string) => `Please implement ${title} with gpui-kit, the Rust desktop UI framework.${brief ? ` ${trimEnd(brief)}.` : ""}`,
+    titleOnly: (name: string) => `the ${name} window`,
+    titleAll: () => "this desktop app",
+    target: (dark: boolean, both: boolean, w: number, h: number) =>
+      `It is a desktop app whose default window is ${w}×${h}. Desktop does not mean fixed-size, so decide what happens as the window narrows. ${both ? "Support both light and dark themes and follow the system setting." : `${dark ? "Dark" : "Light"} theme only.`}`,
     sketch:
-      "The layout below is a rough sketch that conveys intent, not a finished spec. Do not reproduce it as a static picture; build the complete, usable app that this kind of product is normally expected to be.",
-    hColor: "## Colors",
-    dynamic:
-      "Use dynamic color: on Android 12+ apply the scheme generated from the user's wallpaper (dynamicLightColorScheme / dynamicDarkColorScheme), and fall back to the colors below where it is unavailable.",
-    colorIntro: (label: string, fallback: boolean, th: Theme) => {
-      const scheme = `Material 3 ${th.bothModes ? "light and dark color schemes" : `${th.dark ? "dark" : "light"} color scheme`}${th.contrast === "high" ? " (high contrast)" : th.contrast === "medium" ? " (medium contrast)" : ""}`;
-      return `The ${fallback ? "fallback theme" : "theme"} is ${label}. Set these on the ${scheme} and reference every UI color through its role.`;
-    },
-    hTheme: "## Shape, type and motion",
+      "The layout below is a rough sketch that conveys intent, not a finished spec. Do not reproduce it as a static picture; build the complete, usable desktop app that this kind of product is normally expected to be.",
+    hShell: "## Window shell",
+    hColor: "## Theme",
+    colorIntro: (label: string, file: string | null) =>
+      file
+        ? `The theme is ${label}, which gpui-kit ships as ${file}. Load it through the ThemeRegistry and read every UI colour through its role on cx.theme(). Its main tokens, for reference:`
+        : `The theme is ${label}. Add the ThemeConfig below as a theme file and read every UI colour through its role on cx.theme().`,
+    schemeHead: (dark: boolean) => (dark ? "Dark theme:" : "Light theme:"),
+    hTheme: "## Radius, type, density and motion",
     hLayout: "## Layout",
-    empty: "Nothing has been placed on the screen yet.",
-    screens: (names: string[]) => `There are ${names.length} screens: ${names.join(", ")}.`,
-    screenHead: (name: string, bg: string | undefined, has: boolean) => `The ${name} screen${bg ? ` (background ${bg})` : ""}${has ? ", from top to bottom (overlapping parts are called out as such):" : " is still empty."}`,
-    loose: "Parts placed outside the screens (shared parts or references):",
-    freeform: "The screen, from top to bottom:",
-    hBehavior: "## Behavior and navigation",
-    hStyle: "## Component styles",
-    styleIntro: "Per-component guidance for the parts in use. The numbers are the M3 Expressive defaults: let the standard components handle whatever they already do, and adjust where the content calls for it.",
+    empty: "Nothing has been placed in the window yet.",
+    windows: (names: string[]) => `There are ${names.length} windows (views): ${names.join(", ")}.`,
+    windowHead: (name: string, size: string, bg: string | undefined, has: boolean) =>
+      `The ${name} window, ${size}${bg ? ` on ${bg}` : ""}${has ? " — overlapping parts are called out as such:" : ", is still empty."}`,
+    loose: "Parts placed outside the windows (shared parts or references):",
+    freeform: "The layout, from top to bottom:",
+    hBehavior: "## Behaviour and navigation",
+    hParts: "## Components to use",
     hGeneral: "## General guidance",
   },
   zh: {
-    screen: "屏幕",
-    intro: (title: string, brief: string) => `请用 Material 3 Expressive 的设计实现${title}。${brief ? trimEnd(brief) + "。" : ""}`,
-    titleOnly: (name: string) => `${name}屏幕`,
-    titleAll: (n: number) => (n > 1 ? "这个应用" : "这个屏幕"),
-    target: (phone: boolean, dark: boolean, both: boolean) => `${phone ? "目标为竖屏手机" : "布局为自由排布"}，${both ? "同时支持浅色和深色模式，并跟随设备的系统设置切换" : `只做${dark ? "深色" : "浅色"}模式`}。`,
-    platform: (pl: Platform) => (pl === "web" ? "实现目标是 Web（在浏览器中运行的应用）。" : "实现目标是 Android（原生应用）。"),
-    schemeHead: (dark: boolean) => (dark ? "深色配色：" : "浅色配色："),
+    window: "窗口",
+    intro: (title: string, brief: string) => `请用 gpui-kit（Rust 桌面 UI 框架）实现${title}。${brief ? trimEnd(brief) + "。" : ""}`,
+    titleOnly: (name: string) => `${name}窗口`,
+    titleAll: () => "这个桌面应用",
+    target: (dark: boolean, both: boolean, w: number, h: number) =>
+      `这是一个桌面应用，默认窗口尺寸为 ${w}×${h}。桌面并不意味着固定尺寸，请同时确定窗口变窄时的行为。${both ? "同时支持浅色与深色主题，并跟随系统设置切换。" : `只做${dark ? "深色" : "浅色"}主题。`}`,
     sketch:
-      "下面的屏幕结构是传达意图的草图，不是最终规格。不要把它当静态图片照搬，而要做成这类应用通常应具备的功能齐全、真正可用的成品。",
-    hColor: "## 配色",
-    dynamic:
-      "使用动态配色：在 Android 12 及以上应用由用户壁纸生成的配色方案（dynamicLightColorScheme / dynamicDarkColorScheme），不支持的设备则使用下面的颜色作为备用。",
-    colorIntro: (label: string, fallback: boolean, th: Theme) => {
-      const scheme = `Material 3 的${th.bothModes ? "浅色和深色" : th.dark ? "深色" : "浅色"}配色方案${th.contrast === "high" ? "（高对比度）" : th.contrast === "medium" ? "（中对比度）" : ""}`;
-      return `${fallback ? "备用主题" : "主题"}为 ${label} 系。请在${scheme}中设置以下颜色，UI 的所有颜色都通过这些角色引用。`;
-    },
-    hTheme: "## 形状、字体与动效",
-    hLayout: "## 屏幕结构",
-    empty: "屏幕上还没有放置任何组件。",
-    screens: (names: string[]) => `共有 ${names.length} 个屏幕：${names.join("、")}。`,
-    screenHead: (name: string, bg: string | undefined, has: boolean) => `${name}屏幕${bg ? `（背景为 ${bg}）` : ""}${has ? "从上到下依次如下（重叠的组件会特别说明）：" : "目前为空。"}`,
-    loose: "放在屏幕之外的组件（公共部件或参考）：",
-    freeform: "从上到下说明屏幕内容：",
-    hBehavior: "## 行为与屏幕跳转",
-    hStyle: "## 各组件的样式",
-    styleIntro: "以下是所用组件的参考。数值均为 M3 Expressive 的标准值，能用标准组件实现的就交给标准组件，并可根据内容适当调整。",
+      "下面的窗口结构是传达意图的草图，不是最终规格。不要把它当静态图片照搬，而要做成这类桌面应用通常应具备的功能齐全、真正可用的成品。",
+    hShell: "## 窗口骨架",
+    hColor: "## 主题",
+    colorIntro: (label: string, file: string | null) =>
+      file
+        ? `主题为 gpui-kit 自带的 ${label}（${file}）。请通过 ThemeRegistry 加载并应用，UI 的所有颜色都通过 cx.theme() 的语义角色引用。以下列出主要 token 供参考：`
+        : `主题为 ${label}。请把下面的 ThemeConfig 添加为主题文件，UI 的所有颜色都通过 cx.theme() 的语义角色引用。`,
+    schemeHead: (dark: boolean) => (dark ? "深色主题：" : "浅色主题："),
+    hTheme: "## 圆角、字体、密度与动效",
+    hLayout: "## 窗口结构",
+    empty: "窗口中还没有放置任何组件。",
+    windows: (names: string[]) => `共有 ${names.length} 个窗口（视图）：${names.join("、")}。`,
+    windowHead: (name: string, size: string, bg: string | undefined, has: boolean) =>
+      `${name}窗口（${size}${bg ? `，背景为 ${bg}` : ""}）的结构如下${has ? "（重叠的组件会特别说明）：" : "：目前为空。"}`,
+    loose: "放在窗口之外的组件（公共部件或参考）：",
+    freeform: "从上到下说明布局：",
+    hBehavior: "## 行为与视图切换",
+    hParts: "## 需要使用的组件",
     hGeneral: "## 整体原则",
   },
+};
+
+/** the theme file gpui-kit ships a palette in, when it ships one */
+const themeFileOf = (p: Palette): string | null => {
+  const [slug] = p.key.split(":");
+  if (!slug || slug === "custom") return null;
+  return slug === "default" ? "the built-in default theme" : `themes/${slug}.json`;
 };
 
 export function buildPrompt(doc: Doc, widths: Record<string, number>, onlyFrameId?: string, lang: Lang = getLang()): string {
   const th = normalizeTheme(doc.theme);
   const pal = paletteOf(doc.paletteKey, doc.customPalette, th);
-  const phone = doc.frame === "phone";
-  const platform: Platform = doc.platform ?? DEFAULT_PLATFORM;
-  const allFrames = phone ? doc.frames : [];
+  const windowed = doc.frame === "window";
+  const allFrames = windowed ? doc.frames : [];
   const only = onlyFrameId ? allFrames.find((f) => f.id === onlyFrameId) : undefined;
   const frames = only ? [only] : allFrames;
-  /* canvas order is the layer order; rows are worked out per screen. A hand-made
+  /* canvas order is the layer order; rows are worked out per window. A hand-made
    * group is written part by part, since it exists only to move things together. */
   const groups = doc.groups
     .filter((g) => !only || frameOfGroup(g, allFrames, widths)?.id === only.id)
@@ -970,35 +1063,39 @@ export function buildPrompt(doc: Doc, widths: Record<string, number>, onlyFrameI
   }
 
   const kindsUsed: Kind[] = [];
-  let sheet = false;
-  for (const g of groups)
-    for (const it of g.items) {
-      if (!kindsUsed.includes(it.kind)) kindsUsed.push(it.kind);
-      if (it.kind === "box" && it.checked) sheet = true;
-    }
-  const styleNotes = kindsUsed
-    .map((k) => (k === "box" && sheet ? STYLE_NOTES[lang].boxSheet : STYLE_NOTES[lang][k]))
-    .filter((s): s is string => !!s);
+  for (const g of groups) for (const it of g.items) if (!kindsUsed.includes(it.kind)) kindsUsed.push(it.kind);
 
-  const title = only ? ph.titleOnly(q(only.name || ph.screen)) : doc.title.trim() || ph.titleAll(frames.length);
+  const title = only ? ph.titleOnly(q(only.name || ph.window)) : doc.title.trim() || ph.titleAll(frames.length);
+  const mainFrame = frames[0];
+  const winW = mainFrame ? frameW(mainFrame) : WINDOW_W;
+  const winH = mainFrame ? frameH(mainFrame) : WINDOW_H;
   lines.push(ph.intro(title, doc.brief.trim()));
-  lines.push(ph.target(phone, th.dark, th.bothModes));
-  lines.push(ph.platform(platform));
+  lines.push(ph.target(th.dark, th.bothModes, winW, winH));
   lines.push(ph.sketch);
+
+  /* the shell comes before the parts: structure carries the product's intent */
+  const shells = Array.from(new Set(frames.map((f) => f.shell ?? DEFAULT_SHELL)));
+  if (shells.length) {
+    lines.push("");
+    lines.push(ph.hShell);
+    for (const shell of shells) lines.push(`- ${SHELL_TEXT[lang][shell]}`);
+  }
 
   lines.push("");
   lines.push(ph.hColor);
-  if (doc.dynamicColor) lines.push(ph.dynamic);
-  lines.push(ph.colorIntro(pal.label, !!doc.dynamicColor, th));
+  const file = themeFileOf(pal);
+  lines.push(ph.colorIntro(pal.label, file));
   if (th.bothModes) {
     const light = paletteOf(doc.paletteKey, doc.customPalette, { ...th, dark: false });
     const dark = paletteOf(doc.paletteKey, doc.customPalette, { ...th, dark: true });
     lines.push(ph.schemeHead(false));
-    lines.push(...paletteLines(light));
-    lines.push(ph.schemeHead(true));
-    lines.push(...paletteLines(dark));
+    lines.push(...themeJson(light, { ...th, dark: false }));
+    if (dark.key !== light.key) {
+      lines.push(ph.schemeHead(true));
+      lines.push(...themeJson(dark, { ...th, dark: true }));
+    }
   } else {
-    lines.push(...paletteLines(pal));
+    lines.push(...themeJson(pal, th));
   }
 
   lines.push("");
@@ -1010,43 +1107,56 @@ export function buildPrompt(doc: Doc, widths: Record<string, number>, onlyFrameI
   if (groups.length === 0) {
     lines.push(ph.empty);
   } else if (frames.length > 0) {
-    if (frames.length > 1) lines.push(ph.screens(frames.map((f) => q(f.name || ph.screen))));
+    if (frames.length > 1) lines.push(ph.windows(frames.map((f) => q(f.name || ph.window))));
     frames.forEach((f, i) => {
       const gs = byFrame.get(f.id) ?? [];
       if (i > 0 || frames.length > 1) lines.push("");
       if (hasText(f.note)) lines.push(lang === "en" ? `${trimEnd(f.note!)}.` : `${trimEnd(f.note!)}。`);
-      lines.push(ph.screenHead(q(f.name || ph.screen), f.bg && f.bg !== "surface" ? f.bg : undefined, gs.length > 0));
-      describeScreen(lines, gs, { l: f.x, t: f.y, r: f.x + PHONE_W, b: f.y + PHONE_H }, widths, lang);
+      lines.push(
+        ph.windowHead(
+          q(f.name || ph.window),
+          `${frameW(f)}×${frameH(f)}`,
+          f.bg && f.bg !== "background" ? TOKEN_NAMES[f.bg] ?? f.bg : undefined,
+          gs.length > 0,
+        ),
+      );
+      describeWindow(lines, gs, { l: f.x, t: f.y, r: f.x + frameW(f), b: f.y + frameH(f) }, widths, lang);
     });
     if (loose.length && !only) {
       lines.push("");
       lines.push(ph.loose);
-      describeScreen(lines, loose, null, widths, lang);
+      describeWindow(lines, loose, null, widths, lang);
     }
   } else {
     lines.push(ph.freeform);
-    describeScreen(lines, groups, null, widths, lang);
+    describeWindow(lines, groups, null, widths, lang);
   }
 
-  const behavior = [...groups.flatMap((g) => notes(g, allFrames, lang)), ...frames.flatMap((f) => swipeNotes(f, allFrames, lang))];
+  const behavior = groups.flatMap((g) => notes(g, allFrames, lang));
   if (behavior.length) {
     lines.push("");
     lines.push(ph.hBehavior);
     for (const n of behavior) lines.push(`- ${n}`);
   }
 
-  if (styleNotes.length) {
+  if (kindsUsed.length) {
     lines.push("");
-    lines.push(ph.hStyle);
-    lines.push(ph.styleIntro);
-    for (const s of styleNotes) lines.push(`- ${s}`);
+    lines.push(ph.hParts);
+    lines.push(API_HEAD[lang]);
+    for (const kind of kindsUsed) {
+      const spec = KIND_SPEC[kind];
+      const noun = KIND_TEXT[lang][kind]?.noun ?? kind;
+      const note = KIND_NOTES[lang][kind];
+      lines.push(`- ${noun}: \`${spec.api}\`${note ? ` — ${note}` : ""}`);
+    }
   }
 
   lines.push("");
   lines.push(ph.hGeneral);
-  for (const s of GENERAL[lang]) lines.push(`- ${typeof s === "function" ? s(platform) : s}`);
+  for (const s of GENERAL[lang]) lines.push(`- ${s}`);
   return lines.join("\n");
 }
 
 /** the prompt to hand out: the author's edited text when there is one, otherwise the generated one */
-export const effectivePrompt = (doc: Doc, widths: Record<string, number>, lang: Lang = getLang()): string => (doc.promptEdit !== undefined ? doc.promptEdit : buildPrompt(doc, widths, undefined, lang));
+export const effectivePrompt = (doc: Doc, widths: Record<string, number>, lang: Lang = getLang()): string =>
+  doc.promptEdit !== undefined ? doc.promptEdit : buildPrompt(doc, widths, undefined, lang);

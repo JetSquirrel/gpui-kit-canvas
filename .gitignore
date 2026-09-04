@@ -36,6 +36,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# wrangler (local dev state and generated types)
+.wrangler
+worker-configuration.d.ts
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

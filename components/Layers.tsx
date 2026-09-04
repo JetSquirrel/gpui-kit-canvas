@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { Reorder, useDragControls } from "motion/react";
 import { Frame, Group, KIND_SPEC, Palette } from "@/lib/tokens";
-import { Icon } from "./M3Node";
+import { Icon } from "./KitNode";
 import { IconBtn } from "./ui";
 import { t, useLang } from "@/lib/i18n";
 
@@ -35,7 +35,7 @@ function Row({
       ? `${t("group", lang)} × ${g.items.length}`
       : g.items.length > 1
       ? `${spec.label} × ${g.items.length}`
-      : first.label.trim() || (first.kind === "iconButton" || first.kind === "fab" ? (first.icon ?? spec.label) : spec.label);
+      : first.label.trim() || (first.kind === "iconButton" || first.kind === "icon" ? (first.icon ?? spec.label) : spec.label);
   return (
     <Reorder.Item
       value={g.id}
@@ -49,8 +49,8 @@ function Row({
         height: 40,
         padding: "0 4px 0 2px",
         borderRadius: 14,
-        background: on ? p.secondaryContainer : p.surfaceContainerLow,
-        color: on ? p.onSecondaryContainer : p.onSurface,
+        background: on ? p.secondary : p.muted,
+        color: on ? p.secondaryForeground : p.foreground,
         position: "relative",
         userSelect: "none",
       }}
@@ -60,9 +60,9 @@ function Row({
           e.preventDefault();
           controls.start(e);
         }}
-        style={{ cursor: "grab", color: p.outline, display: "grid", placeItems: "center", width: 24, height: 40, touchAction: "none" }}
+        style={{ cursor: "grab", color: p.border, display: "grid", placeItems: "center", width: 24, height: 40, touchAction: "none" }}
       >
-        <Icon name="drag_indicator" size={18} />
+        <Icon name="ellipsis-vertical" size={18} />
       </span>
       <button
         onClick={(e) => onSelect(e.shiftKey)}
@@ -81,13 +81,13 @@ function Row({
           textAlign: "left",
         }}
       >
-        <span style={{ display: "inline-flex", gap: 2, color: on ? p.onSecondaryContainer : p.primary }}>
-          {g.free ? <Icon name="group_work" size={18} /> : g.items.slice(0, 3).map((it, i) => <Icon key={i} name={KIND_SPEC[it.kind].paletteIcon} size={18} />)}
+        <span style={{ display: "inline-flex", gap: 2, color: on ? p.secondaryForeground : p.primary }}>
+          {g.free ? <Icon name="gallery-vertical-end" size={18} /> : g.items.slice(0, 3).map((it, i) => <Icon key={i} name={KIND_SPEC[it.kind].paletteIcon} size={18} />)}
         </span>
         <span style={{ fontSize: 12, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
       </button>
-      <IconBtn icon="keyboard_arrow_up" p={p} size={28} onClick={onUp} disabled={!canUp} title={t("layerUp", lang)} />
-      <IconBtn icon="keyboard_arrow_down" p={p} size={28} onClick={onDown} disabled={!canDown} title={t("layerDown", lang)} />
+      <IconBtn icon="chevron-up" p={p} size={28} onClick={onUp} disabled={!canUp} title={t("layerUp", lang)} />
+      <IconBtn icon="chevron-down" p={p} size={28} onClick={onDown} disabled={!canDown} title={t("layerDown", lang)} />
     </Reorder.Item>
   );
 }
@@ -136,14 +136,14 @@ export function LayersPanel({
               <button
                 key={f.id}
                 onClick={() => onFrame(f.id)}
-                className="m3-press"
+                className="kit-press"
                 style={{
                   height: 32,
                   padding: "0 12px 0 8px",
                   borderRadius: 16,
                   border: "none",
-                  background: on ? p.primary : p.surfaceContainerHigh,
-                  color: on ? p.onPrimary : p.onSurfaceVariant,
+                  background: on ? p.primary : p.accent,
+                  color: on ? p.primaryForeground : p.mutedForeground,
                   fontSize: 12,
                   fontWeight: 600,
                   cursor: "pointer",
@@ -154,7 +154,7 @@ export function LayersPanel({
                   flex: "0 0 auto",
                 }}
               >
-                <Icon name="smartphone" size={16} />
+                <Icon name="window-restore" size={16} />
                 {f.name || t("screen", lang)}
               </button>
             );
@@ -163,8 +163,8 @@ export function LayersPanel({
       )}
       <div className="no-scrollbar" style={{ flex: 1, overflowY: "auto", padding: "8px 10px 12px" }}>
         {topFirst.length === 0 ? (
-          <div style={{ padding: 24, textAlign: "center", color: p.outline, fontSize: 12 }}>
-            <Icon name="layers_clear" size={32} />
+          <div style={{ padding: 24, textAlign: "center", color: p.border, fontSize: 12 }}>
+            <Icon name="circle-x" size={32} />
             <div style={{ marginTop: 8 }}>{t("noLayers", lang)}</div>
           </div>
         ) : (

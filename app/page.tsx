@@ -19,14 +19,10 @@ import {
   baseRadii,
   explodeGroup,
   freeRadii,
-  BEZEL,
   canJoin,
   clamp,
   connectSpecOf,
-  DEFAULT_PLATFORM,
   Doc,
-  isPlatform,
-  Platform,
   Frame,
   FRAME_GAP,
   FRAME_LABEL_H,
@@ -48,15 +44,21 @@ import {
   Theme,
   fontFamilyOf,
   normalizeTheme,
+  localizeFrames,
+  localizeGroups,
+  setGlobalDensity,
   setGlobalShape,
   MEASURED,
-  NAV_BAR_H,
   Palette,
   paletteOf,
-  PHONE_H,
-  PHONE_MARGIN,
-  PHONE_R,
-  PHONE_W,
+  DEFAULT_SHELL,
+  TITLE_BAR_H,
+  WINDOW_H,
+  WINDOW_MARGIN,
+  WINDOW_R,
+  WINDOW_W,
+  frameH,
+  frameW,
   PULL_EXP,
   Radii,
   SETTLE_MS,
@@ -68,7 +70,7 @@ import {
   uid,
   uniformRadii,
 } from "@/lib/tokens";
-import { Icon, M3Node, M3Static, MeasuredContent } from "@/components/M3Node";
+import { Icon, KitNode, KitStatic, MeasuredContent } from "@/components/KitNode";
 import { LayersPanel } from "@/components/Layers";
 import { FrameInspector, Inspector } from "@/components/Inspector";
 import { Preview } from "@/components/Preview";
@@ -87,7 +89,7 @@ import { MotionPanel, ShapePanel, TypePanel } from "@/components/ThemePanel";
 import { ThemeContext, ensureFontLoaded } from "@/lib/theme";
 import { BottomSheet, MobileActionBar, MobileInspector, MobileLang, MobileSettings } from "@/components/Mobile";
 import { ConfirmDialog, IconBtn, Segmented } from "@/components/ui";
-import { Lang, LangContext, isLang, setGlobalLang, t } from "@/lib/i18n";
+import { DEFAULT_LANG, Lang, LangContext, isLang, setGlobalLang, t } from "@/lib/i18n";
 
 /** the dragged part's own travel: a little lag reads as weight */
 const CARRY = {
@@ -110,8 +112,8 @@ const RAIL_W = 52;
 const MIN_Z = 0.25;
 const MAX_Z = 3;
 const HISTORY_MAX = 100;
-const DOC_KEY = "m3e:doc";
-const UI_KEY = "m3e:ui";
+const DOC_KEY = "gpui-kit-canvas:doc";
+const UI_KEY = "gpui-kit-canvas:ui";
 
 type View = { x: number; y: number; z: number };
 type Snap = { groupId: string; index: number; pull: number };
@@ -119,7 +121,7 @@ type Snap = { groupId: string; index: number; pull: number };
 /** alignment guide: the snapped position plus the line to draw */
 type Guide = { x?: number; y?: number; gx?: number; gy?: number };
 const GUIDE_PX = 7;
-const FRAME_MARGIN = PHONE_MARGIN;
+const FRAME_MARGIN = WINDOW_MARGIN;
 
 type DragState = {
   item: Item;
@@ -161,82 +163,62 @@ type Gesture =
 
 type Snapshot = { groups: Group[]; frames: Frame[] };
 
-const SEED_FRAMES: Frame[] = [{ id: "seedF1", name: "Home", x: 0, y: 0 }];
+/** Seed ids are deterministic so server and client render the same markup, and
+ *  so is the name: `t` reads the module's default language until the browser's
+ *  is known. `localizeSeed` rebuilds it once that happens. */
+const seedFrames = (): Frame[] => [{ id: "seedF1", name: t("home"), x: 0, y: 0, shell: DEFAULT_SHELL }];
 
-/** Documents saved before the bars grew their system insets have the navigation
- *  bar flush with the old 80dp bottom; keep it on the bottom edge. */
-function migrateGroups(groups: Group[], frames: Frame[]): Group[] {
-  const oldNavH = KIND_SPEC.bottomNav.h - NAV_BAR_H;
-  return groups.map((g) => {
-    if (g.items.length !== 1 || g.items[0].kind !== "bottomNav") return g;
-    const f = frames.find((fr) => g.x >= fr.x - 1 && g.x <= fr.x + PHONE_W && g.y === fr.y + PHONE_H - oldNavH);
-    return f ? { ...g, y: f.y + PHONE_H - KIND_SPEC.bottomNav.h } : g;
-  });
-}
-
-/** Seed ids are deterministic so server and client render the same markup. */
+/** Seed ids are deterministic so server and client render the same markup.
+ *  The starter is the sidebar workspace the Design Guides put first: a title
+ *  bar across the top, navigation down the leading edge, a toolbar band, a
+ *  table in the work area and a status bar along the bottom. */
 const seed = (): Group[] => {
   let n = 0;
   const sid = () => `seed${++n}`;
   const mk = (k: Kind) => ({ ...makeItem(k), id: sid() });
-  const bar = mk("topAppBar");
-  const a = mk("button");
-  const b = mk("button");
-  a.label = "お気に入り";
-  a.icon = "star";
-  b.label = "共有";
-  b.icon = "share";
-  b.variant = "tonal";
-  const rows = ["受信トレイ", "スター付き", "アーカイブ"].map((t, i) => {
-    const it = mk("listItem");
-    it.label = t;
-    it.icon = ["inbox", "star", "archive"][i];
-    it.supporting = "サブテキスト";
-    return it;
-  });
-  const nav = mk("bottomNav");
-  const fab = mk("fab");
+  const bar = mk("titleBar");
+  const side = mk("sidebar");
+  const tools = mk("toolbar");
+  const crumbs = mk("breadcrumb");
+  const table = mk("dataTable");
+  const status = mk("statusBar");
+  const contentX = KIND_SPEC.sidebar.w + WINDOW_MARGIN;
+  const contentTop = TITLE_BAR_H;
+  table.size = WINDOW_W - contentX - WINDOW_MARGIN;
+  side.size2 = WINDOW_H - TITLE_BAR_H;
   return [
     { id: sid(), x: 0, y: 0, axis: "x", items: [bar] },
-    { id: sid(), x: PHONE_MARGIN, y: 96, axis: "x", items: [a, b] },
-    { id: sid(), x: PHONE_MARGIN, y: 184, axis: "y", items: rows },
-    {
-      id: sid(),
-      x: PHONE_W - 56 - PHONE_MARGIN,
-      y: PHONE_H - KIND_SPEC.bottomNav.h - 56 - PHONE_MARGIN,
-      axis: "x",
-      items: [fab],
-    },
-    { id: sid(), x: 0, y: PHONE_H - KIND_SPEC.bottomNav.h, axis: "x", items: [nav] },
+    { id: sid(), x: 0, y: contentTop, axis: "x", items: [side] },
+    { id: sid(), x: contentX, y: contentTop + WINDOW_MARGIN, axis: "x", items: [tools] },
+    { id: sid(), x: contentX, y: contentTop + WINDOW_MARGIN + 48, axis: "x", items: [crumbs] },
+    { id: sid(), x: contentX, y: contentTop + WINDOW_MARGIN + 88, axis: "x", items: [table] },
+    { id: sid(), x: 0, y: WINDOW_H - KIND_SPEC.statusBar.h, axis: "x", items: [status] },
   ];
 };
 
-/** The phone version starts with buttons only: that is all it edits. */
+/** The phone version of the editor starts with buttons only: that is all it edits. */
 const mobileSeed = (): Group[] => {
   const mk = (k: Kind) => makeItem(k);
   const a = mk("button");
   const b = mk("button");
   const c = mk("button");
-  a.label = "お気に入り";
-  a.icon = "star";
-  b.label = "共有";
-  b.icon = "share";
-  b.variant = "tonal";
-  c.label = "はじめる";
-  c.icon = "arrow_forward";
+  a.label = "Save";
+  a.icon = "check";
+  a.variant = "primary";
+  b.label = "Cancel";
+  c.label = "Open";
+  c.icon = "folder-open";
   return [
-    { id: uid(), x: PHONE_MARGIN, y: 120, axis: "x", items: [a, b] },
-    { id: uid(), x: PHONE_MARGIN, y: 200, axis: "x", items: [c] },
+    { id: uid(), x: WINDOW_MARGIN, y: 120, axis: "x", items: [a, b] },
+    { id: uid(), x: WINDOW_MARGIN, y: 200, axis: "x", items: [c] },
   ];
 };
 
-/** While the model works on a screen, the scheme's colors drift through its bezel. */
-function ThinkingRing({ p }: { p: Palette }) {
+/** While the model works on a window, the theme's colours sweep its border. */
+function ThinkingRing({ p, w, h }: { p: Palette; w: number; h: number }) {
   const still = useReducedMotion();
-  const w = PHONE_W + BEZEL * 2;
-  const h = PHONE_H + BEZEL * 2;
   const d = Math.ceil(Math.hypot(w, h)) + 80;
-  const stops = [p.primary, p.tertiaryContainer, p.inversePrimary, p.secondaryContainer, p.primaryContainer, p.primary];
+  const stops = [p.primary, p.muted, p.primaryHover, p.secondary, p.accent, p.primary];
   return (
     <motion.div
       aria-hidden
@@ -268,25 +250,24 @@ function ThinkingRing({ p }: { p: Palette }) {
 type LeftTab = "parts" | "layers" | "color" | "shape" | "type" | "motion" | "ai";
 /** the left rail: parts and layers, then the four theme axes of the whole design */
 const LEFT_TABS: { key: LeftTab; icon: string; title: "parts" | "layers" | "colors" | "shape" | "typography" | "motion" | "ai" }[] = [
-  { key: "parts", icon: "add_box", title: "parts" },
-  { key: "layers", icon: "layers", title: "layers" },
+  { key: "parts", icon: "plus", title: "parts" },
+  { key: "layers", icon: "gallery-vertical-end", title: "layers" },
   { key: "color", icon: "palette", title: "colors" },
-  { key: "shape", icon: "rounded_corner", title: "shape" },
-  { key: "type", icon: "text_fields", title: "typography" },
-  { key: "motion", icon: "animation", title: "motion" },
-  { key: "ai", icon: "auto_awesome", title: "ai" },
+  { key: "shape", icon: "frame", title: "shape" },
+  { key: "type", icon: "case-sensitive", title: "typography" },
+  { key: "motion", icon: "play", title: "motion" },
+  { key: "ai", icon: "bot", title: "ai" },
 ];
 
 export default function Page() {
   /* ---------- document ---------- */
   const [groups, setGroups] = useState<Group[]>(seed);
-  const [frames, setFrames] = useState<Frame[]>(SEED_FRAMES);
+  const [frames, setFrames] = useState<Frame[]>(seedFrames);
   const [paletteKey, setPaletteKey] = useState("purple");
   const [customPalette, setCustomPalette] = useState<Palette | null>(null);
-  const [dynamicColor, setDynamicColor] = useState(false);
   const [theme, setTheme] = useState<Theme>(DEFAULT_THEME);
   const patchTheme = (patch: Partial<Theme>) => setTheme((t) => ({ ...t, ...patch }));
-  const [frame, setFrame] = useState<FrameMode>("phone");
+  const [frame, setFrame] = useState<FrameMode>("window");
   const [lang, setLang] = useState<Lang>("ja");
   const [isMobile, setIsMobile] = useState(false);
   const [sheet, setSheet] = useState<"edit" | "settings" | "lang" | null>(null);
@@ -297,7 +278,6 @@ export default function Page() {
   const [title, setTitle] = useState("");
   const [brief, setBrief] = useState("");
   const [promptEdit, setPromptEdit] = useState<string | undefined>(undefined);
-  const [platform, setPlatform] = useState<Platform>(DEFAULT_PLATFORM);
   /** a project file waiting for the author to confirm replacing the canvas */
   const [pendingImport, setPendingImport] = useState<Doc | null>(null);
 
@@ -340,8 +320,9 @@ export default function Page() {
   const aiAbortRef = useRef<AbortController | null>(null);
 
   const p = paletteOf(paletteKey, customPalette, theme);
-  /* corner helpers read the shape scale outside React; keep it current before anything renders */
-  setGlobalShape(theme.shape);
+  /* corner and size helpers read these outside React; keep them current before anything renders */
+  setGlobalShape(theme.radius);
+  setGlobalDensity(theme.density);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const measureEls = useRef<Map<string, HTMLElement>>(new Map());
@@ -444,16 +425,18 @@ export default function Page() {
   /* ---------- persistence ---------- */
   /** Puts a stored or opened document into the editor. Fields a partial document
    *  leaves out keep their current value, or go back to the default when `reset`. */
+  /** the language the open document's built-in defaults are written in; an older
+   *  document that never recorded one was written with the module default */
+  const docLangRef = useRef<Lang>(DEFAULT_LANG);
+
   const applyDoc = (doc: Partial<Doc>, reset: boolean) => {
-    const frames = Array.isArray(doc.frames) ? doc.frames : framesRef.current;
-    if (Array.isArray(doc.groups)) setGroups(migrateGroups(doc.groups, frames));
+    docLangRef.current = isLang(doc.lang) ? doc.lang : DEFAULT_LANG;
+    if (Array.isArray(doc.groups)) setGroups(doc.groups);
     if (Array.isArray(doc.frames)) setFrames(doc.frames);
     if (typeof doc.paletteKey === "string" && doc.paletteKey) setPaletteKey(doc.paletteKey);
-    else if (reset) setPaletteKey("purple");
+    else if (reset) setPaletteKey("default:light");
     if (doc.customPalette && typeof doc.customPalette.primary === "string") setCustomPalette(doc.customPalette);
     else if (reset) setCustomPalette(null);
-    if (typeof doc.dynamicColor === "boolean") setDynamicColor(doc.dynamicColor);
-    else if (reset) setDynamicColor(false);
     if (doc.theme && typeof doc.theme === "object") setTheme(normalizeTheme(doc.theme));
     else if (reset) setTheme(normalizeTheme(undefined));
     if (typeof doc.title === "string") setTitle(doc.title);
@@ -462,13 +445,12 @@ export default function Page() {
     else if (reset) setBrief("");
     if (typeof doc.promptEdit === "string") setPromptEdit(doc.promptEdit);
     else if (reset) setPromptEdit(undefined);
-    if (isPlatform(doc.platform)) setPlatform(doc.platform);
-    else if (reset) setPlatform(DEFAULT_PLATFORM);
   };
 
   useEffect(() => {
     // React's development double-run would otherwise read back its own first save
     if (loadedRef.current) return;
+    let resolved: Lang = DEFAULT_LANG;
     try {
       const d = localStorage.getItem(DOC_KEY);
       if (d) {
@@ -486,21 +468,50 @@ export default function Page() {
         if (ui.rightW) setRightW(ui.rightW);
         if (Array.isArray(ui.favorites)) setFavorites(ui.favorites);
         if (ui.mode) setMode(ui.mode);
-        if (isLang(ui.lang)) setLang(ui.lang);
+        if (isLang(ui.lang)) {
+          setLang(ui.lang);
+          resolved = ui.lang;
+        }
       } else {
         const nl = (navigator.language ?? "").toLowerCase();
-        if (nl.startsWith("zh")) setLang("zh");
-        else if (!nl.startsWith("ja")) setLang("en");
+        resolved = nl.startsWith("zh") ? "zh" : nl.startsWith("ja") ? "ja" : "en";
+        setLang(resolved);
         queueMicrotask(() => fitRef.current());
+      }
+      /* The seed is built while rendering, before the browser's language is
+       * known, because the server and the client have to agree on the markup.
+       * Now that the language is settled, rebuild the starter content in it. A
+       * restored document is the author's own and is left exactly as saved. */
+      if (!hadDocRef.current && resolved !== DEFAULT_LANG) {
+        setGlobalLang(resolved);
+        docLangRef.current = resolved;
+        setGroups(seed());
+        setFrames(seedFrames());
+        setWidths({});
       }
     } catch {}
     setAiSettings(loadAiSettings());
     loadedRef.current = true;
   }, []);
 
+  /** Every part stores the text it was created with, so a document written before
+   *  the language was known — or saved by someone using another one — carries
+   *  that language's defaults. Move the starter content onto `to`; anything the
+   *  author typed does not match a default and is left exactly as it is. */
+  const localizeDoc = (to: Lang) => {
+    if (docLangRef.current === to) return;
+    docLangRef.current = to;
+    setGroups((gs) => localizeGroups(gs, to));
+    setFrames((fs) => localizeFrames(fs, to));
+    setWidths({});
+  };
+  const localizeDocRef = useRef(localizeDoc);
+  localizeDocRef.current = localizeDoc;
+
   useEffect(() => {
     setGlobalLang(lang);
     document.documentElement.lang = lang;
+    localizeDocRef.current(lang);
   }, [lang]);
 
   useEffect(() => {
@@ -510,9 +521,9 @@ export default function Page() {
 
   /* the page background outside the app root follows the scheme, so dark mode has no white edges */
   useEffect(() => {
-    document.body.style.background = p.surface;
-    document.body.style.color = p.onSurface;
-  }, [p.surface, p.onSurface]);
+    document.body.style.background = p.background;
+    document.body.style.color = p.foreground;
+  }, [p.background, p.foreground]);
 
   /* in-app browsers size the page behind their own toolbars and may ignore dvh,
      so the measured inner height wins over the CSS height (innerHeight, not the
@@ -556,12 +567,12 @@ export default function Page() {
         if (!hadDocRef.current) {
           hadDocRef.current = true;
           setGroups(mobileSeed());
-          setFrames([{ id: uid(), name: t("home"), x: 0, y: 0 }]);
+          setFrames([{ id: uid(), name: t("home"), x: 0, y: 0, shell: DEFAULT_SHELL }]);
         }
       }
-      if (frameRef.current !== "phone") {
-        setFrame("phone");
-        frameRef.current = "phone";
+      if (frameRef.current !== "window") {
+        setFrame("window");
+        frameRef.current = "window";
       }
       ensureFrameRef.current();
       queueMicrotask(() => fitRef.current());
@@ -571,15 +582,24 @@ export default function Page() {
     return () => mq.removeEventListener("change", apply);
   }, []);
 
+  /* On a phone the fit is driven by the window's width, so it has to run again
+   * once that width is actually known: the refs `fit` reads settle a render
+   * after the state that created the window does. */
+  const fitW = frames.length ? Math.max(...frames.map((f) => f.x + frameW(f))) : 0;
+  useEffect(() => {
+    if (!isMobile) return;
+    fitRef.current();
+  }, [isMobile, fitW]);
+
   useEffect(() => {
     if (!loadedRef.current) return;
     try {
       localStorage.setItem(
         DOC_KEY,
-        JSON.stringify({ groups, frames, paletteKey, frame, title, brief, promptEdit, platform, customPalette: customPalette ?? undefined, dynamicColor, theme }),
+        JSON.stringify({ groups, frames, paletteKey, frame, title, brief, promptEdit, customPalette: customPalette ?? undefined, theme, lang }),
       );
     } catch {}
-  }, [groups, frames, paletteKey, frame, title, brief, promptEdit, platform, customPalette, dynamicColor, theme]);
+  }, [groups, frames, paletteKey, frame, title, brief, promptEdit, customPalette, theme, lang]);
 
   useEffect(() => {
     if (!loadedRef.current) return;
@@ -674,16 +694,16 @@ export default function Page() {
     const r = canvasRect();
     if (!r) return;
     const gs = groupsRef.current;
-    let x0 = -BEZEL;
-    let y0 = -BEZEL - FRAME_LABEL_H;
-    let x1 = PHONE_W + BEZEL;
-    let y1 = PHONE_H + BEZEL;
+    let x0 = 0;
+    let y0 = -FRAME_LABEL_H;
+    let x1 = WINDOW_W;
+    let y1 = WINDOW_H;
     const fs = framesRef.current;
-    if (frameRef.current === "phone" && fs.length > 0) {
-      x0 = Math.min(...fs.map((f) => f.x)) - BEZEL;
-      y0 = Math.min(...fs.map((f) => f.y)) - BEZEL - FRAME_LABEL_H;
-      x1 = Math.max(...fs.map((f) => f.x)) + PHONE_W + BEZEL;
-      y1 = Math.max(...fs.map((f) => f.y)) + PHONE_H + BEZEL;
+    if (frameRef.current === "window" && fs.length > 0) {
+      x0 = Math.min(...fs.map((f) => f.x));
+      y0 = Math.min(...fs.map((f) => f.y)) - FRAME_LABEL_H;
+      x1 = Math.max(...fs.map((f) => f.x + frameW(f)));
+      y1 = Math.max(...fs.map((f) => f.y + frameH(f)));
     }
     if (frameRef.current === "blank") {
       if (gs.length === 0) {
@@ -708,7 +728,7 @@ export default function Page() {
     const top = mobile ? 96 : 84; // keep the floating toolbar clear of the frame
     const bottom = mobile ? 96 : pad;
     if (mobile) {
-      // a phone zooms to the screen's width and starts at its top; the rest scrolls
+      // a phone zooms to the window's width and starts at its top; the rest scrolls
       const z = clamp((r.width - pad * 2) / (x1 - x0), MIN_Z, MAX_Z);
       setView({ x: (r.width - (x1 - x0) * z) / 2 - x0 * z, y: top - y0 * z, z });
       return;
@@ -867,21 +887,21 @@ export default function Page() {
           ys.push(pl.y, pl.y + pl.h / 2, pl.y + pl.h);
         }
       }
-      if (frameRef.current === "phone") {
+      if (frameRef.current === "window") {
         for (const f of framesRef.current) {
           xs.push(
             f.x,
             f.x + FRAME_MARGIN,
-            f.x + PHONE_W / 2,
-            f.x + PHONE_W - FRAME_MARGIN,
-            f.x + PHONE_W,
+            f.x + frameW(f) / 2,
+            f.x + frameW(f) - FRAME_MARGIN,
+            f.x + frameW(f),
           );
           ys.push(
             f.y,
             f.y + FRAME_MARGIN,
-            f.y + PHONE_H / 2,
-            f.y + PHONE_H - FRAME_MARGIN,
-            f.y + PHONE_H,
+            f.y + frameH(f) / 2,
+            f.y + frameH(f) - FRAME_MARGIN,
+            f.y + frameH(f),
           );
         }
       }
@@ -1429,7 +1449,7 @@ export default function Page() {
    *  Otherwise the near (left / top) edge stays put, as the sliders always did. */
   const resizeShift = (g: Group, before: Item, after: Item) => {
     const none = { dx: 0, dy: 0 };
-    if (g.items.length !== 1 || frameRef.current !== "phone") return none;
+    if (g.items.length !== 1 || frameRef.current !== "window") return none;
     const f = frameOfGroup(g, framesRef.current, widthsRef.current);
     if (!f) return none;
     const a = sizeOf(before, widthsRef.current);
@@ -1443,8 +1463,8 @@ export default function Page() {
       return 0;
     };
     return {
-      dx: shift(g.x, a.w, b.w, f.x, PHONE_W),
-      dy: shift(g.y, a.h, b.h, f.y, PHONE_H),
+      dx: shift(g.x, a.w, b.w, f.x, frameW(f)),
+      dy: shift(g.y, a.h, b.h, f.y, frameH(f)),
     };
   };
 
@@ -1668,10 +1688,11 @@ export default function Page() {
     hadDocRef.current = true;
     applyDoc(next, true);
     if (!mobileRef.current) {
-      const nextFrame = next.frame === "blank" ? "blank" : "phone";
+      const nextFrame = next.frame === "blank" ? "blank" : "window";
       setFrame(nextFrame);
       frameRef.current = nextFrame;
     }
+    localizeDoc(langRef.current);
     setSelectedIds([]);
     setSelectedFrameId(null);
     setSelectedLinkId(null);
@@ -1690,7 +1711,7 @@ export default function Page() {
 
   /** the screen the tidy button works on: the selected one, or the one under the selected part */
   const tidyTarget = useMemo((): Frame | null => {
-    if (frame !== "phone" || isMobile) return null;
+    if (frame !== "window" || isMobile) return null;
     if (selectedFrame) return selectedFrame;
     if (!primaryId) return null;
     const g = groups.find((g) => g.items.some((it) => it.id === primaryId));
@@ -1699,7 +1720,7 @@ export default function Page() {
 
   const nextFrameX = () =>
     framesRef.current.length
-      ? Math.max(...framesRef.current.map((f) => f.x)) + PHONE_W + FRAME_GAP
+      ? Math.max(...framesRef.current.map((f) => f.x + frameW(f))) + FRAME_GAP
       : 0;
 
   /** Entering phone mode with no frames wraps the existing parts in one. */
@@ -1713,7 +1734,7 @@ export default function Page() {
       const l = Math.min(...bbs.map((b) => b.l));
       const t = Math.min(...bbs.map((b) => b.t));
       const r = Math.max(...bbs.map((b) => b.r));
-      x = Math.round(Math.max(l - 24, r - PHONE_W + 24 > l ? l : l - 24));
+      x = Math.round(Math.max(l - 24, r - WINDOW_W + 24 > l ? l : l - 24));
       y = Math.round(t - 72);
       x = Math.min(x, l);
       y = Math.min(y, t);
@@ -1736,14 +1757,14 @@ export default function Page() {
     let x = ((r?.width ?? 0) / 2 - v.x) / v.z - sz.w / 2;
     let y = ((r?.height ?? 0) / 2 - v.y) / v.z - sz.h / 2;
     if (f) {
-      const lx = f.x + Math.min(FRAME_MARGIN, (PHONE_W - sz.w) / 2);
-      const ly = f.y + Math.min(FRAME_MARGIN, (PHONE_H - sz.h) / 2);
-      x = clamp(x, lx, Math.max(lx, f.x + PHONE_W - FRAME_MARGIN - sz.w));
-      y = clamp(y, ly, Math.max(ly, f.y + PHONE_H - FRAME_MARGIN - sz.h));
+      const lx = f.x + Math.min(FRAME_MARGIN, (frameW(f) - sz.w) / 2);
+      const ly = f.y + Math.min(FRAME_MARGIN, (frameH(f) - sz.h) / 2);
+      x = clamp(x, lx, Math.max(lx, f.x + frameW(f) - FRAME_MARGIN - sz.w));
+      y = clamp(y, ly, Math.max(ly, f.y + frameH(f) - FRAME_MARGIN - sz.h));
       const taken = (yy: number) =>
         itemRects().some((o) => o.l < x + sz.w && o.r > x && o.t < yy + sz.h && o.b > yy);
       let tries = 0;
-      while (taken(y) && y + sz.h * 2 < f.y + PHONE_H && tries++ < 12) y += sz.h + 12;
+      while (taken(y) && y + sz.h * 2 < f.y + frameH(f) && tries++ < 12) y += sz.h + 12;
     }
     snapshot();
     setGroups((gs) => [
@@ -1766,7 +1787,7 @@ export default function Page() {
     snapshot();
     setFrame(f);
     frameRef.current = f;
-    if (f === "phone") ensureFrame();
+    if (f === "window") ensureFrame();
     setSelectedFrameId(null);
     setSelectedLinkId(null);
     queueMicrotask(() => fitRef.current());
@@ -1788,8 +1809,8 @@ export default function Page() {
     if (r) {
       const z = viewRef.current.z;
       setView({
-        x: r.width / 2 - (f.x + PHONE_W / 2) * z,
-        y: r.height / 2 - (f.y + PHONE_H / 2) * z,
+        x: r.width / 2 - (f.x + frameW(f) / 2) * z,
+        y: r.height / 2 - (f.y + frameH(f) / 2) * z,
         z,
       });
     }
@@ -1882,7 +1903,7 @@ export default function Page() {
       setGroups((gs) => gs.map((g) => (g.items.some((it) => it.id === itemId) ? { ...g, items: g.items.map((it) => (it.id === itemId ? { ...it, note, noteHistory: pushHistory(it.noteHistory, it.note) } : it)) } : g)));
       showAiNote(t("aiApplied", lang));
     } catch (e) {
-      if (!ac.signal.aborted) showToast(aiErrorText(e, lang), 4000, "error");
+      if (!ac.signal.aborted) showToast(aiErrorText(e, lang), 4000, "danger");
     } finally {
       if (aiAbortRef.current === ac) {
         aiAbortRef.current = null;
@@ -1917,15 +1938,7 @@ export default function Page() {
           .filter((g) => frameOfGroup(g, framesRef.current, widthsRef.current)?.id === id)
           .map((g) => g.id),
       );
-      setFrames((fs) =>
-        fs
-          .filter((f) => f.id !== id)
-          .map((f) => {
-            if (!f.swipe) return f;
-            const swipe = Object.fromEntries(Object.entries(f.swipe).filter(([, to]) => to !== id));
-            return { ...f, swipe: Object.keys(swipe).length ? swipe : undefined };
-          }),
-      );
+      setFrames((fs) => fs.filter((f) => f.id !== id));
       setGroups((gs) =>
         gs
           .filter((g) => !gone.has(g.id))
@@ -1996,10 +2009,10 @@ export default function Page() {
       await document.fonts?.ready;
       const el = document.querySelector<HTMLElement>(`[data-export="${f.id}"]`);
       if (!el) return;
-      const url = await toPng(el, { pixelRatio: 2, cacheBust: true, width: PHONE_W, height: PHONE_H });
+      const url = await toPng(el, { pixelRatio: 2, cacheBust: true, width: frameW(f), height: frameH(f) });
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${f.name || "screen"}.png`;
+      a.download = `${f.name || "window"}.png`;
       a.click();
     } finally {
       setExportFrame(null);
@@ -2014,9 +2027,9 @@ export default function Page() {
         data-export={f.id}
         style={{
           position: "relative",
-          width: PHONE_W,
-          height: PHONE_H,
-          background: p[f.bg ?? "surface"],
+          width: frameW(f),
+          height: frameH(f),
+          background: p[f.bg ?? "background"],
           overflow: "hidden",
         }}
       >
@@ -2025,7 +2038,7 @@ export default function Page() {
             ((corners) =>
             layoutOf(g, widths).map((pl) => (
               <div key={pl.item.id} style={{ position: "absolute", left: pl.x - f.x, top: pl.y - f.y }}>
-                <M3Static
+                <KitStatic
                   item={pl.item}
                   palette={p}
                   radii={corners.get(pl.item.id)}
@@ -2056,7 +2069,7 @@ export default function Page() {
                     ? uniformRadii(conn.outer)
                     : baseRadii(it);
               return (
-                <M3Static
+                <KitStatic
                   key={it.id}
                   item={it}
                   palette={p}
@@ -2073,8 +2086,8 @@ export default function Page() {
   };
 
   const openPreview = (startId?: string | null) => {
-    if (frame !== "phone") {
-      changeFrame("phone");
+    if (frame !== "window") {
+      changeFrame("window");
     }
     queueMicrotask(() =>
       setPreviewId(
@@ -2188,13 +2201,13 @@ export default function Page() {
   const dragSize = drag ? sizeOf(drag.item, widths) : { w: 0, h: 0 };
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const doc: Doc = useMemo(
-    () => ({ groups, frames, paletteKey, frame, title, brief, promptEdit, platform, customPalette: customPalette ?? undefined, dynamicColor, theme }),
-    [groups, frames, paletteKey, frame, title, brief, promptEdit, platform, customPalette, dynamicColor, theme],
+    () => ({ groups, frames, paletteKey, frame, title, brief, promptEdit, customPalette: customPalette ?? undefined, theme, lang }),
+    [groups, frames, paletteKey, frame, title, brief, promptEdit, customPalette, theme, lang],
   );
 
   /** arrows from tappable parts to the frames they open */
   const links = useMemo(() => {
-    if (frame !== "phone") return [];
+    if (frame !== "window") return [];
     const rects = itemRects();
     const out: {
       id: string;
@@ -2214,10 +2227,10 @@ export default function Page() {
         const r = rects.find((x) => x.id === it.id);
         if (!f || !r) continue;
         const fr = frameRect(f);
-        const rightward = fr.l + PHONE_W / 2 >= (r.l + r.r) / 2;
+        const rightward = (fr.l + fr.r) / 2 >= (r.l + r.r) / 2;
         const sx = rightward ? r.r : r.l;
         const sy = (r.t + r.b) / 2;
-        const tx = rightward ? fr.l - BEZEL : fr.r + BEZEL;
+        const tx = rightward ? fr.l : fr.r;
         const ty = clamp(sy, fr.t + 40, fr.b - 40);
         const dx = Math.max(60, Math.abs(tx - sx) * 0.5);
         const c1x = sx + (rightward ? dx : -dx);
@@ -2294,7 +2307,7 @@ export default function Page() {
   /** which frame each run sits on (phone mode only) */
   const frameOf = useMemo(() => {
     const m = new Map<string, string>();
-    if (frame !== "phone") return m;
+    if (frame !== "window") return m;
     for (const g of groups) {
       const f = frameOfGroup(g, frames, widths);
       if (f) m.set(g.id, f.id);
@@ -2304,7 +2317,7 @@ export default function Page() {
 
   /** the screen whose layers the panel lists: the selection's, else the chosen one */
   const layersFrame = useMemo(() => {
-    if (frame !== "phone") return null;
+    if (frame !== "window") return null;
     if (primaryId) {
       const g = groups.find((x) => x.items.some((it) => it.id === primaryId));
       const fid = g ? frameOf.get(g.id) : undefined;
@@ -2342,7 +2355,7 @@ export default function Page() {
         >
           {layoutOf(g, widths).map((pl) => (
             <div key={pl.item.id} style={{ position: "absolute", left: pl.x - g.x, top: pl.y - g.y }}>
-              <M3Node
+              <KitNode
                 item={pl.item}
                 palette={p}
                 widths={widths}
@@ -2440,7 +2453,7 @@ export default function Page() {
                 )
               : baseRadii(c.item);
           return (
-            <M3Node
+            <KitNode
               key={c.item.id}
               item={c.item}
               palette={p}
@@ -2460,10 +2473,10 @@ export default function Page() {
   const handMode = !isMobile && (mode === "hand" || spaceHeld);
   const panning = gesture?.kind === "pan";
   const marquee = gesture?.kind === "marquee" && gesture.moved ? gesture : null;
-  const canvasBg = frame === "phone" ? p.surfaceContainerLow : "#ffffff";
+  const canvasBg = frame === "window" ? p.muted : "#ffffff";
 
   const panelStyle: React.CSSProperties = {
-    background: p.surface,
+    background: p.background,
     display: "flex",
     flexDirection: "column",
     overflow: "hidden",
@@ -2491,10 +2504,10 @@ export default function Page() {
         style={{
           display: "flex",
           overflow: "hidden",
-          background: p.surfaceContainer,
+          background: p.muted,
           cursor: resizing ? "col-resize" : undefined,
           userSelect: resizing ? "none" : undefined,
-          ["--sb" as string]: p.outlineVariant,
+          ["--sb" as string]: p.border,
         }}
       >
         {/* hidden measuring layer for text-sized kinds */}
@@ -2522,10 +2535,7 @@ export default function Page() {
                   display: "inline-flex",
                   boxSizing: "border-box",
                   border:
-                    it.variant === "outlined" &&
-                    (it.kind === "button" ||
-                      it.kind === "chip" ||
-                      it.kind === "extendedFab")
+                    (it.variant === "outline" || it.variant === "default") && it.kind === "button"
                       ? "1px solid transparent"
                       : "none",
                 }}
@@ -2559,18 +2569,18 @@ export default function Page() {
                 alignItems: "center",
                 gap: 6,
                 padding: "10px 0",
-                background: p.surfaceContainerLow,
+                background: p.muted,
                 cursor: leftOpen ? undefined : "pointer",
               }}
             >
               {!leftOpen && railHover ? (
-                <IconBtn icon="left_panel_open" p={p} on onClick={() => setLeftOpen(true)} title={t("openPanel", lang)} size={40} />
+                <IconBtn icon="panel-left-open" p={p} on onClick={() => setLeftOpen(true)} title={t("openPanel", lang)} size={40} />
               ) : (
                 <div
                   onClick={() => !leftOpen && setLeftOpen(true)}
                   style={{ width: 40, height: 40, display: "grid", placeItems: "center", cursor: leftOpen ? "default" : "pointer" }}
                 >
-                  <Logo size={32} color={p.primary} glyph={p.onPrimary} />
+                  <Logo size={32} color={p.primary} glyph={p.primaryForeground} />
                 </div>
               )}
               <div style={{ height: 6 }} />
@@ -2607,14 +2617,14 @@ export default function Page() {
                   style={{
                     fontWeight: 700,
                     fontSize: 14,
-                    color: p.onSurface,
+                    color: p.foreground,
                     flex: 1,
                   }}
                 >
                   {t(LEFT_TABS.find((x) => x.key === leftTab)?.title ?? "parts", lang)}
                 </span>
                 <IconBtn
-                  icon="left_panel_close"
+                  icon="panel-left-close"
                   p={p}
                   onClick={() => setLeftOpen(false)}
                   title={t("closePanel", lang)}
@@ -2640,8 +2650,6 @@ export default function Page() {
                     onPalette={setPaletteKey}
                     custom={customPalette}
                     onCustom={setCustomPalette}
-                    dynamic={dynamicColor}
-                    onDynamic={setDynamicColor}
                     theme={theme}
                     onTheme={patchTheme}
                   />
@@ -2731,10 +2739,10 @@ export default function Page() {
                 fontFamily: fontFamilyOf(theme.font),
               }}
             >
-              {frame === "phone" &&
+              {frame === "window" &&
                 frames.map((f) => {
                   const on = f.id === selectedFrameId;
-                  const bg = p[f.bg ?? "surface"];
+                  const bg = p[f.bg ?? "background"];
                   return (
                     <div
                       key={f.id}
@@ -2745,54 +2753,55 @@ export default function Page() {
                         onPointerDown={(e) => onFramePointerDown(e, f)}
                         style={{
                           position: "absolute",
-                          left: -BEZEL,
-                          top: -BEZEL - FRAME_LABEL_H,
+                          left: 0,
+                          top: -FRAME_LABEL_H,
                           height: FRAME_LABEL_H,
                           display: "flex",
                           alignItems: "center",
                           gap: 8,
                           padding: "0 8px",
-                          fontSize: 17,
+                          fontSize: 15,
                           fontWeight: 600,
-                          color: on ? p.primary : p.onSurfaceVariant,
+                          color: on ? p.primary : p.mutedForeground,
                           cursor: handMode ? "grab" : "move",
                           userSelect: "none",
                           whiteSpace: "nowrap",
-                          fontFamily: "Roboto, system-ui, sans-serif",
+                          fontFamily: "system-ui, -apple-system, sans-serif",
                         }}
                       >
-                        <Icon name="smartphone" size={20} />
+                        <Icon name="window-restore" size={20} />
                         {f.name || t("screen", lang)}
                       </div>
                       <div
                         onPointerDown={(e) => onFramePointerDown(e, f)}
                         style={{
                           position: "absolute",
-                          left: -BEZEL,
-                          top: -BEZEL,
+                          left: 0,
+                          top: 0,
                           overflow: "hidden",
-                          width: PHONE_W + BEZEL * 2,
-                          height: PHONE_H + BEZEL * 2,
-                          borderRadius: PHONE_R + BEZEL,
-                          background: p.inverseSurface,
+                          width: frameW(f),
+                          height: frameH(f),
+                          borderRadius: WINDOW_R,
+                          boxSizing: "border-box",
+                          border: `1px solid ${p.windowBorder}`,
+                          background: bg,
                           boxShadow: on
-                            ? `0 0 0 3px ${p.primary}, 0 18px 50px rgba(0,0,0,0.16)`
-                            : "0 18px 50px rgba(0,0,0,0.14)",
+                            ? `0 0 0 2px ${p.ring}, 0 16px 44px rgba(0,0,0,0.14)`
+                            : "0 16px 44px rgba(0,0,0,0.12)",
                           cursor: handMode ? "grab" : "move",
                           transition: "box-shadow 120ms",
                         }}
                       >
-                        <AnimatePresence>{aiFrameId === f.id && <ThinkingRing key="ring" p={p} />}</AnimatePresence>
+                        <AnimatePresence>{aiFrameId === f.id && <ThinkingRing key="ring" p={p} w={frameW(f)} h={frameH(f)} />}</AnimatePresence>
                         <div
                           data-screen={f.id}
                           style={{
                             position: "absolute",
-                            left: BEZEL,
-                            top: BEZEL,
-                            width: PHONE_W,
-                            height: PHONE_H,
-                            borderRadius: PHONE_R,
-                            background: bg,
+                            left: 0,
+                            top: 0,
+                            width: "100%",
+                            height: "100%",
+                            borderRadius: WINDOW_R,
                             overflow: "hidden",
                           }}
                         >
@@ -2832,7 +2841,7 @@ export default function Page() {
                     mass: 0.6,
                   }}
                 >
-                  <M3Node
+                  <KitNode
                     item={drag.item}
                     palette={p}
                     widths={widths}
@@ -2874,7 +2883,7 @@ export default function Page() {
                 >
                   <defs>
                     <marker
-                      id="m3e-arrow"
+                      id="kit-arrow"
                       viewBox="0 0 10 10"
                       refX="9"
                       refY="5"
@@ -2909,7 +2918,7 @@ export default function Page() {
                           strokeWidth={on ? 3 : 2}
                           strokeDasharray={on ? undefined : "6 6"}
                           strokeLinecap="round"
-                          markerEnd="url(#m3e-arrow)"
+                          markerEnd="url(#kit-arrow)"
                           opacity={on ? 1 : 0.7}
                         />
                       </g>
@@ -2935,7 +2944,7 @@ export default function Page() {
                       gap: 4,
                       padding: 6,
                       borderRadius: 26,
-                      background: p.surfaceContainerLow,
+                      background: p.muted,
                       boxShadow: "0 4px 16px rgba(0,0,0,0.16)",
                       zIndex: 60,
                     }}
@@ -2953,7 +2962,7 @@ export default function Page() {
                       grow={false}
                     />
                     <IconBtn
-                      icon="link_off"
+                      icon="circle-x"
                       p={p}
                       danger
                       onClick={() => removeLink(l.id)}
@@ -3053,7 +3062,7 @@ export default function Page() {
                 textAlign: "center",
                 fontSize: 11,
                 lineHeight: 1.4,
-                color: p.onSurfaceVariant,
+                color: p.mutedForeground,
                 pointerEvents: "none",
                 zIndex: 40,
               }}
@@ -3067,7 +3076,7 @@ export default function Page() {
               onClick={addButton}
               title={t("addButton", lang)}
               aria-label={t("addButton", lang)}
-              className="m3-press"
+              className="kit-press"
               style={{
                 position: "absolute",
                 right: 16,
@@ -3077,7 +3086,7 @@ export default function Page() {
                 borderRadius: 20,
                 border: "none",
                 background: p.primary,
-                color: p.onPrimary,
+                color: p.primaryForeground,
                 cursor: "pointer",
                 display: "grid",
                 placeItems: "center",
@@ -3085,7 +3094,7 @@ export default function Page() {
                 boxShadow: "0 6px 18px rgba(0,0,0,0.18)",
               }}
             >
-              <Icon name="add" size={32} />
+              <Icon name="plus" size={32} />
             </button>
           )}
 
@@ -3142,8 +3151,8 @@ export default function Page() {
                 transform: "translateX(-50%)",
                 padding: "10px 18px",
                 borderRadius: 20,
-                background: p.inverseSurface,
-                color: p.inverseOnSurface,
+                background: p.foreground,
+                color: p.background,
                 fontSize: 13,
                 fontWeight: 600,
                 zIndex: 47,
@@ -3159,7 +3168,7 @@ export default function Page() {
               style={{ position: "absolute", right: 20, top: 20, zIndex: 45 }}
             >
               <IconBtn
-                icon="right_panel_open"
+                icon="panel-right-open"
                 p={p}
                 on
                 onClick={() => setRightOpen(true)}
@@ -3199,8 +3208,8 @@ export default function Page() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <Segmented<"edit" | "prompt">
                   options={[
-                    { key: "edit", icon: "tune", title: t("edit", lang), grow: false, wide: true },
-                    { key: "prompt", icon: "auto_awesome", label: t("prompt", lang), title: t("prompt", lang), grow: true },
+                    { key: "edit", icon: "settings-2", title: t("edit", lang), grow: false, wide: true },
+                    { key: "prompt", icon: "bot", label: t("prompt", lang), title: t("prompt", lang), grow: true },
                   ]}
                   value={rightTab}
                   onChange={setRightTab}
@@ -3209,7 +3218,7 @@ export default function Page() {
                 />
               </div>
               <IconBtn
-                icon="right_panel_close"
+                icon="panel-right-close"
                 p={p}
                 onClick={() => setRightOpen(false)}
                 title={t("closePanel", lang)}
@@ -3244,7 +3253,7 @@ export default function Page() {
                   }}
                   item={selectedIds.length > 1 ? null : selected}
                   palette={p}
-                  frames={frame === "phone" ? frames : []}
+                  frames={frame === "window" ? frames : []}
                   onChange={patchSelected}
                   onDelete={deleteSelected}
                   onDuplicate={duplicateSelected}
@@ -3262,7 +3271,6 @@ export default function Page() {
                     if (patch.title !== undefined) setTitle(patch.title);
                     if (patch.brief !== undefined) setBrief(patch.brief);
                     if ("promptEdit" in patch) setPromptEdit(patch.promptEdit);
-                    if (isPlatform(patch.platform)) setPlatform(patch.platform);
                   }}
                 />
               )}
@@ -3278,13 +3286,13 @@ export default function Page() {
           onChange={(e) => {
             const file = e.target.files?.[0];
             e.target.value = "";
-            if (file) void readProject(file).then((next) => (next ? setPendingImport(next) : showToast(t("invalidProject", lang), 3000, "error")));
+            if (file) void readProject(file).then((next) => (next ? setPendingImport(next) : showToast(t("invalidProject", lang), 3000, "danger")));
           }}
         />
 
         <ConfirmDialog
           open={pendingImport !== null}
-          icon="file_open"
+          icon="folder-open"
           title={t("replaceProjectTitle", lang)}
           body={t("replaceProject", lang)}
           p={p}

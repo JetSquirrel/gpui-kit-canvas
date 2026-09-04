@@ -3,8 +3,8 @@
 import { createContext, useContext } from "react";
 import { DEFAULT_THEME, FONTS, FontKey, Theme } from "./tokens";
 
-/** The document theme, read by parts that render differently under it
- *  (emphasized type, motion scheme). Shape goes through the tokens helpers. */
+/** The document theme, read by parts that render differently under it (shadow,
+ *  motion). Radius and density go through the tokens helpers. */
 export const ThemeContext = createContext<Theme>(DEFAULT_THEME);
 export const useTheme = () => useContext(ThemeContext);
 

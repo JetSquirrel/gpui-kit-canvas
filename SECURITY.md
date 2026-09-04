@@ -1,11 +1,11 @@
 # Security
 
-M3E Canvas is a static site. It has no server and no accounts; everything you draw
-stays in your browser's local storage. The only network calls are loading fonts
+GPUI Kit Canvas is a static site. It has no server and no accounts; everything you draw
+stays in your browser's local storage. The only network calls are loading an optional web font
 and, if you turn it on, the optional AI helper: with your own API key entered in
 the AI tab, the browser sends the generated description of your whole design
 straight to the provider you chose (OpenAI, Anthropic, Google or DeepSeek) and
-nothing else. The key is kept in this browser's local storage under `m3e:ai` and
+nothing else. The key is kept in this browser's local storage under `gpui-kit-canvas:ai` and
 never appears in the prompt, an exported image or the saved document. That keeps
 the attack surface small, but if you find something, please tell us.
 

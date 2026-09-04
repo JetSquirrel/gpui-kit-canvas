@@ -9,67 +9,52 @@ import {
   HALF_W,
   Item,
   KIND_SPEC,
-  PHONE_H,
-  PHONE_W,
   Kind,
   NavTab,
   Palette,
-  SWIPE_DIRS,
-  SwipeDir,
+  SHELLS,
+  SIDEBAR_W,
+  SIDES,
+  STATUS_VARIANTS,
+  Shell,
+  Side,
   TAPPABLE,
   TOGGLEABLE,
   TRANSITIONS,
   Transition,
   VARIANTS,
   Variant,
+  WINDOW_H,
+  WINDOW_SIZES,
+  WINDOW_W,
   actionSlotsOf,
+  defaultColumnsFor,
   defaultTabsFor,
+  frameH,
+  frameW,
   toggleIcon,
   iconSlotsOf,
   setIconSlot,
   variantStyle,
 } from "@/lib/tokens";
 import { IconPicker } from "./IconPicker";
-import { Icon } from "./M3Node";
+import { Icon } from "./KitNode";
 import { ButtonRun, CornerIcon, Field, IconBtn, Section, Segmented, SizePresets, Slider, TidyButton, TidyState, Toggle, TokenChips } from "./ui";
 import { AiWriteBtn } from "./AiPanel";
 import { popHistory } from "@/lib/ai";
-import { SWIPE_TEXT, t, useLang } from "@/lib/i18n";
+import { Lang, t, useLang } from "@/lib/i18n";
 
+/** The variants a kind really offers. A Button takes the whole `ButtonVariant`
+ *  set; an Alert, Badge, Tag, Notification or Dialog only carries the semantic
+ *  ones, because a status colour is for its meaning and not for decoration. */
 export function variantsOf(kind: Kind): { key: Variant; label: string }[] {
   switch (kind) {
-    case "card":
-      return [
-        { key: "tonal", label: "Filled" },
-        { key: "elevated", label: "Elevated" },
-        { key: "outlined", label: "Outlined" },
-      ];
-    case "textField":
-      return [
-        { key: "outlined", label: "Outlined" },
-        { key: "filled", label: "Filled" },
-      ];
-    case "chip":
-      return [
-        { key: "outlined", label: "Outlined" },
-        { key: "tonal", label: "Elevated" },
-      ];
-    case "fab":
-    case "extendedFab":
-    case "fabMenu":
-      return VARIANTS.filter((v) => v.key !== "text" && v.key !== "elevated" && v.key !== "outlined");
-    case "splitButton":
-      return VARIANTS.filter((v) => v.key !== "text");
-    case "toolbar":
-      return [
-        { key: "tonal", label: "Standard" },
-        { key: "filled", label: "Vibrant" },
-      ];
-    case "iconButton":
-      return VARIANTS.filter((v) => v.key !== "elevated" && v.key !== "text").concat({
-        key: "text",
-        label: "Standard",
-      });
+    case "alert":
+    case "badge":
+    case "tag":
+    case "notification":
+    case "dialog":
+      return VARIANTS.filter((v) => STATUS_VARIANTS.includes(v.key));
     default:
       return VARIANTS;
   }
@@ -98,10 +83,10 @@ export function VariantSwatch({
       title={label}
       aria-label={label}
       aria-pressed={on}
-      className="m3-press"
+      className="kit-press"
       style={{
         height: h,
-        borderRadius: h / 2,
+        borderRadius: 6,
         cursor: "pointer",
         fontSize: small ? 11 : 12,
         fontWeight: 600,
@@ -111,7 +96,7 @@ export function VariantSwatch({
         gap: 4,
         padding: small ? "0 10px" : "0 12px",
         ...st,
-        boxShadow: v === "elevated" ? "0 1px 3px rgba(0,0,0,0.2)" : "none",
+        boxShadow: "none",
         outline: on ? `2px solid ${p.primary}` : "2px solid transparent",
         outlineOffset: 2,
       }}
@@ -122,14 +107,37 @@ export function VariantSwatch({
   );
 }
 
+/** the shells and edges, named in the interface language */
+const shellLabel = (k: Shell, lang: Lang) =>
+  k === "single"
+    ? t("shellSingle", lang)
+    : k === "masterDetail"
+      ? t("shellMasterDetail", lang)
+      : k === "document"
+        ? t("shellDocument", lang)
+        : k === "utility"
+          ? t("shellUtility", lang)
+          : t("shellSidebar", lang);
+
+const sideLabel = (k: Side, lang: Lang) =>
+  k === "left" ? t("sideLeft", lang) : k === "right" ? t("sideRight", lang) : k === "top" ? t("sideTop", lang) : t("sideBottom", lang);
+
 const MAX_IMAGE_PX = 1200;
 
-/** hover text for a width preset that comes from the phone frame */
+/** hover text for a width preset that comes from the window frame */
 export const widthPresetLabel = (v: number): string | undefined =>
-  v === PHONE_W ? t("screenWidth") : v === CONTENT_W ? t("contentWidth") : v === HALF_W ? t("halfWidth") : undefined;
+  v === WINDOW_W
+    ? t("windowWidth")
+    : v === CONTENT_W
+      ? t("contentWidth")
+      : v === HALF_W
+        ? t("halfWidth")
+        : v === SIDEBAR_W
+          ? t("sidebarWidth")
+          : undefined;
 
 const heightPresetLabel = (v: number): string | undefined =>
-  v === PHONE_H ? t("screenHeight") : v === PHONE_H / 2 ? t("halfHeight") : undefined;
+  v === WINDOW_H ? t("windowHeight") : v === WINDOW_H / 2 ? t("halfHeight") : undefined;
 
 /** Downscale a picked file so the document stays small enough for localStorage. */
 function readImage(file: File): Promise<string> {
@@ -177,14 +185,14 @@ function FrameChips({
       <button
         key={id ?? "none"}
         onClick={() => onChange(id)}
-        className="m3-press"
+        className="kit-press"
         style={{
           height: h,
           padding: "0 12px 0 8px",
           borderRadius: h / 2,
           border: "none",
-          background: on ? p.primary : p.surfaceContainerHigh,
-          color: on ? p.onPrimary : p.onSurfaceVariant,
+          background: on ? p.primary : p.accent,
+          color: on ? p.primaryForeground : p.mutedForeground,
           fontSize: 13,
           fontWeight: 600,
           cursor: "pointer",
@@ -298,7 +306,6 @@ export function FrameInspector({
   const lang = useLang();
   const [copied, setCopied] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [swipeDir, setSwipeDir] = useState<SwipeDir>("left");
   useEffect(() => {
     if (!copied) return;
     const t = setTimeout(() => setCopied(false), 1400);
@@ -308,14 +315,14 @@ export function FrameInspector({
     <button
       onClick={onClick}
       disabled={busy}
-      className="m3-press"
+      className="kit-press"
       style={{
         flex: 1,
         height: 44,
         borderRadius: 22,
         border: "none",
-        background: p.secondaryContainer,
-        color: p.onSecondaryContainer,
+        background: p.secondary,
+        color: p.secondaryForeground,
         fontSize: 13,
         fontWeight: 600,
         cursor: busy ? "default" : "pointer",
@@ -340,54 +347,68 @@ export function FrameInspector({
           marginBottom: 10,
           padding: "6px 6px 6px 14px",
           borderRadius: 20,
-          background: p.secondaryContainer,
-          color: p.onSecondaryContainer,
+          background: p.secondary,
+          color: p.secondaryForeground,
         }}
       >
-        <Icon name="smartphone" size={20} />
+        <Icon name="window-restore" size={20} />
         <span style={{ fontSize: 14, fontWeight: 600, flex: 1, minWidth: 0 }}>{t("screen", lang)}</span>
-        <IconBtn icon="play_arrow" p={p} onClick={onPreview} title={t("previewFrom", lang)} size={32} fill />
-        <IconBtn icon="content_copy" p={p} onClick={onDuplicate} title={t("duplicate", lang)} size={32} />
+        <IconBtn icon="play" p={p} onClick={onPreview} title={t("previewFrom", lang)} size={32} />
+        <IconBtn icon="copy" p={p} onClick={onDuplicate} title={t("duplicate", lang)} size={32} />
         <IconBtn icon="delete" p={p} danger onClick={onDelete} title={t("delete", lang)} size={32} />
       </div>
-      <Section id="frame-name" icon="label" title={t("name", lang)} p={p}>
-        <Field value={frame.name} onChange={(name) => onChange({ name })} placeholder={t("screenName", lang)} p={p} icon="smartphone" />
+      <Section id="frame-name" icon="file-text" title={t("name", lang)} p={p}>
+        <Field value={frame.name} onChange={(name) => onChange({ name })} placeholder={t("screenName", lang)} p={p} icon="window-restore" />
       </Section>
-      <Section id="frame-note" icon="notes" title={t("description", lang)} p={p}>
+      <Section id="frame-note" icon="file-text" title={t("description", lang)} p={p}>
         <AiField ai={ai} history={frame.noteHistory} onRestore={() => onChange(popHistory(frame.note, frame.noteHistory, "note", "noteHistory"))} p={p} value={frame.note ?? ""} onChange={(note) => onChange({ note: note || undefined })} placeholder={t("screenDescription", lang)} />
       </Section>
-      <Section id="frame-bg" icon="format_color_fill" title={t("background", lang)} p={p}>
-        <TokenChips value={frame.bg ?? "surface"} onChange={(bg) => onChange({ bg })} p={p} />
+      <Section id="frame-bg" icon="palette" title={t("background", lang)} p={p}>
+        <TokenChips value={frame.bg ?? "background"} onChange={(bg) => onChange({ bg })} p={p} />
       </Section>
-      <Section id="frame-tidy" icon="align_space_even" title={t("tidy", lang)} p={p}>
+      <Section id="frame-tidy" icon="layout-dashboard" title={t("tidy", lang)} p={p}>
         <TidyButton state={tidy} onClick={onTidy} p={p} />
       </Section>
-      {frames.length > 1 && (
-        <Section id="frame-swipe" icon="swipe" title={t("swipeTo", lang)} p={p}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <Segmented<SwipeDir>
-              options={SWIPE_DIRS.map((d) => ({ key: d.key, icon: d.icon, title: SWIPE_TEXT[lang][d.key], dot: !!frame.swipe?.[d.key] }))}
-              value={swipeDir}
-              onChange={setSwipeDir}
-              p={p}
-              height={36}
-            />
-            <FrameChips
-              frames={frames.filter((f) => f.id !== frame.id)}
-              value={frame.swipe?.[swipeDir] ?? null}
-              onChange={(to) => {
-                const swipe = { ...(frame.swipe ?? {}) };
-                if (to) swipe[swipeDir] = to;
-                else delete swipe[swipeDir];
-                onChange({ swipe: Object.keys(swipe).length ? swipe : undefined });
-              }}
-              p={p}
-              small
-            />
-          </div>
-        </Section>
-      )}
-      <Section id="frame-export" icon="ios_share" title={t("export", lang)} p={p}>
+      <Section id="frame-shell" icon="layout-dashboard" title={t("shell", lang)} p={p}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <Segmented<Shell>
+            options={SHELLS.map((sh) => ({ key: sh.key, icon: sh.icon, title: shellLabel(sh.key, lang) }))}
+            value={frame.shell ?? "sidebar"}
+            onChange={(shell) => onChange({ shell })}
+            p={p}
+            height={36}
+          />
+          <div style={{ fontSize: 11, lineHeight: 1.5, color: p.mutedForeground, padding: "0 4px" }}>{t("shellHint", lang)}</div>
+        </div>
+      </Section>
+      <Section id="frame-size" icon="maximize" title={t("windowSize", lang)} p={p}>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {WINDOW_SIZES.map((size) => {
+            const on = frameW(frame) === size.w && frameH(frame) === size.h;
+            return (
+              <button
+                key={size.label}
+                onClick={() => onChange({ w: size.w, h: size.h })}
+                aria-pressed={on}
+                className="kit-press"
+                style={{
+                  height: 28,
+                  padding: "0 10px",
+                  borderRadius: 6,
+                  border: `1px solid ${on ? p.primary : p.border}`,
+                  background: on ? p.accent : p.background,
+                  color: on ? p.accentForeground : p.foreground,
+                  fontSize: 12,
+                  cursor: "pointer",
+                }}
+              >
+                {size.label}
+              </button>
+            );
+          })}
+        </div>
+      </Section>
+      <Section id="frame-export" icon="external-link" title={t("export", lang)} p={p}>
         <ButtonRun>
           {actionBtn(
             copied ? "check" : "content_copy",
@@ -420,11 +441,11 @@ export function FrameInspector({
             maxHeight: 260,
             overflowY: "auto",
             borderRadius: 16,
-            background: p.surfaceContainerLow,
+            background: p.muted,
             padding: 12,
             fontSize: 12,
             lineHeight: 1.7,
-            color: p.onSurfaceVariant,
+            color: p.mutedForeground,
             whiteSpace: "pre-wrap",
             wordBreak: "break-word",
           }}
@@ -484,13 +505,13 @@ export function Inspector({
       const bigBtn = (icon: string, label: string, onClick?: () => void) => (
         <button
           onClick={onClick}
-          className="m3-press"
+          className="kit-press"
           style={{
             height: 48,
             borderRadius: 24,
             border: "none",
             background: p.primary,
-            color: p.onPrimary,
+            color: p.primaryForeground,
             fontSize: 14,
             fontWeight: 600,
             cursor: "pointer",
@@ -515,8 +536,8 @@ export function Inspector({
               marginBottom: 12,
               padding: "6px 6px 6px 14px",
               borderRadius: 20,
-              background: p.secondaryContainer,
-              color: p.onSecondaryContainer,
+              background: p.secondary,
+              color: p.secondaryForeground,
             }}
           >
             <Icon name={grouped ? "group_work" : "select_all"} size={20} />
@@ -526,7 +547,7 @@ export function Inspector({
             <IconBtn icon="delete" p={p} danger onClick={onDelete} title={t("deleteSelection", lang)} size={32} />
           </div>
           {grouped ? bigBtn("ungroup", t("ungroup", lang), onUngroup) : bigBtn("group_work", t("makeGroup", lang), onGroup)}
-          <div style={{ marginTop: 10, fontSize: 12, lineHeight: 1.5, color: p.onSurfaceVariant, padding: "0 6px" }}>
+          <div style={{ marginTop: 10, fontSize: 12, lineHeight: 1.5, color: p.mutedForeground, padding: "0 6px" }}>
             {grouped ? t("groupEditNote", lang) : `${t("groupHint", lang)} (Ctrl+G)`}
           </div>
         </div>
@@ -538,12 +559,12 @@ export function Inspector({
           height: "100%",
           display: "grid",
           placeItems: "center",
-          color: p.outlineVariant,
+          color: p.border,
           padding: 24,
           textAlign: "center",
         }}
       >
-        <Icon name="ads_click" size={44} />
+        <Icon name="external-link" size={44} />
       </div>
     );
   }
@@ -581,15 +602,15 @@ export function Inspector({
       key={key}
       onClick={onClick}
       title={label}
-      className="m3-press"
+      className="kit-press"
       style={{
         height: 44,
         minWidth: 44,
         padding: label ? "0 14px 0 10px" : 0,
         borderRadius: 22,
         border: "none",
-        background: on ? p.primary : p.surfaceContainerHigh,
-        color: on ? p.onPrimary : dim ? p.outline : p.onSurface,
+        background: on ? p.primary : p.accent,
+        color: on ? p.primaryForeground : dim ? p.border : p.foreground,
         cursor: "pointer",
         display: "inline-flex",
         alignItems: "center",
@@ -612,8 +633,9 @@ export function Inspector({
     for (let i = 0; i < n; i++) next.push(tabs[i] ? { ...tabs[i] } : { ...defaults[i % defaults.length] });
     onChange({ tabs: next });
   };
-  /** entries of a tab row have no icon; toolbar buttons have no label */
-  const tabIcons = item.kind !== "tabs";
+  /** a tab bar, breadcrumb, select and radio group carry labels only; a toolbar
+   *  carries icons only; a sidebar, menu, list and tree carry both */
+  const tabIcons = !["tabs", "breadcrumb", "select", "radio", "buttonGroup", "dataTable"].includes(item.kind);
   const tabLabels = item.kind !== "toolbar";
   const mainSlots = slots.filter((s) => !s.key.startsWith("tab:"));
 
@@ -621,11 +643,12 @@ export function Inspector({
     onChange({ tabs: tabs.map((t, j) => (j === i ? { ...t, label } : t)) });
 
   const hasRadius =
-    item.kind === "bottomNav" ||
-    item.kind === "topAppBar" ||
-    item.kind === "card" ||
-    item.kind === "image" ||
-    item.kind === "box";
+    item.kind === "panel" ||
+    item.kind === "titleBar" ||
+    item.kind === "statusBar" ||
+    item.kind === "sidebar" ||
+    item.kind === "sheet" ||
+    item.kind === "image";
 
   return (
     <div className="no-scrollbar" style={{ padding: "12px 12px 20px", overflowY: "auto", height: "100%" }}>
@@ -637,13 +660,13 @@ export function Inspector({
           marginBottom: 10,
           padding: "6px 6px 6px 14px",
           borderRadius: 20,
-          background: p.secondaryContainer,
-          color: p.onSecondaryContainer,
+          background: p.secondary,
+          color: p.secondaryForeground,
         }}
       >
         <Icon name={spec.paletteIcon} size={20} />
         <span style={{ fontSize: 14, fontWeight: 600, flex: 1, minWidth: 0 }}>{spec.label}</span>
-        <IconBtn icon="content_copy" p={p} onClick={onDuplicate} title={t("duplicateKey", lang)} size={32} />
+        <IconBtn icon="copy" p={p} onClick={onDuplicate} title={t("duplicateKey", lang)} size={32} />
         <IconBtn icon="delete" p={p} danger onClick={onDelete} title={t("delete", lang)} size={32} />
       </div>
 
@@ -657,7 +680,7 @@ export function Inspector({
               setPickerOpen(false);
             }}
             p={p}
-            icon="swap_horiz"
+            icon="replace"
             label={t("toggle", lang)}
             grow
           />
@@ -665,8 +688,8 @@ export function Inspector({
             <>
               <Segmented<"off" | "on">
                 options={[
-                  { key: "off", icon: "radio_button_unchecked", label: t("normalState", lang) },
-                  { key: "on", icon: "check_circle", label: t("onState", lang) },
+                  { key: "off", icon: "circle-check", label: t("normalState", lang) },
+                  { key: "on", icon: "circle-check", label: t("onState", lang) },
                 ]}
                 value={onTab ? "on" : "off"}
                 onChange={(k) => {
@@ -676,14 +699,14 @@ export function Inspector({
                 p={p}
                 height={36}
               />
-              {editOn && <div style={{ fontSize: 11, color: p.onSurfaceVariant, padding: "0 4px" }}>{t("onStateHint", lang)}</div>}
+              {editOn && <div style={{ fontSize: 11, color: p.mutedForeground, padding: "0 4px" }}>{t("onStateHint", lang)}</div>}
             </>
           )}
         </div>
       )}
 
       {(spec.hasLabel || spec.hasSupporting) && (
-        <Section id="text" icon="title" title={t("text", lang)} p={p}>
+        <Section id="text" icon="a-large-small" title={t("text", lang)} p={p}>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {spec.hasLabel && (
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
@@ -692,11 +715,11 @@ export function Inspector({
                   onChange={(label) => change({ label })}
                   placeholder={t("label", lang)}
                   p={p}
-                  icon="short_text"
+                  icon="a-large-small"
                 />
                 {item.kind === "text" && (
                   <IconBtn
-                    icon="format_bold"
+                    icon="a-large-small"
                     p={p}
                     size={44}
                     on={!!item.bold}
@@ -710,17 +733,40 @@ export function Inspector({
               <Field
                 value={item.supporting ?? ""}
                 onChange={(supporting) => onChange({ supporting })}
-                placeholder={item.kind === "snackbar" ? t("action", lang) : t("supporting", lang)}
+                placeholder={item.kind === "statusBar" ? t("trailing", lang) : t("supporting", lang)}
                 p={p}
-                icon="notes"
+                icon="file-text"
+              />
+            )}
+            {item.kind === "dialog" && !editOn && (
+              <Field
+                value={item.confirm ?? ""}
+                onChange={(confirm) => onChange({ confirm })}
+                placeholder={t("confirmVerb", lang)}
+                p={p}
+                icon="check"
               />
             )}
           </div>
         </Section>
       )}
 
+      {/* a keybinding turns the part into a command the prompt declares as an action */}
+      {(TAPPABLE.includes(item.kind) || spec.hasTabs) && !editOn && (
+        <Section id="shortcut" icon="square-terminal" title={t("shortcut", lang)} p={p} defaultOpen={false}>
+          <Field
+            value={item.shortcut ?? ""}
+            onChange={(shortcut) => onChange({ shortcut: shortcut || undefined })}
+            placeholder="cmd-s"
+            p={p}
+            icon="square-terminal"
+          />
+          <div style={{ fontSize: 11, lineHeight: 1.5, color: p.mutedForeground, padding: "6px 4px 0" }}>{t("shortcutHint", lang)}</div>
+        </Section>
+      )}
+
       {spec.hasTabs && !editOn && (
-        <Section id="tabs" icon="view_column" title={t("tabs", lang)} p={p}>
+        <Section id="tabs" icon="layout-dashboard" title={t("tabs", lang)} p={p}>
           <Segmented
             options={(item.kind === "toolbar" ? [2, 3, 4, 5, 6] : [2, 3, 4, 5]).map((n) => ({ key: String(n), label: String(n) }))}
             value={String(tabs.length)}
@@ -741,15 +787,15 @@ export function Inspector({
                     }}
                     title={t("changeIcon", lang)}
                     aria-label={t("changeIcon", lang)}
-                    className="m3-press"
+                    className="kit-press"
                     style={{
                       width: 40,
                       height: 40,
                       flex: "0 0 auto",
                       borderRadius: 20,
                       border: "none",
-                      background: on ? p.primary : p.surfaceContainerHigh,
-                      color: on ? p.onPrimary : p.onSurfaceVariant,
+                      background: on ? p.primary : p.accent,
+                      color: on ? p.primaryForeground : p.mutedForeground,
                       cursor: "pointer",
                       display: "grid",
                       placeItems: "center",
@@ -769,8 +815,56 @@ export function Inspector({
         </Section>
       )}
 
+      {spec.hasColumns && !editOn && (
+        <Section id="columns" icon="layout-dashboard" title={t("columns", lang)} p={p}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {(item.columns ?? []).map((column, i) => (
+              <div key={i} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <Field
+                  value={column.label}
+                  onChange={(label) =>
+                    onChange({ columns: (item.columns ?? []).map((c, j) => (j === i ? { ...c, label } : c)) })
+                  }
+                  placeholder={t("label", lang)}
+                  p={p}
+                  height={40}
+                />
+                <IconBtn
+                  icon="sort-descending"
+                  p={p}
+                  size={40}
+                  on={!!column.numeric}
+                  title={t("numeric", lang)}
+                  onClick={() =>
+                    onChange({
+                      columns: (item.columns ?? []).map((c, j) => (j === i ? { ...c, numeric: c.numeric ? undefined : true } : c)),
+                    })
+                  }
+                />
+                {(item.columns ?? []).length > 1 && (
+                  <IconBtn
+                    icon="minus"
+                    p={p}
+                    size={40}
+                    title={t("delete", lang)}
+                    onClick={() => onChange({ columns: (item.columns ?? []).filter((_, j) => j !== i) })}
+                  />
+                )}
+              </div>
+            ))}
+            <IconBtn
+              icon="plus"
+              p={p}
+              size={40}
+              title={t("addColumn", lang)}
+              onClick={() => onChange({ columns: [...(item.columns ?? []), { label: t("label", lang) }] })}
+            />
+          </div>
+        </Section>
+      )}
+
       {item.kind === "image" && !editOn && (
-        <Section id="image" icon="image" title={t("image", lang)} p={p}>
+        <Section id="image" icon="frame" title={t("image", lang)} p={p}>
           <input
             ref={fileRef}
             type="file"
@@ -788,14 +882,14 @@ export function Inspector({
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
             <button
               onClick={() => fileRef.current?.click()}
-              className="m3-press"
+              className="kit-press"
               style={{
                 flex: 1,
                 height: 44,
                 borderRadius: 22,
                 border: "none",
                 background: p.primary,
-                color: p.onPrimary,
+                color: p.primaryForeground,
                 fontSize: 13,
                 fontWeight: 600,
                 cursor: "pointer",
@@ -805,7 +899,7 @@ export function Inspector({
                 gap: 8,
               }}
             >
-              <Icon name="upload" size={20} />
+              <Icon name="arrow-up" size={20} />
               {t("pickImage", lang)}
             </button>
             {item.src && (
@@ -816,7 +910,7 @@ export function Inspector({
       )}
 
       {mainSlots.length > 0 && activeSlot && !item.src && (
-        <Section id="icon" icon="emoji_symbols" title={t("icon", lang)} p={p}>
+        <Section id="icon" icon="star" title={t("icon", lang)} p={p}>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {mainSlots.map((s) =>
               slotBtn(
@@ -882,66 +976,68 @@ export function Inspector({
       )}
 
       {spec.hasFill && !editOn && (
-        <Section id="fill" icon="format_color_fill" title={t("background", lang)} p={p}>
-          <TokenChips value={item.fill ?? "surfaceContainerLow"} onChange={(fill) => onChange({ fill })} p={p} />
-          {item.kind === "listItem" && (
-            <>
-              <div style={{ fontSize: 12, fontWeight: 600, color: p.onSurfaceVariant, margin: "10px 0 6px" }}>{t("iconBackground", lang)}</div>
-              <TokenChips
-                value={item.iconFill && item.iconFill !== "none" ? item.iconFill : "primaryContainer"}
-                onChange={(iconFill) => onChange({ iconFill })}
-                p={p}
-                none
-                noneOn={item.iconFill === "none"}
-                onNone={() => onChange({ iconFill: "none" })}
-              />
-            </>
-          )}
+        <Section id="fill" icon="palette" title={t("background", lang)} p={p}>
+          <TokenChips value={item.fill ?? "muted"} onChange={(fill) => onChange({ fill })} p={p} />
         </Section>
       )}
 
-      {(spec.hasChecked || spec.hasValue || spec.hasWavy || spec.hasContained) && !editOn && (
-        <Section id="state" icon="tune" title={t("state", lang)} p={p}>
+      {(spec.hasChecked || spec.hasValue || spec.hasCircle || spec.hasCollapsed || spec.hasSide || spec.hasControls || spec.hasDisabled) && !editOn && (
+        <Section id="state" icon="settings-2" title={t("state", lang)} p={p}>
           <div style={{ display: "flex", flexDirection: "column", gap: 14, padding: "2px 0" }}>
             {spec.hasChecked && (
               <Toggle
                 on={!!item.checked}
                 onChange={(checked) => onChange({ checked })}
                 p={p}
-                icon={item.kind === "chip" ? "check_circle" : item.kind === "box" ? "drag_handle" : "toggle_on"}
-                label={item.kind === "chip" ? t("selected", lang) : item.kind === "box" ? t("handle", lang) : t("on", lang)}
+                icon={item.kind === "tag" ? "close" : "check"}
+                label={item.kind === "tag" ? t("selected", lang) : t("on", lang)}
                 grow
               />
             )}
-            {item.kind === "switch" && (
-              <Toggle on={!item.noCheck} onChange={(on) => onChange({ noCheck: on ? undefined : true })} p={p} icon="check" label={t("thumbCheck", lang)} grow />
+            {spec.hasDisabled && (
+              <Toggle on={!!item.disabled} onChange={(disabled) => onChange({ disabled: disabled || undefined })} p={p} icon="circle-x" label={t("disabled", lang)} grow />
             )}
-            {spec.hasContained && (
-              <Toggle
-                on={!!item.contained}
-                onChange={(contained) => onChange({ contained })}
+            {spec.hasCollapsed && (
+              <Toggle on={!!item.collapsed} onChange={(collapsed) => onChange({ collapsed: collapsed || undefined })} p={p} icon="panel-left-close" label={t("collapsed", lang)} grow />
+            )}
+            {spec.hasCircle && (
+              <Toggle on={!!item.circle} onChange={(circle) => onChange({ circle: circle || undefined })} p={p} icon="loader-circle" label={t("circle", lang)} grow />
+            )}
+            {spec.hasSide && (
+              <Segmented<Side>
+                options={SIDES.map((sd) => ({ key: sd.key, icon: sd.icon, title: sideLabel(sd.key, lang) }))}
+                value={item.side ?? "right"}
+                onChange={(side) => onChange({ side })}
                 p={p}
-                icon="circle"
-                label={t("container", lang)}
-                grow
+                height={36}
               />
             )}
-            {spec.hasWavy && (
-              <Toggle on={!!item.wavy} onChange={(wavy) => onChange({ wavy })} p={p} icon="airwave" label={t("wavy", lang)} grow />
+            {spec.hasControls && (
+              <Segmented<"mac" | "windows" | "none">
+                options={[
+                  { key: "mac", label: t("controlsMac", lang) },
+                  { key: "windows", label: t("controlsWin", lang) },
+                  { key: "none", label: t("controlsNone", lang) },
+                ]}
+                value={item.controls ?? "mac"}
+                onChange={(controls) => onChange({ controls })}
+                p={p}
+                height={36}
+              />
             )}
-            {spec.hasValue && item.kind !== "slider" && (
+            {spec.hasValue && item.kind === "progress" && (
               <Toggle
                 on={item.value !== undefined}
                 onChange={(on) => onChange({ value: on ? 60 : undefined })}
                 p={p}
-                icon="percent"
+                icon="asterisk"
                 label={t("determinate", lang)}
                 grow
               />
             )}
-            {spec.hasValue && (item.kind === "slider" || item.value !== undefined) && (
+            {spec.hasValue && (item.kind === "slider" || item.kind === "resizable" || (item.kind === "progress" && item.value !== undefined)) && (
               <Slider
-                icon="percent"
+                icon="asterisk"
                 value={item.value ?? 40}
                 min={0}
                 max={100}
@@ -951,12 +1047,22 @@ export function Inspector({
                 unit="%"
               />
             )}
+            {/* a tab bar, list, tree, menu or radio group selects one of its rows */}
+            {spec.hasValue && spec.hasTabs && item.kind !== "resizable" && (
+              <Segmented
+                options={(item.tabs ?? []).map((tab, i) => ({ key: String(i), label: tab.label.trim() || String(i + 1) }))}
+                value={String(item.value ?? 0)}
+                onChange={(k) => onChange({ value: Number(k) })}
+                p={p}
+                height={32}
+              />
+            )}
           </div>
         </Section>
       )}
 
       {(spec.size || hasRadius) && !editOn && (
-        <Section id="size" icon="straighten" title={t("size", lang)} p={p}>
+        <Section id="size" icon="dash" title={t("size", lang)} p={p}>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {spec.size && (
               <>
@@ -965,7 +1071,7 @@ export function Inspector({
                   title={
                     item.kind === "text"
                       ? t("fontSize", lang)
-                      : spec.size.icon === "width"
+                      : spec.size.icon === "maximize"
                         ? t("width", lang)
                         : t("size", lang)
                   }
@@ -975,7 +1081,7 @@ export function Inspector({
                   step={spec.size.step}
                   onChange={(size) => onChange({ size })}
                   p={p}
-                  unit={item.kind === "text" ? "sp" : ""}
+                  unit={item.kind === "text" ? "px" : ""}
                 />
                 {spec.size.presets && (
                   <SizePresets
@@ -1015,9 +1121,9 @@ export function Inspector({
                 )}
               </>
             )}
-            {hasRadius && (item.kind === "card" || item.kind === "image") && (
+            {hasRadius && item.kind === "image" && (
               <Slider
-                icon="rounded_corner"
+                icon="frame"
                 title={t("cornerRadius", lang)}
                 value={item.radiusTop ?? spec.radius}
                 min={0}
@@ -1027,7 +1133,7 @@ export function Inspector({
                 p={p}
               />
             )}
-            {hasRadius && (item.kind === "bottomNav" || item.kind === "topAppBar" || item.kind === "box") && (
+            {hasRadius && item.kind !== "image" && (
               <>
                 <Slider
                   iconNode={<CornerIcon side="top" />}
@@ -1056,7 +1162,7 @@ export function Inspector({
       )}
 
       {(TAPPABLE.includes(item.kind) || actionSlots.length > 0) && frames.length > 0 && !editOn && (
-        <Section id="action" icon="ads_click" title={t("tapTo", lang)} p={p}>
+        <Section id="action" icon="external-link" title={t("clickTo", lang)} p={p}>
           {actionSlots.length > 0 ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <Segmented<string>
@@ -1096,7 +1202,7 @@ export function Inspector({
       )}
 
       {!editOn && (
-      <Section id="note" icon="bolt" title={t("behavior", lang)} p={p}>
+      <Section id="note" icon="square-terminal" title={t("behavior", lang)} p={p}>
         <AiField
           ai={ai}
           history={item.noteHistory}
@@ -1104,7 +1210,7 @@ export function Inspector({
           p={p}
           value={item.note ?? ""}
           onChange={(note) => onChange({ note })}
-          placeholder={item.kind === "button" || item.kind === "fab" || item.kind === "iconButton" || item.kind === "extendedFab" ? t("whenPressed", lang) : t("whatItDoes", lang)}
+          placeholder={item.kind === "button" || item.kind === "iconButton" || item.kind === "buttonGroup" ? t("whenPressed", lang) : t("whatItDoes", lang)}
         />
       </Section>
       )}

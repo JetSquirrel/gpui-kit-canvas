@@ -1,39 +1,56 @@
-import { Frame, Group, Item, PHONE_H, PHONE_MARGIN, PHONE_W, canJoin, connectSpecOf, frameOfGroup, groupBounds } from "./tokens";
+import {
+  Frame,
+  Group,
+  Item,
+  Kind,
+  WINDOW_MARGIN,
+  canJoin,
+  connectSpecOf,
+  frameH,
+  frameOfGroup,
+  frameW,
+  groupBounds,
+} from "./tokens";
 
-/* Rule-based layout for one phone screen. Nothing here is guessed by a model.
+/* Rule-based layout for one desktop window. Nothing here is guessed by a model.
  *
  * 1. Parts of one connectable family that sit next to each other fuse into a
- *    connected run, the same way the magnetic drop does: list items stacked in
- *    a column, buttons or icon buttons side by side in a row.
- * 2. Bars stick to the edges they belong to (app bar and tabs at the top, the
- *    navigation bar at the bottom, toolbars and snackbars hovering above it,
- *    a bottom sheet on the bottom edge), a FAB takes the bottom-right corner,
- *    a dialog is centered.
- * 3. Everything else is stacked from the top on the 16dp layout margins. Rows,
- *    hand-made groups and intentional overlaps (a badge on an icon, parts on a
- *    box) are kept as one unit, and a part keeps the side it was on.
+ *    connected run, the same way the magnetic drop does: buttons or icon
+ *    buttons side by side in a row.
+ * 2. The window's own regions take the edges they own, in the order the Design
+ *    Guides give them: the title bar across the top, a sidebar down the leading
+ *    edge, the status bar across the bottom, a sheet on the edge it opens from,
+ *    a toolbar and breadcrumb as bands under the title bar. A dialog centres in
+ *    the window and a notification sits in the bottom-trailing corner.
+ * 3. Everything else flows from the top of what is left, on 16px panel padding,
+ *    which is the `lg` step of the semantic spacing scale. Rows, hand-made
+ *    groups and intentional overlaps are kept as one unit, and a part keeps the
+ *    side it was on.
+ * 4. A menu or popover belongs to whatever opened it, so it is left where the
+ *    author put it.
  *
  * Only positions change and runs are joined; sizes, order and contents stay. */
 
 type Rect = { l: number; t: number; r: number; b: number };
 
-/** vertical distance between stacked rows */
+/** vertical distance between stacked rows: separate groups in one section */
 const ROW_GAP = 16;
-/** a tighter gap after a heading and between list-like rows of one kind */
+/** a tighter gap after a heading and between rows of one kind: one content group */
 const TIGHT_GAP = 8;
-/** horizontal distance between parts packed into one row */
+/** horizontal distance between parts packed into one row: closely related controls */
 const ROW_ITEM_GAP = 8;
-/** the farthest two parts of one family may be apart and still be joined: side by side, and stacked */
-const JOIN_GAP_X = 24;
-const JOIN_GAP_Y = 48;
+/** the farthest two parts of one family may be apart and still be joined */
+const JOIN_GAP_X = 16;
+const JOIN_GAP_Y = 32;
 /** parts of one family the author kept apart stay clearly apart, beyond the joining distance */
 const APART_GAP_X = JOIN_GAP_X + 8;
 const APART_GAP_Y = JOIN_GAP_Y + 8;
 
-const LIST_KINDS = new Set(["listItem", "textField", "checkbox", "radio", "switch", "chip", "divider", "card"]);
+/** kinds that read as rows of one list, so they stack on the tighter gap */
+const LIST_KINDS = new Set<Kind>(["input", "select", "checkbox", "radio", "switch", "slider", "label", "divider", "tag"]);
 
 /** one movable unit: a group plus everything nested inside or overlapping it */
-type Unit = { ids: string[]; bb: Rect; kind: string; checked?: boolean; /** the first part, for family checks */ probe: Item };
+type Unit = { ids: string[]; bb: Rect; kind: Kind; side?: string; probe: Item };
 
 const overlap = (a: Rect, b: Rect) => Math.min(a.r, b.r) > Math.max(a.l, b.l) && Math.min(a.b, b.b) > Math.max(a.t, b.t);
 const union = (a: Rect, b: Rect): Rect => ({ l: Math.min(a.l, b.l), t: Math.min(a.t, b.t), r: Math.max(a.r, b.r), b: Math.max(a.b, b.b) });
@@ -93,10 +110,30 @@ function joinRuns(groups: Group[], widths: Record<string, number>): Group[] {
 
 const area = (r: Rect) => Math.max(0, r.r - r.l) * Math.max(0, r.b - r.t);
 
-/** Groups that touch each other stay together, so a badge on an icon or parts on a box move as one.
- *  Bars, FABs and dialogs never join a cluster: they have their own place and are often drawn over content. */
+const isTopRegion = (u: Unit) => u.kind === "titleBar";
+const isBottomRegion = (u: Unit) => u.kind === "statusBar";
+const isSideRegion = (u: Unit) => u.kind === "sidebar" || u.kind === "sheet";
+/** bands that sit under the title bar, in this order */
+const BANDS: Kind[] = ["toolbar", "breadcrumb"];
+const isBand = (u: Unit) => BANDS.includes(u.kind);
+const isCentred = (u: Unit) => u.kind === "dialog";
+const isCorner = (u: Unit) => u.kind === "notification";
+/** a transient overlay belongs to its trigger, so tidying leaves it alone */
+const isPinnedByAuthor = (u: Unit) => u.kind === "menu" || u.kind === "popover";
+const isAnchored = (u: Unit) =>
+  isTopRegion(u) || isBottomRegion(u) || isSideRegion(u) || isBand(u) || isCentred(u) || isCorner(u) || isPinnedByAuthor(u);
+
+/** Groups that touch each other stay together, so a badge on an icon or parts on
+ *  a panel move as one. A window region never joins a cluster: it has its own
+ *  place and is often drawn over content. */
 function clusters(groups: Group[], widths: Record<string, number>): Unit[] {
-  const units: Unit[] = groups.map((g) => ({ ids: [g.id], bb: groupBounds(g, widths), kind: g.items[0].kind, checked: g.items[0].checked, probe: g.items[0] }));
+  const units: Unit[] = groups.map((g) => ({
+    ids: [g.id],
+    bb: groupBounds(g, widths),
+    kind: g.items[0].kind,
+    side: g.items[0].side,
+    probe: g.items[0],
+  }));
   for (;;) {
     let merged = false;
     outer: for (let i = 0; i < units.length; i++) {
@@ -138,21 +175,16 @@ function rowsOf(units: Unit[]): Unit[][] {
   return out;
 }
 
-const isTop = (u: Unit) => u.kind === "topAppBar" || u.kind === "tabs";
-const isBottomBar = (u: Unit) => u.kind === "bottomNav" || (u.kind === "box" && !!u.checked);
-const isFloatingBottom = (u: Unit) => u.kind === "toolbar" || u.kind === "snackbar";
-const isFab = (u: Unit) => u.kind === "fab" || u.kind === "extendedFab" || u.kind === "fabMenu";
-const isOverlay = (u: Unit) => u.kind === "dialog";
-const isAnchored = (u: Unit) => isTop(u) || isBottomBar(u) || isFloatingBottom(u) || isFab(u) || isOverlay(u);
-
-/** where a unit sits horizontally, so tidying keeps a right-aligned part on the right.
- *  Judged from the edges, so a part already on the margin reads the same way after tidying. */
-function align(bb: Rect, fr: Rect): "left" | "center" | "right" | "fill" {
+/** where a unit sits horizontally, so tidying keeps a trailing part trailing.
+ *  Judged from the content edges, so a part already on the padding reads the
+ *  same way after tidying. */
+function align(bb: Rect, content: Rect): "left" | "center" | "right" | "fill" {
   const w = bb.r - bb.l;
-  if (w >= PHONE_W - PHONE_MARGIN * 2 - 8) return "fill";
-  const near = PHONE_MARGIN + 12;
-  const left = bb.l - fr.l <= near;
-  const right = fr.r - bb.r <= near;
+  const inner = content.r - content.l - WINDOW_MARGIN * 2;
+  if (w >= inner - 8) return "fill";
+  const near = WINDOW_MARGIN + 12;
+  const left = bb.l - content.l <= near;
+  const right = content.r - bb.r <= near;
   if (left && !right) return "left";
   if (right && !left) return "right";
   return "center";
@@ -165,7 +197,7 @@ function gapBefore(prev: Unit[] | null, row: Unit[]): number {
   if (prev.length === 1 && row.length === 1 && canJoin(prev[0].probe, row[0].probe) && connectSpecOf(prev[0].probe)?.axis === "y") return APART_GAP_Y;
   const pk = prev.length === 1 ? prev[0].kind : null;
   const k = row.length === 1 ? row[0].kind : null;
-  if (pk === "text") return TIGHT_GAP;
+  if (pk === "text" || pk === "label") return TIGHT_GAP;
   if (pk === "divider" || k === "divider") return TIGHT_GAP;
   if (pk && k && pk === k && LIST_KINDS.has(k)) return TIGHT_GAP;
   return ROW_GAP;
@@ -173,11 +205,13 @@ function gapBefore(prev: Unit[] | null, row: Unit[]): number {
 
 /** The tidied groups of the document, or null when `frame` is already tidy. */
 export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths: Record<string, number>): Group[] | null {
-  const fr: Rect = { l: frame.x, t: frame.y, r: frame.x + PHONE_W, b: frame.y + PHONE_H };
+  const fw = frameW(frame);
+  const fh = frameH(frame);
+  const fr: Rect = { l: frame.x, t: frame.y, r: frame.x + fw, b: frame.y + fh };
   const mineIds = new Set(groups.filter((g) => frameOfGroup(g, frames, widths)?.id === frame.id).map((g) => g.id));
   if (!mineIds.size) return null;
 
-  /* joining rewrites the list; the other screens' groups keep their slots */
+  /* joining rewrites the list; the other windows' groups keep their slots */
   const before = groups.filter((g) => mineIds.has(g.id));
   const mine = joinRuns(before, widths);
   const joined = mine.length !== before.length;
@@ -185,38 +219,63 @@ export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths
   const units = clusters(mine, widths);
   const target = new Map<Unit, { l: number; t: number }>();
 
-  let top = fr.t;
-  for (const u of units.filter(isTop).sort((a, b) => a.bb.t - b.bb.t)) {
-    target.set(u, { l: fr.l, t: top });
-    top += u.bb.b - u.bb.t;
+  /* the regions claim their edges first, narrowing what is left for the content */
+  const content: Rect = { ...fr };
+
+  for (const u of units.filter(isTopRegion).sort((a, b) => a.bb.t - b.bb.t)) {
+    target.set(u, { l: fr.l, t: content.t });
+    content.t += u.bb.b - u.bb.t;
   }
-  let bottom = fr.b;
-  for (const u of units.filter(isBottomBar).sort((a, b) => b.bb.t - a.bb.t)) {
-    bottom -= u.bb.b - u.bb.t;
-    target.set(u, { l: fr.l + Math.round((PHONE_W - (u.bb.r - u.bb.l)) / 2), t: bottom });
+  for (const u of units.filter(isBottomRegion).sort((a, b) => b.bb.t - a.bb.t)) {
+    content.b -= u.bb.b - u.bb.t;
+    target.set(u, { l: fr.l, t: content.b });
   }
-  for (const u of units.filter(isFloatingBottom).sort((a, b) => b.bb.t - a.bb.t)) {
-    const h = u.bb.b - u.bb.t;
+  for (const u of units.filter(isSideRegion)) {
     const w = u.bb.r - u.bb.l;
-    bottom -= PHONE_MARGIN + h;
-    target.set(u, { l: fr.l + Math.round((PHONE_W - w) / 2), t: bottom });
-  }
-  let fabBottom = bottom;
-  for (const u of units.filter(isFab).sort((a, b) => b.bb.t - a.bb.t)) {
     const h = u.bb.b - u.bb.t;
-    const w = u.bb.r - u.bb.l;
-    fabBottom -= PHONE_MARGIN + h;
-    target.set(u, { l: fr.r - PHONE_MARGIN - w, t: fabBottom });
+    const side = u.kind === "sidebar" ? "left" : (u.side ?? "right");
+    if (side === "left") {
+      target.set(u, { l: content.l, t: content.t });
+      content.l += w;
+    } else if (side === "right") {
+      target.set(u, { l: content.r - w, t: content.t });
+      content.r -= w;
+    } else if (side === "top") {
+      target.set(u, { l: content.l, t: content.t });
+      content.t += h;
+    } else {
+      content.b -= h;
+      target.set(u, { l: content.l, t: content.b });
+    }
   }
-  for (const u of units.filter(isOverlay)) {
-    target.set(u, { l: fr.l + Math.round((PHONE_W - (u.bb.r - u.bb.l)) / 2), t: fr.t + Math.round((PHONE_H - (u.bb.b - u.bb.t)) / 2) });
+  /* the bands run across the content, in the order the guides give them */
+  for (const kind of BANDS) {
+    for (const u of units.filter((x) => x.kind === kind).sort((a, b) => a.bb.t - b.bb.t)) {
+      target.set(u, { l: content.l + WINDOW_MARGIN, t: content.t + (kind === "toolbar" ? 0 : TIGHT_GAP) });
+      content.t += (u.bb.b - u.bb.t) + (kind === "toolbar" ? 0 : TIGHT_GAP);
+    }
+  }
+  for (const u of units.filter(isCentred)) {
+    target.set(u, {
+      l: fr.l + Math.round((fw - (u.bb.r - u.bb.l)) / 2),
+      t: fr.t + Math.round((fh - (u.bb.b - u.bb.t)) / 2),
+    });
+  }
+  let cornerBottom = content.b;
+  for (const u of units.filter(isCorner).sort((a, b) => b.bb.t - a.bb.t)) {
+    const w = u.bb.r - u.bb.l;
+    const h = u.bb.b - u.bb.t;
+    cornerBottom -= WINDOW_MARGIN + h;
+    target.set(u, { l: content.r - WINDOW_MARGIN - w, t: cornerBottom });
   }
 
-  /* everything else flows from the top on the layout margins, down to the bottom bars;
-   * rows that would not fit are left where they are rather than pushed off the screen */
-  const rows = rowsOf(units.filter((u) => !target.has(u)));
-  const limit = bottom - PHONE_MARGIN;
-  let y = top + PHONE_MARGIN;
+  /* everything else flows from the top of the content area on the panel padding;
+   * rows that would not fit are left where they are rather than pushed off the window */
+  const flowing = units.filter((u) => !target.has(u) && !isPinnedByAuthor(u));
+  const rows = rowsOf(flowing);
+  const inner = content.r - content.l - WINDOW_MARGIN * 2;
+  const limit = content.b - WINDOW_MARGIN;
+  let y = content.t + WINDOW_MARGIN;
   let prev: Unit[] | null = null;
   for (const row of rows) {
     y += gapBefore(prev, row);
@@ -225,8 +284,13 @@ export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths
     if (row.length === 1) {
       const u = row[0];
       const w = u.bb.r - u.bb.l;
-      const a = align(u.bb, fr);
-      const l = a === "left" ? fr.l + PHONE_MARGIN : a === "right" ? fr.r - PHONE_MARGIN - w : fr.l + Math.round((PHONE_W - w) / 2);
+      const a = align(u.bb, content);
+      const l =
+        a === "left" || a === "fill"
+          ? content.l + WINDOW_MARGIN
+          : a === "right"
+            ? content.r - WINDOW_MARGIN - w
+            : content.l + Math.round((content.r - content.l - w) / 2);
       target.set(u, { l, t: y });
     } else {
       const ws = row.map((u) => u.bb.r - u.bb.l);
@@ -235,12 +299,16 @@ export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths
       const gaps = row.slice(1).map((u, i) => (canJoin(row[i].probe, u.probe) ? APART_GAP_X : ROW_ITEM_GAP));
       const minPacked = total + gaps.reduce((s, g) => s + g, 0);
       const span = row[row.length - 1].bb.r - row[0].bb.l;
-      const inner = PHONE_W - PHONE_MARGIN * 2;
       const spread = span >= inner * 0.7 && minPacked <= inner;
       const packed = spread ? inner : minPacked;
       const extra = spread ? (inner - minPacked) / gaps.length : 0;
-      const a = spread ? "left" : align({ l: row[0].bb.l, t: 0, r: row[row.length - 1].bb.r, b: 0 }, fr);
-      let x = a === "right" ? fr.r - PHONE_MARGIN - packed : a === "center" ? fr.l + (PHONE_W - packed) / 2 : fr.l + PHONE_MARGIN;
+      const a = spread ? "left" : align({ l: row[0].bb.l, t: 0, r: row[row.length - 1].bb.r, b: 0 }, content);
+      let x =
+        a === "right"
+          ? content.r - WINDOW_MARGIN - packed
+          : a === "center"
+            ? content.l + (content.r - content.l - packed) / 2
+            : content.l + WINDOW_MARGIN;
       row.forEach((u, i) => {
         const h = u.bb.b - u.bb.t;
         target.set(u, { l: Math.round(x), t: y + Math.round((rowH - h) / 2) });

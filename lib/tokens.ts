@@ -1,42 +1,86 @@
 import type { CSSProperties } from "react";
-import { FAB_MENU_TABS, KIND_TEXT, NAV_TABS, TAB_LABELS, getLang, t } from "./i18n";
-import { Contrast, schemeFromSeed } from "./color";
+import {
+  BREADCRUMB_TRAIL,
+  KIND_TEXT,
+  LIST_ROWS,
+  MENU_ITEMS,
+  SIDEBAR_ITEMS,
+  TAB_LABELS,
+  TABLE_COLUMNS,
+  TABLE_ROWS,
+  TREE_NODES,
+  getLang,
+  t,
+  translateDefault,
+  translateFrameName,
+} from "./i18n";
+import type { Lang } from "./i18n";
+import { KIT_PALETTES } from "./kit-themes.gen";
 
-/* ---------- geometry ---------- */
-export const H = 56; // M3 medium button height (dp)
-export const GAP = 3; // connected group spacing
-export const R_FULL = 28; // outer corner of a connected run
-export const R_INNER = 8; // inner corner when connected (M3 small)
+/* ---------- geometry ----------
+ * Every number is a CSS pixel, which is what gpui-kit's `px(...)` means: the
+ * theme's base font size is 16px, so 1rem is 16px and the spacing scale below
+ * is the one the Design Guides call semantic. The control heights come from
+ * gpui-kit itself (crates/component/src/sizing.rs). */
+
+/** medium control height: `input_h(Size::Medium)` and a medium Button are both h_8 */
+export const H = 32;
+/** the heights the other density tiers give a control */
+export const H_BY_DENSITY: Record<Density, number> = { compact: 24, default: 32, comfortable: 44 };
+/** fused controls in a ButtonGroup share one hairline instead of a gap */
+export const GAP = 0;
+/** theme.radius and theme.radius_lg */
+export const R = 6;
+export const R_LG = 8;
+/** the inner corner where two controls fuse; gpui-kit squares it off */
+export const R_INNER = 0;
+/** a pill: gpui-kit spells this `radius_full()` */
+export const R_FULL = 9999;
+
+/** the semantic spacing scale, xxs to xxl */
+export const SPACING = [2, 4, 8, 12, 16, 24, 32] as const;
 
 /** magnetic field size, along the run and across it */
-export const SNAP_MAIN = 44;
-export const SNAP_CROSS = 24;
+export const SNAP_MAIN = 28;
+export const SNAP_CROSS = 14;
 /** how sharply the pull ramps up (higher = gentler at the edge) */
 export const PULL_EXP = 2.2;
 /** ms allowed for the landing animation before the item is committed */
 export const SETTLE_MS = 340;
 
-/** phone screen used by the "phone" canvas mode (Pixel-like, dp) */
-/* Pixel-class phone, 412 dp wide; kept at 892 dp tall so the whole screen fits the canvas */
-export const PHONE_W = 412;
-export const PHONE_H = 892;
-export const PHONE_R = 40;
-/** system insets: the status bar above a top app bar and the gesture area below a navigation bar.
- *  Both bars carry their inset as extra height so their background reaches the rounded screen edge. */
-export const STATUS_BAR_H = 24;
-export const NAV_BAR_H = 24;
-/** M3 layout margin: parts that are not edge-to-edge sit this far from the screen edge */
-export const PHONE_MARGIN = 16;
-/** width of a part that spans the screen with a margin on both sides */
-export const CONTENT_W = PHONE_W - PHONE_MARGIN * 2;
+/** the window the "window" canvas mode draws, and the sizes it offers */
+export const WINDOW_W = 1280;
+export const WINDOW_H = 800;
+/** a desktop window's own corner, outside the app's own radius scale */
+export const WINDOW_R = 10;
+export const WINDOW_SIZES: { w: number; h: number; label: string }[] = [
+  { w: 1024, h: 640, label: "1024 × 640" },
+  { w: 1280, h: 800, label: "1280 × 800" },
+  { w: 1440, h: 900, label: "1440 × 900" },
+  { w: 1680, h: 1050, label: "1680 × 1050" },
+];
+
+/** gpui-kit's `TITLE_BAR_HEIGHT`, and a StatusBar's resolved height */
+export const TITLE_BAR_H = 34;
+export const STATUS_BAR_H = 28;
+/** Sidebar's `DEFAULT_WIDTH` and `COLLAPSED_WIDTH` */
+export const SIDEBAR_W = 255;
+export const SIDEBAR_COLLAPSED_W = 48;
+/** the traffic lights sit 9px in from the top-left corner on macOS */
+export const TRAFFIC_INSET = 9;
+
+/** the `lg` step: what a panel spends at its own boundary */
+export const WINDOW_MARGIN = 16;
+/** width of a part that spans the window with a margin on both sides */
+export const CONTENT_W = WINDOW_W - WINDOW_MARGIN * 2;
 /** width of one of two parts sharing a row, with a margin-sized gutter between them */
-export const HALF_W = (CONTENT_W - PHONE_MARGIN) / 2;
-/** width presets offered in the inspector: two columns, with margins, edge-to-edge */
-export const WIDTH_PRESETS = [HALF_W, CONTENT_W, PHONE_W];
-/** height presets for free-form boxes: half the screen, the whole screen */
-export const HEIGHT_PRESETS = [PHONE_H / 2, PHONE_H];
-/** bezel around the screen and the label above it */
-export const BEZEL = 10;
+export const HALF_W = (CONTENT_W - WINDOW_MARGIN) / 2;
+/** width presets offered in the inspector: sidebar, two columns, with margins, edge to edge */
+export const WIDTH_PRESETS = [SIDEBAR_W, HALF_W, CONTENT_W, WINDOW_W];
+/** height presets for free-form panels: half the window, the whole window */
+export const HEIGHT_PRESETS = [WINDOW_H / 2, WINDOW_H];
+/** desktop windows have no bezel; the frame is the window itself */
+export const BEZEL = 0;
 export const FRAME_LABEL_H = 44;
 /** horizontal distance between newly added frames */
 export const FRAME_GAP = 120;
@@ -48,392 +92,427 @@ export const uid = () => Math.random().toString(36).slice(2, 10);
 export type Radii = { tl: number; tr: number; bl: number; br: number };
 export const uniformRadii = (r: number): Radii => ({ tl: r, tr: r, bl: r, br: r });
 
-/* ---------- color ---------- */
+/* ---------- color ----------
+ * The canvas paints with gpui-kit's own semantic tokens, so a sketch names the
+ * same roles the generated `cx.theme()` calls will read. `lib/kit-themes.gen.ts`
+ * resolves them out of a gpui-kit checkout; see script/gen-kit-themes.mjs. */
 export type Palette = {
   key: string;
   label: string;
-  /** the color a custom scheme was generated from */
-  seed?: string;
+  /** the theme set the palette belongs to, which pairs its light and dark modes */
+  set: string;
+  dark: boolean;
+  /** theme.radius and theme.radius_lg, as the theme file declares them */
+  radius: number;
+  radiusLg: number;
+
+  background: string;
+  foreground: string;
+  border: string;
+  /** input.border */
+  input: string;
+  muted: string;
+  mutedForeground: string;
   primary: string;
-  onPrimary: string;
-  primaryContainer: string;
-  onPrimaryContainer: string;
-  inversePrimary: string;
-  secondaryContainer: string;
-  onSecondaryContainer: string;
-  tertiaryContainer: string;
-  onTertiaryContainer: string;
-  surface: string;
-  surfaceContainerLow: string;
-  surfaceContainer: string;
-  surfaceContainerHigh: string;
-  surfaceContainerHighest: string;
-  onSurface: string;
-  onSurfaceVariant: string;
-  outline: string;
-  outlineVariant: string;
-  inverseSurface: string;
-  inverseOnSurface: string;
-  error: string;
-  onError: string;
-  errorContainer: string;
-  onErrorContainer: string;
+  primaryForeground: string;
+  primaryHover: string;
+  primaryActive: string;
+  secondary: string;
+  secondaryForeground: string;
+  secondaryHover: string;
+  secondaryActive: string;
+  success: string;
+  successForeground: string;
+  info: string;
+  infoForeground: string;
+  warning: string;
+  warningForeground: string;
+  danger: string;
+  dangerForeground: string;
+  accent: string;
+  accentForeground: string;
+  groupBox: string;
+  groupBoxForeground: string;
+  chart1: string;
+  chart2: string;
+  chart3: string;
+  chart4: string;
+  chart5: string;
+  link: string;
+  list: string;
+  listActive: string;
+  listActiveBorder: string;
+  listEven: string;
+  listHead: string;
+  listHover: string;
+  popover: string;
+  popoverForeground: string;
+  progressBar: string;
+  ring: string;
+  scrollbarThumb: string;
+  selection: string;
+  sidebar: string;
+  sidebarAccent: string;
+  sidebarAccentForeground: string;
+  sidebarBorder: string;
+  sidebarForeground: string;
+  sidebarPrimary: string;
+  sidebarPrimaryForeground: string;
+  skeleton: string;
+  sliderBar: string;
+  sliderThumb: string;
+  switchBg: string;
+  switchThumb: string;
+  tab: string;
+  tabActive: string;
+  tabActiveForeground: string;
+  tabBar: string;
+  tabBarSegmented: string;
+  tabForeground: string;
+  table: string;
+  tableActive: string;
+  tableActiveBorder: string;
+  tableEven: string;
+  tableHead: string;
+  tableHeadForeground: string;
+  tableRowBorder: string;
+  tableHover: string;
+  titleBar: string;
+  titleBarBorder: string;
+  statusBar: string;
+  statusBarBorder: string;
+  overlay: string;
+  windowBorder: string;
 };
 
-const ERROR = {
-  error: "#B3261E",
-  onError: "#FFFFFF",
-  errorContainer: "#F9DEDC",
-  onErrorContainer: "#410E0B",
+/** the gpui-kit theme name for each palette field, for the prompt to quote */
+export const TOKEN_NAMES: Partial<Record<keyof Palette, string>> = {
+  background: "background",
+  foreground: "foreground",
+  border: "border",
+  input: "input.border",
+  muted: "muted.background",
+  mutedForeground: "muted.foreground",
+  primary: "primary.background",
+  primaryForeground: "primary.foreground",
+  secondary: "secondary.background",
+  secondaryForeground: "secondary.foreground",
+  accent: "accent.background",
+  accentForeground: "accent.foreground",
+  danger: "danger.background",
+  warning: "warning.background",
+  success: "success.background",
+  info: "info.background",
+  groupBox: "group_box.background",
+  popover: "popover.background",
+  sidebar: "sidebar.background",
+  titleBar: "title_bar.background",
+  statusBar: "status_bar.background",
+  tabBar: "tab_bar.background",
+  list: "list.background",
+  table: "table.background",
+  ring: "ring",
+  link: "link.foreground",
+  sidebarForeground: "sidebar.foreground",
+  sidebarBorder: "sidebar.border",
+  sidebarAccent: "sidebar.accent.background",
+  sidebarAccentForeground: "sidebar.accent.foreground",
+  titleBarBorder: "title_bar.border",
+  statusBarBorder: "status_bar.border",
+  tab: "tab.background",
+  tabActive: "tab.active.background",
+  tabActiveForeground: "tab.active.foreground",
+  listActive: "list.active.background",
+  listActiveBorder: "list.active.border",
+  listEven: "list.even.background",
+  listHead: "list.head.background",
+  tableHead: "table.head.background",
+  tableHeadForeground: "table.head.foreground",
+  tableRowBorder: "table.row.border",
+  selection: "selection.background",
+  switchBg: "switch.background",
+  sliderBar: "slider.background",
+  progressBar: "progress.bar.background",
+  skeleton: "skeleton.background",
+  overlay: "overlay",
+  windowBorder: "window.border",
+  groupBoxForeground: "group_box.foreground",
+  popoverForeground: "popover.foreground",
+  primaryHover: "primary.hover.background",
+  secondaryHover: "secondary.hover.background",
+  dangerForeground: "danger.foreground",
+  warningForeground: "warning.foreground",
+  successForeground: "success.foreground",
+  infoForeground: "info.foreground",
+  chart1: "chart.1",
+  chart2: "chart.2",
+  chart3: "chart.3",
+  chart4: "chart.4",
+  chart5: "chart.5",
 };
 
-export const PALETTES: Palette[] = [
-  {
-    key: "purple",
-    label: "Purple",
-    primary: "#6750A4",
-    onPrimary: "#FFFFFF",
-    primaryContainer: "#EADDFF",
-    onPrimaryContainer: "#21005D",
-    inversePrimary: "#D0BCFF",
-    secondaryContainer: "#E8DEF8",
-    onSecondaryContainer: "#1D192B",
-    tertiaryContainer: "#FFD8E4",
-    onTertiaryContainer: "#31111D",
-    surface: "#FEF7FF",
-    surfaceContainerLow: "#F7F2FA",
-    surfaceContainer: "#F3EDF7",
-    surfaceContainerHigh: "#ECE6F0",
-    surfaceContainerHighest: "#E6E0E9",
-    onSurface: "#1D1B20",
-    onSurfaceVariant: "#49454F",
-    outline: "#79747E",
-    outlineVariant: "#CAC4D0",
-    inverseSurface: "#322F35",
-    inverseOnSurface: "#F5EFF7",
-    ...ERROR,
-  },
-  {
-    key: "blue",
-    label: "Blue",
-    primary: "#0B57D0",
-    onPrimary: "#FFFFFF",
-    primaryContainer: "#D3E3FD",
-    onPrimaryContainer: "#041E49",
-    inversePrimary: "#A8C7FA",
-    secondaryContainer: "#DCE2F9",
-    onSecondaryContainer: "#131C2B",
-    tertiaryContainer: "#FFD8EE",
-    onTertiaryContainer: "#2E1125",
-    surface: "#FAF9FD",
-    surfaceContainerLow: "#F3F3FA",
-    surfaceContainer: "#EEEDF3",
-    surfaceContainerHigh: "#E9E8EF",
-    surfaceContainerHighest: "#E3E2E6",
-    onSurface: "#1B1B1F",
-    onSurfaceVariant: "#44474E",
-    outline: "#74777F",
-    outlineVariant: "#C4C6D0",
-    inverseSurface: "#303034",
-    inverseOnSurface: "#F2F0F4",
-    ...ERROR,
-  },
-  {
-    key: "green",
-    label: "Green",
-    primary: "#2E6A45",
-    onPrimary: "#FFFFFF",
-    primaryContainer: "#B0F1C2",
-    onPrimaryContainer: "#00210F",
-    inversePrimary: "#95D5A7",
-    secondaryContainer: "#D3E8D8",
-    onSecondaryContainer: "#102016",
-    tertiaryContainer: "#C2E8FF",
-    onTertiaryContainer: "#001E2C",
-    surface: "#F6FBF4",
-    surfaceContainerLow: "#F0F5EE",
-    surfaceContainer: "#EAF0E8",
-    surfaceContainerHigh: "#E4EAE2",
-    surfaceContainerHighest: "#DEE4DC",
-    onSurface: "#181D18",
-    onSurfaceVariant: "#414941",
-    outline: "#707972",
-    outlineVariant: "#BFC9C0",
-    inverseSurface: "#2D322D",
-    inverseOnSurface: "#EEF2EB",
-    ...ERROR,
-  },
-  {
-    key: "coral",
-    label: "Coral",
-    primary: "#984061",
-    onPrimary: "#FFFFFF",
-    primaryContainer: "#FFD9E2",
-    onPrimaryContainer: "#3E001D",
-    inversePrimary: "#FFB0C8",
-    secondaryContainer: "#F6DDE4",
-    onSecondaryContainer: "#31101D",
-    tertiaryContainer: "#FFDBCA",
-    onTertiaryContainer: "#2C1600",
-    surface: "#FFF8F8",
-    surfaceContainerLow: "#FCF0F2",
-    surfaceContainer: "#F6EBED",
-    surfaceContainerHigh: "#F3E5E9",
-    surfaceContainerHighest: "#EEE0E3",
-    onSurface: "#201A1B",
-    onSurfaceVariant: "#524346",
-    outline: "#847377",
-    outlineVariant: "#D5C2C6",
-    inverseSurface: "#352F30",
-    inverseOnSurface: "#FAEEEF",
-    ...ERROR,
-  },
-  {
-    key: "amber",
-    label: "Amber",
-    primary: "#8B5000",
-    onPrimary: "#FFFFFF",
-    primaryContainer: "#FFDCC2",
-    onPrimaryContainer: "#2C1600",
-    inversePrimary: "#FFB77C",
-    secondaryContainer: "#F6DFC8",
-    onSecondaryContainer: "#271905",
-    tertiaryContainer: "#D5EDC0",
-    onTertiaryContainer: "#0E2004",
-    surface: "#FFF8F5",
-    surfaceContainerLow: "#FCF1EA",
-    surfaceContainer: "#F7ECE4",
-    surfaceContainerHigh: "#F3E6DE",
-    surfaceContainerHighest: "#EDE0D8",
-    onSurface: "#211A14",
-    onSurfaceVariant: "#51443B",
-    outline: "#83746A",
-    outlineVariant: "#D6C3B6",
-    inverseSurface: "#362F28",
-    inverseOnSurface: "#FBEEE5",
-    ...ERROR,
-  },
-  {
-    key: "teal",
-    label: "Teal",
-    primary: "#00696E",
-    onPrimary: "#FFFFFF",
-    primaryContainer: "#9CF1F6",
-    onPrimaryContainer: "#002022",
-    inversePrimary: "#80D5DA",
-    secondaryContainer: "#CCE8E9",
-    onSecondaryContainer: "#051F20",
-    tertiaryContainer: "#D2E4FF",
-    onTertiaryContainer: "#001C3B",
-    surface: "#F4FBFB",
-    surfaceContainerLow: "#EEF5F5",
-    surfaceContainer: "#E8EFEF",
-    surfaceContainerHigh: "#E2EAEA",
-    surfaceContainerHighest: "#DDE4E4",
-    onSurface: "#161D1D",
-    onSurfaceVariant: "#3F4948",
-    outline: "#6F7979",
-    outlineVariant: "#BEC8C8",
-    inverseSurface: "#2B3232",
-    inverseOnSurface: "#ECF2F2",
-    ...ERROR,
-  },
-  {
-    key: "mono",
-    label: "Mono",
-    primary: "#4A4459",
-    onPrimary: "#FFFFFF",
-    primaryContainer: "#E6E0F0",
-    onPrimaryContainer: "#1A1626",
-    inversePrimary: "#CFC3E0",
-    secondaryContainer: "#E6E1E6",
-    onSecondaryContainer: "#1B1B1F",
-    tertiaryContainer: "#E9E0EA",
-    onTertiaryContainer: "#1E1A22",
-    surface: "#FCF8FD",
-    surfaceContainerLow: "#F5F1F6",
-    surfaceContainer: "#EFEBF0",
-    surfaceContainerHigh: "#E9E5EA",
-    surfaceContainerHighest: "#E4E0E5",
-    onSurface: "#1C1B1F",
-    onSurfaceVariant: "#48454E",
-    outline: "#79747E",
-    outlineVariant: "#CAC4D0",
-    inverseSurface: "#313033",
-    inverseOnSurface: "#F4EFF4",
-    ...ERROR,
-  },
-];
+export const PALETTES: Palette[] = KIT_PALETTES;
 
-/* ---------- theme: the four expressive axes ---------- */
-export type ShapeScale = "square" | "rounded" | "full";
-export type FontKey = "roboto" | "robotoFlex" | "robotoSerif" | "system";
-export type MotionScheme = "standard" | "expressive";
-export type { Contrast };
+/** the theme sets, each pairing whichever modes gpui-kit ships for it */
+export const PALETTE_SETS: { set: string; light?: Palette; dark?: Palette }[] = (() => {
+  const out: { set: string; light?: Palette; dark?: Palette }[] = [];
+  for (const p of PALETTES) {
+    let entry = out.find((e) => e.set === p.set);
+    if (!entry) {
+      entry = { set: p.set };
+      out.push(entry);
+    }
+    if (p.dark) entry.dark ??= p;
+    else entry.light ??= p;
+  }
+  return out;
+})();
+
+/* ---------- theme: the axes a gpui-kit ThemeConfig exposes ---------- */
+export type RadiusScale = "square" | "default" | "round";
+export type FontKey = "system" | "inter" | "roboto" | "mono";
+export type Density = "compact" | "default" | "comfortable";
+export type MotionScheme = "default" | "reduced";
 
 export type Theme = {
   dark: boolean;
   /** the app follows the system setting; the canvas shows the mode chosen in `dark` */
   bothModes: boolean;
-  contrast: Contrast;
-  shape: ShapeScale;
+  /** theme.radius / theme.radius_lg, as a coarse scale */
+  radius: RadiusScale;
   font: FontKey;
-  /** headings and labels take the heavier M3 Expressive "emphasized" styles */
-  emphasized: boolean;
+  /** the default component `Size`, which the guides call the density tier */
+  density: Density;
+  /** theme.shadow */
+  shadow: boolean;
+  /** theme.focus_ring */
+  focusRing: boolean;
   motion: MotionScheme;
 };
 
-export const DEFAULT_THEME: Theme = { dark: false, bothModes: false, contrast: "standard", shape: "rounded", font: "roboto", emphasized: false, motion: "standard" };
+export const DEFAULT_THEME: Theme = {
+  dark: false,
+  bothModes: true,
+  radius: "default",
+  font: "system",
+  density: "default",
+  shadow: true,
+  focusRing: true,
+  motion: "default",
+};
 
-/** a stored theme with any missing or unknown field replaced by its default */
-export function normalizeTheme(t: Partial<Theme> | undefined): Theme {
-  const d = DEFAULT_THEME;
-  if (!t) return d;
-  return {
-    dark: typeof t.dark === "boolean" ? t.dark : d.dark,
-    bothModes: typeof t.bothModes === "boolean" ? t.bothModes : d.bothModes,
-    contrast: CONTRASTS.some((c) => c.key === t.contrast) ? (t.contrast as Contrast) : d.contrast,
-    shape: SHAPES.some((c) => c.key === t.shape) ? (t.shape as ShapeScale) : d.shape,
-    font: FONTS.some((c) => c.key === t.font) ? (t.font as FontKey) : d.font,
-    emphasized: typeof t.emphasized === "boolean" ? t.emphasized : d.emphasized,
-    motion: t.motion === "expressive" || t.motion === "standard" ? t.motion : d.motion,
-  };
-}
-
-export const SHAPES: { key: ShapeScale; label: string; icon: string }[] = [
-  { key: "square", label: "Square", icon: "crop_square" },
-  { key: "rounded", label: "Rounded", icon: "rounded_corner" },
-  { key: "full", label: "Full", icon: "circle" },
+export const RADII: { key: RadiusScale; label: string; icon: string; radius: number }[] = [
+  { key: "square", label: "Square", icon: "frame", radius: 0 },
+  { key: "default", label: "Default", icon: "panel-bottom", radius: R },
+  { key: "round", label: "Round", icon: "circle-check", radius: 10 },
 ];
 
-export const FONTS: { key: FontKey; label: string; family: string; /** Google Fonts family to fetch, if any */ google?: string }[] = [
-  { key: "roboto", label: "Roboto", family: "Roboto, system-ui, sans-serif" },
-  { key: "robotoFlex", label: "Roboto Flex", family: "'Roboto Flex', Roboto, system-ui, sans-serif", google: "Roboto+Flex:wght@400;500;600;700" },
-  { key: "robotoSerif", label: "Roboto Serif", family: "'Roboto Serif', Georgia, serif", google: "Roboto+Serif:wght@400;500;600;700" },
-  { key: "system", label: "System", family: "system-ui, -apple-system, 'Segoe UI', sans-serif" },
+export const DENSITIES: { key: Density; label: string; size: string }[] = [
+  { key: "compact", label: "Compact", size: "small" },
+  { key: "default", label: "Default", size: "medium" },
+  { key: "comfortable", label: "Comfortable", size: "large" },
+];
+
+export const MOTIONS: { key: MotionScheme; label: string }[] = [
+  { key: "default", label: "Default" },
+  { key: "reduced", label: "Reduced" },
+];
+
+export const FONTS: {
+  key: FontKey;
+  label: string;
+  family: string;
+  /** what the generated theme's `font.family` should say */
+  themeValue: string;
+  /** Google Fonts family to fetch for the canvas, if any */
+  google?: string;
+}[] = [
+  { key: "system", label: "System UI", family: "system-ui, -apple-system, 'Segoe UI', sans-serif", themeValue: ".SystemUIFont" },
+  { key: "inter", label: "Inter", family: "Inter, system-ui, sans-serif", themeValue: "Inter", google: "Inter:wght@400;500;600;700" },
+  { key: "roboto", label: "Roboto", family: "Roboto, system-ui, sans-serif", themeValue: "Roboto", google: "Roboto:wght@400;500;600;700" },
+  { key: "mono", label: "Monospace", family: "'JetBrains Mono', Menlo, Consolas, monospace", themeValue: "JetBrains Mono", google: "JetBrains+Mono:wght@400;500;600;700" },
 ];
 
 export const fontFamilyOf = (f: FontKey) => FONTS.find((x) => x.key === f)?.family ?? FONTS[0].family;
 
-export const CONTRASTS: { key: Contrast; label: string }[] = [
-  { key: "standard", label: "Standard" },
-  { key: "medium", label: "Medium" },
-  { key: "high", label: "High" },
-];
+/** a stored theme with any missing or unknown field replaced by its default */
+export function normalizeTheme(x: Partial<Theme> | undefined): Theme {
+  const d = DEFAULT_THEME;
+  if (!x) return d;
+  return {
+    dark: typeof x.dark === "boolean" ? x.dark : d.dark,
+    bothModes: typeof x.bothModes === "boolean" ? x.bothModes : d.bothModes,
+    radius: RADII.some((r) => r.key === x.radius) ? (x.radius as RadiusScale) : d.radius,
+    font: FONTS.some((f) => f.key === x.font) ? (x.font as FontKey) : d.font,
+    density: DENSITIES.some((r) => r.key === x.density) ? (x.density as Density) : d.density,
+    shadow: typeof x.shadow === "boolean" ? x.shadow : d.shadow,
+    focusRing: typeof x.focusRing === "boolean" ? x.focusRing : d.focusRing,
+    motion: x.motion === "reduced" || x.motion === "default" ? x.motion : d.motion,
+  };
+}
 
-/** the shape scale that rendering helpers read outside React; the page sets it once per render */
-let curShape: ShapeScale = "rounded";
-export const setGlobalShape = (s: ShapeScale) => {
-  curShape = s;
+/* the radius scale and density that rendering helpers read outside React;
+ * the page sets both once per render */
+let curRadius: RadiusScale = "default";
+let curDensity: Density = "default";
+export const setGlobalShape = (r: RadiusScale) => {
+  curRadius = r;
 };
-export const getShape = () => curShape;
+export const setGlobalDensity = (d: Density) => {
+  curDensity = d;
+};
+export const getShape = () => curRadius;
+export const getDensity = () => curDensity;
+/** the height a medium-sized control takes under the document's density */
+export const densityH = () => H_BY_DENSITY[curDensity];
 
-/** a default corner radius under the document's shape scale */
+/** a default corner radius under the document's radius scale. `R_FULL` is a
+ *  pill, which stays a pill however square the rest of the theme becomes. */
 export function scaleR(r: number): number {
-  if (curShape === "square") return Math.round(r * 0.35);
-  if (curShape === "full") return Math.round(r * 1.6);
+  if (r >= R_FULL) return r;
+  if (curRadius === "square") return 0;
+  if (curRadius === "round") return r + 4;
   return r;
 }
 
-/** The scheme the document renders with. Hand-written presets and the author's
- *  fine-tuned custom scheme are light and standard contrast; dark mode and the
- *  other contrast levels are generated from the same seed. */
+/** The palette the document renders with. A theme set pairs a light and a dark
+ *  palette, so switching mode moves to the set's other side where it has one. */
 export function paletteOf(key: string, custom?: Palette | null, theme?: Theme): Palette {
   const base = (key === "custom" && custom) || PALETTES.find((p) => p.key === key) || PALETTES[0];
-  if (!theme || (!theme.dark && theme.contrast === "standard")) return base;
-  const seed = base.seed ?? base.primary;
-  /* a preset's hue and chroma are deliberate (Mono is nearly grey), so they are kept as they are */
-  return { ...schemeFromSeed(seed, base.label, { dark: theme.dark, contrast: theme.contrast, keepChroma: base.key !== "custom" }), key: base.key };
+  if (!theme || base.dark === theme.dark) return base;
+  if (key === "custom") return base;
+  const sibling = PALETTES.find((p) => p.set === base.set && p.dark === theme.dark);
+  return sibling ?? base;
 }
 
-/* ---------- contrast roles a component can take ---------- */
-export type Variant = "filled" | "tonal" | "elevated" | "outlined" | "text";
+/* ---------- the variants a gpui-kit control can take ---------- */
+export type Variant =
+  | "default"
+  | "primary"
+  | "secondary"
+  | "outline"
+  | "ghost"
+  | "link"
+  | "danger"
+  | "warning"
+  | "success"
+  | "info";
 
 export const VARIANTS: { key: Variant; label: string }[] = [
-  { key: "filled", label: "Filled" },
-  { key: "tonal", label: "Tonal" },
-  { key: "elevated", label: "Elevated" },
-  { key: "outlined", label: "Outlined" },
-  { key: "text", label: "Text" },
+  { key: "default", label: "Default" },
+  { key: "primary", label: "Primary" },
+  { key: "secondary", label: "Secondary" },
+  { key: "outline", label: "Outline" },
+  { key: "ghost", label: "Ghost" },
+  { key: "link", label: "Link" },
+  { key: "danger", label: "Danger" },
+  { key: "warning", label: "Warning" },
+  { key: "success", label: "Success" },
+  { key: "info", label: "Info" },
 ];
+
+/** the semantic variants an Alert, Badge or Tag offers */
+export const STATUS_VARIANTS: Variant[] = ["default", "primary", "secondary", "info", "success", "warning", "danger"];
 
 export function variantStyle(v: Variant, p: Palette): CSSProperties {
   switch (v) {
-    case "filled":
-      return { background: p.primary, color: p.onPrimary, border: "none" };
-    case "tonal":
-      return { background: p.secondaryContainer, color: p.onSecondaryContainer, border: "none" };
-    case "elevated":
-      return { background: p.surfaceContainerLow, color: p.primary, border: "none" };
-    case "outlined":
-      return { background: "transparent", color: p.primary, border: `1px solid ${p.outline}` };
-    case "text":
-      return { background: "transparent", color: p.primary, border: "none" };
+    case "primary":
+      return { background: p.primary, color: p.primaryForeground, border: "none" };
+    case "secondary":
+      return { background: p.secondary, color: p.secondaryForeground, border: "none" };
+    case "outline":
+      return { background: "transparent", color: p.foreground, border: `1px solid ${p.border}` };
+    case "ghost":
+      return { background: "transparent", color: p.foreground, border: "none" };
+    case "link":
+      return { background: "transparent", color: p.link, border: "none", textDecoration: "underline" };
+    case "danger":
+      return { background: p.danger, color: p.dangerForeground, border: "none" };
+    case "warning":
+      return { background: p.warning, color: p.warningForeground, border: "none" };
+    case "success":
+      return { background: p.success, color: p.successForeground, border: "none" };
+    case "info":
+      return { background: p.info, color: p.infoForeground, border: "none" };
+    case "default":
+      return { background: p.background, color: p.foreground, border: `1px solid ${p.border}` };
   }
 }
 
+/** gpui-kit gives a solid control a hairline shadow while `theme.shadow` is on */
 export function variantShadow(v: Variant): string {
-  if (v === "elevated") return "0 1px 3px rgba(0,0,0,0.20), 0 4px 8px rgba(0,0,0,0.10)";
-  return "none";
+  if (v === "ghost" || v === "link") return "none";
+  return "0 1px 2px rgba(0,0,0,0.06)";
 }
 
 /* ---------- component kinds ---------- */
 export type Kind =
-  | "box"
+  | "titleBar"
+  | "sidebar"
+  | "toolbar"
+  | "statusBar"
+  | "breadcrumb"
   | "button"
   | "iconButton"
-  | "fab"
-  | "extendedFab"
-  | "chip"
-  | "topAppBar"
-  | "bottomNav"
-  | "searchBar"
-  | "card"
-  | "listItem"
-  | "dialog"
-  | "snackbar"
-  | "textField"
-  | "switch"
+  | "buttonGroup"
+  | "menu"
+  | "input"
+  | "textarea"
+  | "select"
   | "checkbox"
+  | "radio"
+  | "switch"
   | "slider"
+  | "label"
+  | "panel"
+  | "groupBox"
+  | "tabs"
+  | "resizable"
+  | "dialog"
+  | "sheet"
+  | "popover"
+  | "notification"
+  | "list"
+  | "dataTable"
+  | "tree"
   | "text"
+  | "icon"
   | "image"
   | "divider"
-  | "loadingIndicator"
-  | "linearProgress"
-  | "circularProgress"
-  | "splitButton"
-  | "fabMenu"
-  | "toolbar"
-  | "tabs"
-  | "radio"
-  | "badge";
+  | "badge"
+  | "tag"
+  | "alert"
+  | "progress"
+  | "spinner"
+  | "skeleton";
 
 export type Axis = "x" | "y";
-/** kinds that fuse into a run: buttons side by side, list items stacked */
+/** kinds that fuse into a run: buttons side by side inside one ButtonGroup */
 export type ConnectSpec = { axis: Axis; outer: number; inner: number; family: string };
 
 /** `presets` are quick picks shown as chips; values outside min..max are hidden */
 export type SizeSpec = { min: number; max: number; step: number; icon: string; presets?: number[] };
 
-export type Category = "actions" | "navigation" | "containment" | "inputs" | "content" | "progress";
+export type Category = "shell" | "actions" | "inputs" | "containment" | "overlays" | "data" | "content" | "feedback";
 
 export const CATEGORIES: { key: Category; label: string; icon: string }[] = [
-  { key: "actions", label: "Actions", icon: "touch_app" },
-  { key: "navigation", label: "Navigation", icon: "explore" },
-  { key: "containment", label: "Containment", icon: "web_asset" },
-  { key: "inputs", label: "Inputs", icon: "toggle_on" },
-  { key: "content", label: "Content", icon: "notes" },
-  { key: "progress", label: "Progress", icon: "progress_activity" },
+  { key: "shell", label: "Shell", icon: "layout-dashboard" },
+  { key: "actions", label: "Actions", icon: "square-terminal" },
+  { key: "inputs", label: "Inputs", icon: "case-sensitive" },
+  { key: "containment", label: "Containment", icon: "frame" },
+  { key: "overlays", label: "Overlays", icon: "gallery-vertical-end" },
+  { key: "data", label: "Data", icon: "chart-pie" },
+  { key: "content", label: "Content", icon: "file-text" },
+  { key: "feedback", label: "Feedback", icon: "info" },
 ];
 
 export type KindSpec = {
   label: string;
-  /** short Japanese noun used by the prompt generator */
-  noun: string;
+  /** the `gpui_kit::component` path the prompt names, e.g. "button::Button" */
+  api: string;
   category: Category;
   paletteIcon: string;
-  /** intrinsic size; buttons measure their content, sized kinds use `size` */
+  /** intrinsic size; measured kinds size to their content, sized kinds use `size` */
   w: number;
   h: number;
   radius: number;
@@ -442,14 +521,21 @@ export type KindSpec = {
   hasSupporting: boolean;
   hasIcon: boolean;
   hasChecked?: boolean;
-  /** carries a list of icon + label entries (navigation bar, tabs, FAB menu, toolbar) */
+  /** carries a list of icon + label entries (sidebar, tabs, menu, toolbar, list) */
   hasTabs?: boolean;
-  /** second dimension (height) for free-form boxes */
+  /** carries table columns as well as rows */
+  hasColumns?: boolean;
+  /** second dimension (height) for free-form containers */
   size2?: SizeSpec;
   hasFill?: boolean;
   hasValue?: boolean;
-  hasWavy?: boolean;
-  hasContained?: boolean;
+  hasCircle?: boolean;
+  hasDisabled?: boolean;
+  hasCollapsed?: boolean;
+  hasSide?: boolean;
+  hasControls?: boolean;
+  /** the part is a region of the window shell, so tidy pins it to an edge */
+  region?: "top" | "bottom" | "left" | "right";
   connect?: ConnectSpec;
   size?: SizeSpec;
   defLabel: string;
@@ -460,137 +546,60 @@ export type KindSpec = {
   defVariant?: Variant;
 };
 
+/** row heights gpui-kit resolves for its data views */
+export const LIST_ROW_H = 28;
+export const TREE_ROW_H = 26;
+export const TABLE_ROW_H = 32;
+export const MENU_ROW_H = 28;
+
 export const KIND_SPEC: Record<Kind, KindSpec> = {
-  box: {
-    label: "Box",
-    noun: "ボックス",
-    category: "containment",
-    paletteIcon: "check_box_outline_blank",
-    w: PHONE_W,
-    h: 220,
-    radius: 28,
-    hasVariant: false,
-    hasLabel: false,
-    hasSupporting: false,
-    hasIcon: false,
-    hasChecked: true,
-    hasFill: true,
-    size: { min: 40, max: PHONE_W, step: 4, icon: "width", presets: WIDTH_PRESETS },
-    size2: { min: 24, max: PHONE_H, step: 4, icon: "height", presets: HEIGHT_PRESETS },
-    defLabel: "",
-    defIcon: null,
-    defSize: PHONE_W,
-  },
-  button: {
-    label: "Button",
-    noun: "ボタン",
-    category: "actions",
-    paletteIcon: "buttons_alt",
-    w: 0,
-    h: H,
-    radius: R_FULL,
-    hasVariant: true,
-    hasLabel: true,
-    hasSupporting: false,
-    hasIcon: true,
-    connect: { axis: "x", outer: R_FULL, inner: R_INNER, family: "button" },
-    defLabel: "ボタン",
-    defIcon: "add",
-  },
-  iconButton: {
-    label: "Icon Button",
-    noun: "アイコンボタン",
-    category: "actions",
-    paletteIcon: "radio_button_checked",
-    w: 48,
-    h: 48,
-    radius: 24,
-    hasVariant: true,
-    hasLabel: false,
-    hasSupporting: false,
-    hasIcon: true,
-    connect: { axis: "x", outer: 24, inner: R_INNER, family: "button" },
-    size: { min: 40, max: 96, step: 4, icon: "open_in_full", presets: [40, 48, 56, 96] },
-    defLabel: "",
-    defIcon: "favorite",
-    defSize: 48,
-    defVariant: "tonal",
-  },
-  fab: {
-    label: "FAB",
-    noun: "FAB（フローティングボタン）",
-    category: "actions",
-    paletteIcon: "add_circle",
-    w: 56,
-    h: 56,
-    radius: 16,
-    hasVariant: true,
-    hasLabel: false,
-    hasSupporting: false,
-    hasIcon: true,
-    size: { min: 40, max: 128, step: 4, icon: "open_in_full", presets: [40, 56, 96] },
-    defLabel: "",
-    defIcon: "edit",
-    defSize: 56,
-    defVariant: "tonal",
-  },
-  extendedFab: {
-    label: "Extended FAB",
-    noun: "拡張 FAB",
-    category: "actions",
-    paletteIcon: "add_box",
-    w: 0,
-    h: 56,
-    radius: 16,
-    hasVariant: true,
-    hasLabel: true,
-    hasSupporting: false,
-    hasIcon: true,
-    defLabel: "作成",
-    defIcon: "edit",
-    defVariant: "tonal",
-  },
-  chip: {
-    label: "Chip",
-    noun: "チップ",
-    category: "actions",
-    paletteIcon: "label",
-    w: 0,
-    h: 32,
-    radius: 8,
-    hasVariant: true,
-    hasLabel: true,
-    hasSupporting: false,
-    hasIcon: true,
-    hasChecked: true,
-    connect: { axis: "x", outer: 16, inner: 4, family: "chip" },
-    defLabel: "チップ",
-    defIcon: null,
-    defVariant: "outlined",
-  },
-  topAppBar: {
-    label: "Top App Bar",
-    noun: "トップアプリバー",
-    category: "navigation",
-    paletteIcon: "toolbar",
-    w: 412,
-    h: 64 + STATUS_BAR_H,
+  /* ---- shell ---- */
+  titleBar: {
+    label: "Title Bar",
+    api: "TitleBar",
+    category: "shell",
+    paletteIcon: "panel-bottom",
+    w: WINDOW_W,
+    h: TITLE_BAR_H,
     radius: 0,
     hasVariant: false,
     hasLabel: true,
     hasSupporting: false,
     hasIcon: true,
-    defLabel: "タイトル",
-    defIcon: "menu",
-    defIcon2: "more_vert",
+    hasControls: true,
+    region: "top",
+    defLabel: "App",
+    defIcon: null,
+    defIcon2: "ellipsis",
   },
-  bottomNav: {
-    label: "Navigation Bar",
-    noun: "ナビゲーションバー",
-    category: "navigation",
-    paletteIcon: "bottom_navigation",
-    w: 412,
-    h: 80 + NAV_BAR_H,
+  sidebar: {
+    label: "Sidebar",
+    api: "sidebar::Sidebar",
+    category: "shell",
+    paletteIcon: "panel-left",
+    w: SIDEBAR_W,
+    h: WINDOW_H - TITLE_BAR_H,
+    radius: 0,
+    hasVariant: false,
+    hasLabel: true,
+    hasSupporting: false,
+    hasIcon: true,
+    hasTabs: true,
+    hasCollapsed: true,
+    region: "left",
+    size: { min: SIDEBAR_COLLAPSED_W, max: 420, step: 1, icon: "panel-left", presets: [SIDEBAR_COLLAPSED_W, 200, SIDEBAR_W, 320] },
+    size2: { min: 120, max: WINDOW_H, step: 4, icon: "panel-bottom", presets: HEIGHT_PRESETS },
+    defLabel: "Navigation",
+    defIcon: "layout-dashboard",
+    defSize: SIDEBAR_W,
+  },
+  toolbar: {
+    label: "Toolbar",
+    api: "h_flex of ghost Buttons",
+    category: "shell",
+    paletteIcon: "settings-2",
+    w: 0,
+    h: 40,
     radius: 0,
     hasVariant: false,
     hasLabel: false,
@@ -600,409 +609,699 @@ export const KIND_SPEC: Record<Kind, KindSpec> = {
     defLabel: "",
     defIcon: null,
   },
-  searchBar: {
-    label: "Search Bar",
-    noun: "検索バー",
-    category: "navigation",
-    paletteIcon: "search",
-    w: CONTENT_W,
-    h: 56,
-    radius: 28,
-    hasVariant: false,
-    hasLabel: true,
-    hasSupporting: false,
-    hasIcon: true,
-    size: { min: 200, max: PHONE_W, step: 4, icon: "width", presets: WIDTH_PRESETS },
-    defLabel: "検索",
-    defIcon: "search",
-    defIcon2: "mic",
-    defSize: CONTENT_W,
-  },
-  card: {
-    label: "Card",
-    noun: "カード",
-    category: "containment",
-    paletteIcon: "web_asset",
-    w: CONTENT_W,
-    h: 188,
-    radius: 20,
-    hasVariant: true,
-    hasLabel: true,
-    hasSupporting: true,
-    hasIcon: true,
-    size: { min: 160, max: PHONE_W, step: 4, icon: "width", presets: WIDTH_PRESETS },
-    defLabel: "カードの見出し",
-    defIcon: "image",
-    defSupporting: "補足テキストがここに入ります。",
-    defSize: CONTENT_W,
-    defVariant: "tonal",
-  },
-  listItem: {
-    label: "List Item",
-    noun: "リスト項目",
-    category: "containment",
-    paletteIcon: "list",
-    w: CONTENT_W,
-    h: 72,
-    radius: R_FULL,
+  statusBar: {
+    label: "Status Bar",
+    api: "status_bar::StatusBar",
+    category: "shell",
+    paletteIcon: "panel-bottom-open",
+    w: WINDOW_W,
+    h: STATUS_BAR_H,
+    radius: 0,
     hasVariant: false,
     hasLabel: true,
     hasSupporting: true,
     hasIcon: true,
-    hasFill: true,
-    connect: { axis: "y", outer: R_FULL, inner: R_INNER, family: "list" },
-    size: { min: 200, max: PHONE_W, step: 4, icon: "width", presets: WIDTH_PRESETS },
-    defLabel: "リスト項目",
-    defIcon: "person",
-    defSupporting: "サブテキスト",
-    defIcon2: "chevron_right",
-    defSize: CONTENT_W,
+    region: "bottom",
+    defLabel: "Ready",
+    defIcon: "circle-check",
+    defSupporting: "3 items",
   },
-  dialog: {
-    label: "Dialog",
-    noun: "ダイアログ",
-    category: "containment",
-    paletteIcon: "chat_bubble",
-    w: 312,
-    h: 220,
-    radius: 28,
-    hasVariant: false,
-    hasLabel: true,
-    hasSupporting: true,
-    hasIcon: true,
-    defLabel: "確認",
-    defIcon: "info",
-    defSupporting: "この操作を実行しますか？",
-  },
-  snackbar: {
-    label: "Snackbar",
-    noun: "スナックバー",
-    category: "containment",
-    paletteIcon: "call_to_action",
-    w: 344,
-    h: 48,
-    radius: 8,
-    hasVariant: false,
-    hasLabel: true,
-    hasSupporting: true,
-    hasIcon: false,
-    defLabel: "保存しました",
-    defIcon: null,
-    defSupporting: "元に戻す",
-  },
-  textField: {
-    label: "Text Field",
-    noun: "テキスト入力",
-    category: "inputs",
-    paletteIcon: "text_fields",
-    w: CONTENT_W,
-    h: 56,
-    radius: 16,
-    hasVariant: true,
-    hasLabel: true,
-    hasSupporting: true,
-    hasIcon: true,
-    size: { min: 160, max: PHONE_W, step: 4, icon: "width", presets: WIDTH_PRESETS },
-    defLabel: "ラベル",
-    defIcon: "search",
-    defSupporting: "",
-    defSize: CONTENT_W,
-    defVariant: "outlined",
-  },
-  switch: {
-    label: "Switch",
-    noun: "スイッチ",
-    category: "inputs",
-    paletteIcon: "toggle_on",
+  breadcrumb: {
+    label: "Breadcrumb",
+    api: "breadcrumb::Breadcrumb",
+    category: "shell",
+    paletteIcon: "chevron-right",
     w: 0,
-    h: 32,
-    radius: 16,
+    h: 24,
+    radius: 0,
+    hasVariant: false,
+    hasLabel: false,
+    hasSupporting: false,
+    hasIcon: false,
+    hasTabs: true,
+    defLabel: "",
+    defIcon: null,
+  },
+
+  /* ---- actions ---- */
+  button: {
+    label: "Button",
+    api: "button::Button",
+    category: "actions",
+    paletteIcon: "square-terminal",
+    w: 0,
+    h: H,
+    radius: R,
+    hasVariant: true,
+    hasLabel: true,
+    hasSupporting: false,
+    hasIcon: true,
+    hasDisabled: true,
+    connect: { axis: "x", outer: R, inner: R_INNER, family: "button" },
+    defLabel: "Button",
+    defIcon: null,
+    defVariant: "default",
+  },
+  iconButton: {
+    label: "Icon Button",
+    api: "button::Button (icon only)",
+    category: "actions",
+    paletteIcon: "ellipsis",
+    w: H,
+    h: H,
+    radius: R,
+    hasVariant: true,
+    hasLabel: false,
+    hasSupporting: false,
+    hasIcon: true,
+    hasDisabled: true,
+    connect: { axis: "x", outer: R, inner: R_INNER, family: "button" },
+    size: { min: 20, max: 44, step: 2, icon: "maximize", presets: [20, 24, 32, 44] },
+    defLabel: "",
+    defIcon: "settings",
+    defSize: H,
+    defVariant: "ghost",
+  },
+  buttonGroup: {
+    label: "Button Group",
+    api: "button::ButtonGroup",
+    category: "actions",
+    paletteIcon: "gallery-vertical-end",
+    w: 0,
+    h: H,
+    radius: R,
+    hasVariant: true,
+    hasLabel: false,
+    hasSupporting: false,
+    hasIcon: false,
+    hasTabs: true,
+    defLabel: "",
+    defIcon: null,
+    defVariant: "outline",
+  },
+  menu: {
+    label: "Menu",
+    api: "menu::PopupMenu",
+    category: "actions",
+    paletteIcon: "menu",
+    w: 220,
+    h: 0,
+    radius: R,
+    hasVariant: false,
+    hasLabel: false,
+    hasSupporting: false,
+    hasIcon: false,
+    hasTabs: true,
+    size: { min: 140, max: 360, step: 4, icon: "maximize", presets: [180, 220, 280] },
+    defLabel: "",
+    defIcon: null,
+    defSize: 220,
+  },
+
+  /* ---- inputs ---- */
+  input: {
+    label: "Input",
+    api: "input::{Input, InputState}",
+    category: "inputs",
+    paletteIcon: "case-sensitive",
+    w: 280,
+    h: H,
+    radius: R,
+    hasVariant: false,
+    hasLabel: true,
+    hasSupporting: true,
+    hasIcon: true,
+    hasDisabled: true,
+    size: { min: 120, max: WINDOW_W, step: 4, icon: "maximize", presets: [200, 280, HALF_W, CONTENT_W] },
+    defLabel: "Label",
+    defIcon: null,
+    defSupporting: "Enter a value",
+  },
+  textarea: {
+    label: "Textarea",
+    api: "input::{Textarea, TextareaState}",
+    category: "inputs",
+    paletteIcon: "file-text",
+    w: 320,
+    h: 84,
+    radius: R,
+    hasVariant: false,
+    hasLabel: true,
+    hasSupporting: true,
+    hasIcon: false,
+    hasDisabled: true,
+    size: { min: 160, max: WINDOW_W, step: 4, icon: "maximize", presets: [280, 320, HALF_W, CONTENT_W] },
+    size2: { min: 48, max: 480, step: 4, icon: "panel-bottom", presets: [84, 140, 220] },
+    defLabel: "Description",
+    defIcon: null,
+    defSupporting: "Add the details",
+  },
+  select: {
+    label: "Select",
+    api: "select::{Select, SelectState}",
+    category: "inputs",
+    paletteIcon: "chevrons-up-down",
+    w: 220,
+    h: H,
+    radius: R,
     hasVariant: false,
     hasLabel: true,
     hasSupporting: false,
-    hasIcon: false,
-    hasChecked: true,
-    defLabel: "通知",
+    hasIcon: true,
+    hasTabs: true,
+    hasDisabled: true,
+    size: { min: 120, max: WINDOW_W, step: 4, icon: "maximize", presets: [180, 220, 280, HALF_W] },
+    defLabel: "Choose one",
     defIcon: null,
   },
   checkbox: {
     label: "Checkbox",
-    noun: "チェックボックス",
+    api: "checkbox::Checkbox",
     category: "inputs",
-    paletteIcon: "check_box",
+    paletteIcon: "check",
     w: 0,
-    h: 40,
+    h: 16,
     radius: 4,
     hasVariant: false,
     hasLabel: true,
     hasSupporting: false,
     hasIcon: false,
     hasChecked: true,
-    defLabel: "同意する",
+    hasDisabled: true,
+    defLabel: "I agree",
     defIcon: null,
-  },
-  slider: {
-    label: "Slider",
-    noun: "スライダー",
-    category: "inputs",
-    paletteIcon: "sliders",
-    w: CONTENT_W,
-    h: 44,
-    radius: 22,
-    hasVariant: false,
-    hasLabel: false,
-    hasSupporting: false,
-    hasIcon: false,
-    hasValue: true,
-    size: { min: 120, max: PHONE_W, step: 4, icon: "width", presets: WIDTH_PRESETS },
-    defLabel: "",
-    defIcon: null,
-    defSize: CONTENT_W,
-  },
-  text: {
-    label: "Text",
-    noun: "テキスト",
-    category: "content",
-    paletteIcon: "title",
-    w: 0,
-    h: 40,
-    radius: 0,
-    hasVariant: false,
-    hasLabel: true,
-    hasSupporting: false,
-    hasIcon: false,
-    size: { min: 12, max: 57, step: 1, icon: "format_size", presets: [14, 16, 22, 28, 32, 45, 57] },
-    defLabel: "見出し",
-    defIcon: null,
-    defSize: 28,
-  },
-  image: {
-    label: "Image",
-    noun: "画像",
-    category: "content",
-    paletteIcon: "image",
-    w: 200,
-    h: 200,
-    radius: 20,
-    hasVariant: false,
-    hasLabel: false,
-    hasSupporting: false,
-    hasIcon: true,
-    size: { min: 48, max: PHONE_W, step: 4, icon: "open_in_full", presets: [96, HALF_W, CONTENT_W, PHONE_W] },
-    defLabel: "",
-    defIcon: "image",
-    defSize: 200,
-  },
-  divider: {
-    label: "Divider",
-    noun: "区切り線",
-    category: "content",
-    paletteIcon: "horizontal_rule",
-    w: CONTENT_W,
-    h: 16,
-    radius: 0,
-    hasVariant: false,
-    hasLabel: false,
-    hasSupporting: false,
-    hasIcon: false,
-    size: { min: 40, max: PHONE_W, step: 4, icon: "width", presets: WIDTH_PRESETS },
-    defLabel: "",
-    defIcon: null,
-    defSize: CONTENT_W,
-  },
-  loadingIndicator: {
-    label: "Loading Indicator",
-    noun: "ローディングインジケータ",
-    category: "progress",
-    paletteIcon: "motion_blur",
-    w: 48,
-    h: 48,
-    radius: 24,
-    hasVariant: false,
-    hasLabel: false,
-    hasSupporting: false,
-    hasIcon: false,
-    hasContained: true,
-    size: { min: 32, max: 128, step: 4, icon: "open_in_full", presets: [32, 48, 64, 96] },
-    defLabel: "",
-    defIcon: null,
-    defSize: 48,
-  },
-  linearProgress: {
-    label: "Linear Progress",
-    noun: "リニアプログレス",
-    category: "progress",
-    paletteIcon: "linear_scale",
-    w: CONTENT_W,
-    h: 24,
-    radius: 12,
-    hasVariant: false,
-    hasLabel: false,
-    hasSupporting: false,
-    hasIcon: false,
-    hasValue: true,
-    hasWavy: true,
-    size: { min: 120, max: PHONE_W, step: 4, icon: "width", presets: WIDTH_PRESETS },
-    defLabel: "",
-    defIcon: null,
-    defSize: CONTENT_W,
-  },
-  circularProgress: {
-    label: "Circular Progress",
-    noun: "サーキュラープログレス",
-    category: "progress",
-    paletteIcon: "progress_activity",
-    w: 48,
-    h: 48,
-    radius: 24,
-    hasVariant: false,
-    hasLabel: false,
-    hasSupporting: false,
-    hasIcon: false,
-    hasValue: true,
-    hasWavy: true,
-    size: { min: 24, max: 120, step: 4, icon: "open_in_full", presets: [24, 40, 48, 64] },
-    defLabel: "",
-    defIcon: null,
-    defSize: 48,
-  },
-  splitButton: {
-    label: "Split Button",
-    noun: "スプリットボタン",
-    category: "actions",
-    paletteIcon: "splitscreen_right",
-    w: 0,
-    h: H,
-    radius: R_FULL,
-    hasVariant: true,
-    hasLabel: true,
-    hasSupporting: false,
-    hasIcon: true,
-    defLabel: "送信",
-    defIcon: "send",
-    defVariant: "filled",
-  },
-  fabMenu: {
-    label: "FAB Menu",
-    noun: "FAB メニュー",
-    category: "actions",
-    paletteIcon: "add_circle",
-    w: 220,
-    h: 56,
-    radius: 16,
-    hasVariant: true,
-    hasLabel: false,
-    hasSupporting: false,
-    hasIcon: true,
-    hasTabs: true,
-    size: { min: 160, max: CONTENT_W, step: 4, icon: "width", presets: [220, HALF_W, CONTENT_W] },
-    defLabel: "",
-    defIcon: "close",
-    defSize: 220,
-    defVariant: "filled",
-  },
-  toolbar: {
-    label: "Toolbar",
-    noun: "ツールバー",
-    category: "navigation",
-    paletteIcon: "toolbar",
-    w: 0,
-    h: 64,
-    radius: 32,
-    hasVariant: true,
-    hasLabel: false,
-    hasSupporting: false,
-    hasIcon: false,
-    hasTabs: true,
-    defLabel: "",
-    defIcon: null,
-    defVariant: "tonal",
-  },
-  tabs: {
-    label: "Tabs",
-    noun: "タブ",
-    category: "navigation",
-    paletteIcon: "tab",
-    w: PHONE_W,
-    h: 48,
-    radius: 0,
-    hasVariant: false,
-    hasLabel: false,
-    hasSupporting: false,
-    hasIcon: false,
-    hasTabs: true,
-    size: { min: 200, max: PHONE_W, step: 4, icon: "width", presets: WIDTH_PRESETS },
-    defLabel: "",
-    defIcon: null,
-    defSize: PHONE_W,
   },
   radio: {
-    label: "Radio Button",
-    noun: "ラジオボタン",
+    label: "Radio Group",
+    api: "radio::{Radio, RadioGroup}",
     category: "inputs",
-    paletteIcon: "radio_button_checked",
+    paletteIcon: "circle-check",
+    w: 200,
+    h: 0,
+    radius: R_FULL,
+    hasVariant: false,
+    hasLabel: false,
+    hasSupporting: false,
+    hasIcon: false,
+    hasTabs: true,
+    hasValue: true,
+    hasDisabled: true,
+    size: { min: 120, max: 420, step: 4, icon: "maximize", presets: [160, 200, 280] },
+    defLabel: "",
+    defIcon: null,
+    defSize: 200,
+  },
+  switch: {
+    label: "Switch",
+    api: "switch::Switch",
+    category: "inputs",
+    paletteIcon: "circle-check",
     w: 0,
-    h: 40,
-    radius: 20,
+    h: 20,
+    radius: R_FULL,
     hasVariant: false,
     hasLabel: true,
     hasSupporting: false,
     hasIcon: false,
     hasChecked: true,
-    defLabel: "選択肢",
+    hasDisabled: true,
+    defLabel: "Notifications",
     defIcon: null,
+  },
+  slider: {
+    label: "Slider",
+    api: "slider::{Slider, SliderState}",
+    category: "inputs",
+    paletteIcon: "dash",
+    w: 220,
+    h: 20,
+    radius: R_FULL,
+    hasVariant: false,
+    hasLabel: true,
+    hasSupporting: false,
+    hasIcon: false,
+    hasValue: true,
+    hasDisabled: true,
+    size: { min: 120, max: WINDOW_W, step: 4, icon: "maximize", presets: [180, 220, 320, HALF_W] },
+    defLabel: "Volume",
+    defIcon: null,
+  },
+  label: {
+    label: "Label",
+    api: "label::Label",
+    category: "inputs",
+    paletteIcon: "a-large-small",
+    w: 0,
+    h: 20,
+    radius: 0,
+    hasVariant: false,
+    hasLabel: true,
+    hasSupporting: false,
+    hasIcon: false,
+    defLabel: "Label",
+    defIcon: null,
+  },
+
+  /* ---- containment ---- */
+  panel: {
+    label: "Panel",
+    api: "div() with a theme background",
+    category: "containment",
+    paletteIcon: "frame",
+    w: CONTENT_W,
+    h: 200,
+    radius: R,
+    hasVariant: false,
+    hasLabel: false,
+    hasSupporting: false,
+    hasIcon: false,
+    hasFill: true,
+    size: { min: 40, max: WINDOW_W, step: 4, icon: "maximize", presets: WIDTH_PRESETS },
+    size2: { min: 24, max: WINDOW_H, step: 4, icon: "panel-bottom", presets: HEIGHT_PRESETS },
+    defLabel: "",
+    defIcon: null,
+    defSize: CONTENT_W,
+  },
+  groupBox: {
+    label: "Group Box",
+    api: "group_box::GroupBox",
+    category: "containment",
+    paletteIcon: "panel-left-close",
+    w: 320,
+    h: 160,
+    radius: R_LG,
+    hasVariant: false,
+    hasLabel: true,
+    hasSupporting: true,
+    hasIcon: false,
+    size: { min: 160, max: WINDOW_W, step: 4, icon: "maximize", presets: [280, 320, HALF_W, CONTENT_W] },
+    size2: { min: 80, max: WINDOW_H, step: 4, icon: "panel-bottom", presets: [120, 160, 240] },
+    defLabel: "Settings",
+    defIcon: null,
+    defSupporting: "",
+  },
+  tabs: {
+    label: "Tabs",
+    api: "tab::{Tab, TabBar}",
+    category: "containment",
+    paletteIcon: "gallery-vertical-end",
+    w: 420,
+    h: H,
+    radius: R,
+    hasVariant: false,
+    hasLabel: false,
+    hasSupporting: false,
+    hasIcon: false,
+    hasTabs: true,
+    hasValue: true,
+    size: { min: 160, max: WINDOW_W, step: 4, icon: "maximize", presets: [320, 420, CONTENT_W, WINDOW_W] },
+    defLabel: "",
+    defIcon: null,
+    defSize: 420,
+  },
+  resizable: {
+    label: "Resizable",
+    api: "resizable::{h_resizable, resizable_panel}",
+    category: "containment",
+    paletteIcon: "panel-right-open",
+    w: CONTENT_W,
+    h: 260,
+    radius: R,
+    hasVariant: false,
+    hasLabel: false,
+    hasSupporting: false,
+    hasIcon: false,
+    hasValue: true,
+    hasSide: true,
+    size: { min: 200, max: WINDOW_W, step: 4, icon: "maximize", presets: WIDTH_PRESETS },
+    size2: { min: 80, max: WINDOW_H, step: 4, icon: "panel-bottom", presets: HEIGHT_PRESETS },
+    defLabel: "",
+    defIcon: null,
+    defSize: CONTENT_W,
+  },
+
+  /* ---- overlays ---- */
+  dialog: {
+    label: "Dialog",
+    api: "dialog::Dialog via window.open_dialog",
+    category: "overlays",
+    paletteIcon: "square-terminal",
+    w: 420,
+    h: 0,
+    radius: R_LG,
+    hasVariant: true,
+    hasLabel: true,
+    hasSupporting: true,
+    hasIcon: false,
+    size: { min: 280, max: 720, step: 4, icon: "maximize", presets: [360, 420, 560] },
+    defLabel: 'Delete "Roadmap"?',
+    defIcon: null,
+    defSupporting: "This cannot be undone.",
+    defSize: 420,
+    defVariant: "danger",
+  },
+  sheet: {
+    label: "Sheet",
+    api: "sheet::Sheet via window.open_sheet",
+    category: "overlays",
+    paletteIcon: "panel-right-open",
+    w: 380,
+    h: WINDOW_H - TITLE_BAR_H,
+    radius: 0,
+    hasVariant: false,
+    hasLabel: true,
+    hasSupporting: true,
+    hasIcon: false,
+    hasSide: true,
+    size: { min: 240, max: 720, step: 4, icon: "maximize", presets: [320, 380, 480] },
+    size2: { min: 160, max: WINDOW_H, step: 4, icon: "panel-bottom", presets: HEIGHT_PRESETS },
+    defLabel: "Details",
+    defIcon: null,
+    defSupporting: "",
+    defSize: 380,
+  },
+  popover: {
+    label: "Popover",
+    api: "popover::Popover",
+    category: "overlays",
+    paletteIcon: "gallery-vertical-end",
+    w: 260,
+    h: 0,
+    radius: R_LG,
+    hasVariant: false,
+    hasLabel: true,
+    hasSupporting: true,
+    hasIcon: false,
+    size: { min: 160, max: 480, step: 4, icon: "maximize", presets: [220, 260, 320] },
+    defLabel: "Popover",
+    defIcon: null,
+    defSupporting: "Supporting copy goes here.",
+    defSize: 260,
+  },
+  notification: {
+    label: "Notification",
+    api: "notification::Notification via window.push_notification",
+    category: "overlays",
+    paletteIcon: "bell",
+    w: 360,
+    h: 0,
+    radius: R_LG,
+    hasVariant: true,
+    hasLabel: true,
+    hasSupporting: true,
+    hasIcon: true,
+    size: { min: 240, max: 480, step: 4, icon: "maximize", presets: [320, 360, 420] },
+    defLabel: "Saved",
+    defIcon: "circle-check",
+    defSupporting: "Every change is in place.",
+    defSize: 360,
+    defVariant: "success",
+  },
+
+  /* ---- data ---- */
+  list: {
+    label: "List",
+    api: "list::{List, ListState, ListDelegate}",
+    category: "data",
+    paletteIcon: "menu",
+    w: 280,
+    h: 0,
+    radius: R,
+    hasVariant: false,
+    hasLabel: false,
+    hasSupporting: false,
+    hasIcon: false,
+    hasTabs: true,
+    hasValue: true,
+    size: { min: 160, max: WINDOW_W, step: 4, icon: "maximize", presets: [240, 280, HALF_W, CONTENT_W] },
+    defLabel: "",
+    defIcon: null,
+    defSize: 280,
+  },
+  dataTable: {
+    label: "Data Table",
+    api: "table::{DataTable, TableState, TableDelegate}",
+    category: "data",
+    paletteIcon: "layout-dashboard",
+    w: 640,
+    h: 0,
+    radius: R,
+    hasVariant: false,
+    hasLabel: false,
+    hasSupporting: false,
+    hasIcon: false,
+    hasTabs: true,
+    hasColumns: true,
+    size: { min: 240, max: WINDOW_W, step: 4, icon: "maximize", presets: [480, 640, CONTENT_W, WINDOW_W] },
+    defLabel: "",
+    defIcon: null,
+    defSize: 640,
+  },
+  tree: {
+    label: "Tree",
+    api: "tree::{Tree, TreeState, TreeItem}",
+    category: "data",
+    paletteIcon: "folder-open",
+    w: 260,
+    h: 0,
+    radius: R,
+    hasVariant: false,
+    hasLabel: false,
+    hasSupporting: false,
+    hasIcon: false,
+    hasTabs: true,
+    hasValue: true,
+    size: { min: 160, max: 480, step: 4, icon: "maximize", presets: [220, 260, 320] },
+    defLabel: "",
+    defIcon: null,
+    defSize: 260,
+  },
+
+  /* ---- content ---- */
+  text: {
+    label: "Text",
+    api: "text::TextView / a styled div",
+    category: "content",
+    paletteIcon: "a-large-small",
+    w: 0,
+    h: 20,
+    radius: 0,
+    hasVariant: false,
+    hasLabel: true,
+    hasSupporting: false,
+    hasIcon: false,
+    size: { min: 11, max: 48, step: 1, icon: "a-large-small", presets: [12, 14, 16, 18, 20] },
+    defLabel: "Headline",
+    defIcon: null,
+    defSize: 20,
+  },
+  icon: {
+    label: "Icon",
+    api: "{Icon, IconName}",
+    category: "content",
+    paletteIcon: "star",
+    w: 16,
+    h: 16,
+    radius: 0,
+    hasVariant: false,
+    hasLabel: false,
+    hasSupporting: false,
+    hasIcon: true,
+    size: { min: 12, max: 48, step: 2, icon: "maximize", presets: [12, 16, 20, 24, 32] },
+    defLabel: "",
+    defIcon: "star",
+    defSize: 16,
+  },
+  image: {
+    label: "Image",
+    api: "gpui_kit::{img, ImageSource}",
+    category: "content",
+    paletteIcon: "frame",
+    w: 200,
+    h: 0,
+    radius: R,
+    hasVariant: false,
+    hasLabel: false,
+    hasSupporting: false,
+    hasIcon: false,
+    size: { min: 24, max: WINDOW_W, step: 4, icon: "maximize", presets: [120, 200, 320] },
+    size2: { min: 24, max: WINDOW_H, step: 4, icon: "panel-bottom", presets: [120, 200, 320] },
+    defLabel: "",
+    defIcon: null,
+    defSize: 200,
+  },
+  divider: {
+    label: "Divider",
+    api: "divider::Divider",
+    category: "content",
+    paletteIcon: "dash",
+    w: CONTENT_W,
+    h: 1,
+    radius: 0,
+    hasVariant: false,
+    hasLabel: false,
+    hasSupporting: false,
+    hasIcon: false,
+    size: { min: 40, max: WINDOW_W, step: 4, icon: "maximize", presets: WIDTH_PRESETS },
+    defLabel: "",
+    defIcon: null,
+    defSize: CONTENT_W,
   },
   badge: {
     label: "Badge",
-    noun: "バッジ",
+    api: "badge::Badge",
     category: "content",
-    paletteIcon: "notifications_unread",
+    paletteIcon: "asterisk",
     w: 0,
     h: 16,
-    radius: 8,
-    hasVariant: false,
+    radius: R_FULL,
+    hasVariant: true,
     hasLabel: true,
     hasSupporting: false,
     hasIcon: false,
     defLabel: "3",
     defIcon: null,
+    defVariant: "primary",
+  },
+  tag: {
+    label: "Tag",
+    api: "tag::Tag",
+    category: "content",
+    paletteIcon: "star",
+    w: 0,
+    h: 20,
+    radius: 4,
+    hasVariant: true,
+    hasLabel: true,
+    hasSupporting: false,
+    hasIcon: false,
+    hasChecked: true,
+    defLabel: "Tag",
+    defIcon: null,
+    defVariant: "secondary",
+  },
+
+  /* ---- feedback ---- */
+  alert: {
+    label: "Alert",
+    api: "alert::Alert",
+    category: "feedback",
+    paletteIcon: "triangle-alert",
+    w: CONTENT_W,
+    h: 0,
+    radius: R,
+    hasVariant: true,
+    hasLabel: true,
+    hasSupporting: true,
+    hasIcon: true,
+    size: { min: 200, max: WINDOW_W, step: 4, icon: "maximize", presets: [320, HALF_W, CONTENT_W] },
+    defLabel: "Check this first",
+    defIcon: "triangle-alert",
+    defSupporting: "Review the input before continuing.",
+    defSize: CONTENT_W,
+    defVariant: "warning",
+  },
+  progress: {
+    label: "Progress",
+    api: "progress::{Progress, ProgressCircle}",
+    category: "feedback",
+    paletteIcon: "loader",
+    w: 220,
+    h: 6,
+    radius: R_FULL,
+    hasVariant: false,
+    hasLabel: false,
+    hasSupporting: false,
+    hasIcon: false,
+    hasValue: true,
+    hasCircle: true,
+    size: { min: 80, max: WINDOW_W, step: 4, icon: "maximize", presets: [160, 220, 320] },
+    defLabel: "",
+    defIcon: null,
+    defSize: 220,
+  },
+  spinner: {
+    label: "Spinner",
+    api: "spinner::Spinner",
+    category: "feedback",
+    paletteIcon: "loader-circle",
+    w: 20,
+    h: 20,
+    radius: R_FULL,
+    hasVariant: false,
+    hasLabel: false,
+    hasSupporting: false,
+    hasIcon: false,
+    size: { min: 12, max: 64, step: 2, icon: "maximize", presets: [16, 20, 24, 32] },
+    defLabel: "",
+    defIcon: null,
+    defSize: 20,
+  },
+  skeleton: {
+    label: "Skeleton",
+    api: "skeleton::Skeleton",
+    category: "feedback",
+    paletteIcon: "dash",
+    w: 200,
+    h: 16,
+    radius: 4,
+    hasVariant: false,
+    hasLabel: false,
+    hasSupporting: false,
+    hasIcon: false,
+    size: { min: 40, max: WINDOW_W, step: 4, icon: "maximize", presets: [120, 200, 320, CONTENT_W] },
+    size2: { min: 8, max: 240, step: 2, icon: "panel-bottom", presets: [12, 16, 24, 48] },
+    defLabel: "",
+    defIcon: null,
+    defSize: 200,
   },
 };
 
 export const KIND_ORDER: Kind[] = [
+  "titleBar",
+  "sidebar",
+  "toolbar",
+  "statusBar",
+  "breadcrumb",
   "button",
   "iconButton",
-  "fab",
-  "extendedFab",
-  "splitButton",
-  "fabMenu",
-  "chip",
-  "topAppBar",
-  "bottomNav",
-  "toolbar",
-  "tabs",
-  "searchBar",
-  "card",
-  "listItem",
-  "box",
-  "dialog",
-  "snackbar",
-  "textField",
-  "switch",
+  "buttonGroup",
+  "menu",
+  "input",
+  "textarea",
+  "select",
   "checkbox",
   "radio",
+  "switch",
   "slider",
+  "label",
+  "panel",
+  "groupBox",
+  "tabs",
+  "resizable",
+  "dialog",
+  "sheet",
+  "popover",
+  "notification",
+  "list",
+  "dataTable",
+  "tree",
   "text",
+  "icon",
   "image",
-  "badge",
   "divider",
-  "loadingIndicator",
-  "linearProgress",
-  "circularProgress",
+  "badge",
+  "tag",
+  "alert",
+  "progress",
+  "spinner",
+  "skeleton",
 ];
 
-/* ---------- screen data ---------- */
+/* ---------- window data ---------- */
 export type NavTab = { icon: string; label: string };
+/** a data table column; `numeric` right-aligns it, as comparable numbers want */
+export type Column = { label: string; numeric?: boolean };
 
 export type Item = {
   id: string;
@@ -1016,144 +1315,180 @@ export type Item = {
   radiusTop?: number;
   radiusBottom?: number;
   tabs?: NavTab[];
-  /** on/off state for switches, checkboxes and chips */
+  columns?: Column[];
+  /** on/off state for switches, checkboxes and tags */
   checked?: boolean;
-  /** a switch whose handle stays plain when on, without the check icon */
-  noCheck?: boolean;
-  /** 0..100 for sliders and determinate progress; undefined = indeterminate */
+  /** the control renders in its disabled state */
+  disabled?: boolean;
+  /** 0..100 for sliders and determinate progress; undefined = indeterminate.
+   *  For tabs, lists and trees it is the index of the selected row instead. */
   value?: number;
-  wavy?: boolean;
-  contained?: boolean;
+  /** a Progress drawn as a ProgressCircle */
+  circle?: boolean;
+  /** a Sidebar or Sheet collapsed to icon width */
+  collapsed?: boolean;
+  /** which edge a Sheet or a Resizable's fixed pane sits on */
+  side?: Side;
+  /** the window controls a title bar draws */
+  controls?: Controls;
   /** free text the author writes about what this part does */
   note?: string;
   /** what `note` said before the AI rewrote it, so the rewrite can be undone */
   noteHistory?: string[];
   bold?: boolean;
-  /** height for free-form boxes */
+  /** height for free-form containers */
   size2?: number;
-  /** palette token used as background (boxes, list items) */
+  /** palette token used as background (panels, list rows) */
   fill?: ColorToken;
-  /** background behind a list item's leading icon; "none" draws the icon bare */
-  iconFill?: ColorToken | "none";
   /** data URL of a user-picked image */
   src?: string;
-  /** tap navigation to another frame */
+  /** click navigation to another window */
   action?: Action;
-  /** per-slot tap navigation for bars: "icon" / "icon2" on a top app bar, "tab:N" on a navigation bar */
+  /** per-slot click navigation: "icon" / "icon2" on a title bar, "tab:N" on a
+   *  sidebar, tab bar, toolbar, menu or list */
   actions?: Record<string, Action>;
-  /** the look a toggle button takes once tapped; undefined = not a toggle */
+  /** the keybinding the prompt asks for, e.g. "cmd-s" */
+  shortcut?: string;
+  /** the verb on a dialog's commit button; the guides want it named */
+  confirm?: string;
+  /** the look a toggle button takes once clicked; undefined = not a toggle */
   toggle?: ToggleLook;
 };
 
-export type ToggleLook = { icon?: string | null; variant?: Variant; label?: string };
-
-/** kinds that can act as a toggle button in the preview */
-export const TOGGLEABLE: Kind[] = ["button", "iconButton", "fab", "extendedFab"];
-
-/** target id that pops the preview stack instead of opening a frame */
-export const BACK_TARGET = "back";
-
-/** a swipe on a frame: the finger's direction */
-export type SwipeDir = "left" | "right" | "up" | "down";
-export const SWIPE_DIRS: { key: SwipeDir; icon: string; transition: Transition }[] = [
-  { key: "left", icon: "swipe_left", transition: "slide" },
-  { key: "right", icon: "swipe_right", transition: "slideLeft" },
-  { key: "up", icon: "swipe_up", transition: "slideUp" },
-  { key: "down", icon: "swipe_down", transition: "slideDown" },
+export type Side = "left" | "right" | "top" | "bottom";
+export const SIDES: { key: Side; icon: string }[] = [
+  { key: "left", icon: "panel-left" },
+  { key: "right", icon: "panel-right" },
+  { key: "top", icon: "panel-bottom-open" },
+  { key: "bottom", icon: "panel-bottom" },
 ];
 
-/** how a sliding transition moves: the axis, where the new screen enters from and
- *  where the old one parks, as fractions of the screen */
+export type Controls = "mac" | "windows" | "none";
+export const CONTROLS: { key: Controls; label: string }[] = [
+  { key: "mac", label: "macOS" },
+  { key: "windows", label: "Windows" },
+  { key: "none", label: "None" },
+];
+
+export type ToggleLook = { icon?: string | null; variant?: Variant; label?: string };
+
+/** kinds that can be turned into a two-state toggle */
+export const TOGGLEABLE: Kind[] = ["button", "iconButton"];
+
+export const BACK_TARGET = "back";
+
+/** the shells the Design Guides name; the prompt states the chosen one first */
+export type Shell = "single" | "sidebar" | "masterDetail" | "document" | "utility";
+export const SHELLS: { key: Shell; icon: string }[] = [
+  { key: "single", icon: "frame" },
+  { key: "sidebar", icon: "panel-left" },
+  { key: "masterDetail", icon: "panel-right-open" },
+  { key: "document", icon: "gallery-vertical-end" },
+  { key: "utility", icon: "window-restore" },
+];
+export const DEFAULT_SHELL: Shell = "sidebar";
+export const isShell = (v: unknown): v is Shell => SHELLS.some((s) => s.key === v);
+
 export const SLIDE_SPEC: Partial<Record<Transition, { axis: "x" | "y"; enter: number; exit: number }>> = {
-  slide: { axis: "x", enter: 1, exit: -0.3 },
-  slideLeft: { axis: "x", enter: -1, exit: 0.3 },
-  slideUp: { axis: "y", enter: 1, exit: -0.3 },
-  slideDown: { axis: "y", enter: -1, exit: 0.3 },
+  slide: { axis: "x", enter: 1, exit: -0.25 },
+  slideLeft: { axis: "x", enter: -1, exit: 0.25 },
+  slideUp: { axis: "y", enter: 1, exit: -0.25 },
+  slideDown: { axis: "y", enter: -1, exit: 0.25 },
 };
 
 export type Transition = "slide" | "slideLeft" | "slideUp" | "slideDown" | "fade" | "expand" | "none";
 export type Action = { to: string; transition: Transition };
 
+/** Desktop views replace one another; they do not slide in from an edge the way
+ *  a phone screen does, so only the transitions a desktop app really uses are
+ *  offered. The wider union stays so an older project still opens. */
 export const TRANSITIONS: { key: Transition; label: string; icon: string }[] = [
-  { key: "slide", label: "Slide from right", icon: "arrow_back" },
-  { key: "slideLeft", label: "Slide from left", icon: "arrow_forward" },
-  { key: "slideUp", label: "Slide from bottom", icon: "arrow_upward" },
-  { key: "slideDown", label: "Slide from top", icon: "arrow_downward" },
-  { key: "fade", label: "Fade", icon: "blur_on" },
-  { key: "expand", label: "Expand", icon: "open_in_full" },
-  { key: "none", label: "None", icon: "block" },
+  { key: "none", label: "None", icon: "replace" },
+  { key: "fade", label: "Fade", icon: "eye" },
+  { key: "expand", label: "Expand", icon: "maximize" },
 ];
 
-/** slots on a bar that can each carry their own tap action */
 export function actionSlotsOf(it: Item): IconSlot[] {
-  if (it.kind === "topAppBar" || it.kind === "bottomNav" || it.kind === "toolbar") return iconSlotsOf(it).filter((s) => !!s.value);
-  if (it.kind === "fabMenu") return (it.tabs ?? []).map((t, i) => ({ key: `tab:${i}`, label: t.label || `${i + 1}`, value: t.icon || null }));
-  if (it.kind === "tabs") return (it.tabs ?? []).map((t, i) => ({ key: `tab:${i}`, label: t.label || `${i + 1}`, value: null }));
+  if (it.kind === "titleBar")
+    return [
+      { key: "icon", label: t("leading"), value: it.icon },
+      { key: "icon2", label: t("trailing"), value: it.icon2 ?? null },
+    ];
+  if (KIND_SPEC[it.kind].hasTabs)
+    return (it.tabs ?? []).map((tab, i) => ({ key: `tab:${i}`, label: tab.label || `${i + 1}`, value: tab.icon || null }));
   return [];
 }
 
-/** the icon a toggle button shows when on: an explicit null means none */
 export const toggleIcon = (it: Item): string | null => (it.toggle && it.toggle.icon !== undefined ? it.toggle.icon : it.icon);
 
-/** a free group down to one part is just that part again */
 export function collapseFree(g: Group, widths: Record<string, number>): Group {
-  if (!g.free || g.items.length !== 1) return g;
-  const pl = layoutOf(g, widths)[0];
-  return { id: g.id, x: pl.x, y: pl.y, axis: connectSpecOf(g.items[0])?.axis ?? "x", items: g.items };
+  const placed = layoutOf(g, widths);
+  const pos: Record<string, { x: number; y: number }> = {};
+  for (const pl of placed) pos[pl.item.id] = { x: pl.x - g.x, y: pl.y - g.y };
+  return { ...g, free: true, pos };
 }
 
-/** every navigation an item carries: its own action plus per-slot ones */
 export function actionsOf(it: Item): { slot: string; action: Action }[] {
   const out: { slot: string; action: Action }[] = [];
-  if (it.action) out.push({ slot: "", action: it.action });
-  for (const [slot, action] of Object.entries(it.actions ?? {})) if (action) out.push({ slot, action });
+  if (it.action) out.push({ slot: "self", action: it.action });
+  for (const [slot, action] of Object.entries(it.actions ?? {})) {
+    if (action) out.push({ slot, action });
+  }
   return out;
 }
 
-/** kinds a user can tap in the preview */
-export const TAPPABLE: Kind[] = ["button", "iconButton", "fab", "extendedFab", "chip", "listItem", "card", "image", "text", "splitButton", "radio"];
+/** kinds whose own body is clickable, so they can carry a navigation target */
+export const TAPPABLE: Kind[] = ["button", "iconButton", "tag", "text", "icon", "image", "label"];
 
 /** palette roles a user may pick as a background */
 export type ColorToken =
-  | "surface"
-  | "surfaceContainerLow"
-  | "surfaceContainer"
-  | "surfaceContainerHigh"
-  | "surfaceContainerHighest"
-  | "primaryContainer"
-  | "secondaryContainer"
-  | "tertiaryContainer"
-  | "primary"
-  | "inverseSurface";
+  | "background"
+  | "muted"
+  | "accent"
+  | "secondary"
+  | "sidebar"
+  | "groupBox"
+  | "popover"
+  | "titleBar"
+  | "statusBar"
+  | "tabBar"
+  | "list"
+  | "primary";
 
 export const COLOR_TOKENS: { key: ColorToken; label: string }[] = [
-  { key: "surface", label: "Surface" },
-  { key: "surfaceContainerLow", label: "Container low" },
-  { key: "surfaceContainer", label: "Container" },
-  { key: "surfaceContainerHigh", label: "Container high" },
-  { key: "surfaceContainerHighest", label: "Container highest" },
-  { key: "primaryContainer", label: "Primary container" },
-  { key: "secondaryContainer", label: "Secondary container" },
-  { key: "tertiaryContainer", label: "Tertiary container" },
-  { key: "primary", label: "Primary" },
-  { key: "inverseSurface", label: "Inverse surface" },
+  { key: "background", label: "background" },
+  { key: "muted", label: "muted" },
+  { key: "accent", label: "accent" },
+  { key: "secondary", label: "secondary" },
+  { key: "sidebar", label: "sidebar" },
+  { key: "groupBox", label: "group_box" },
+  { key: "popover", label: "popover" },
+  { key: "titleBar", label: "title_bar" },
+  { key: "statusBar", label: "status_bar" },
+  { key: "tabBar", label: "tab_bar" },
+  { key: "list", label: "list" },
+  { key: "primary", label: "primary" },
 ];
 
 /** readable foreground for a chosen background token */
-export function onToken(t: ColorToken, p: Palette): string {
-  switch (t) {
+export function onToken(tok: ColorToken, p: Palette): string {
+  switch (tok) {
     case "primary":
-      return p.onPrimary;
-    case "primaryContainer":
-      return p.onPrimaryContainer;
-    case "secondaryContainer":
-      return p.onSecondaryContainer;
-    case "tertiaryContainer":
-      return p.onTertiaryContainer;
-    case "inverseSurface":
-      return p.inverseOnSurface;
+      return p.primaryForeground;
+    case "secondary":
+      return p.secondaryForeground;
+    case "accent":
+      return p.accentForeground;
+    case "sidebar":
+      return p.sidebarForeground;
+    case "groupBox":
+      return p.groupBoxForeground;
+    case "popover":
+      return p.popoverForeground;
+    case "muted":
+      return p.mutedForeground;
     default:
-      return p.onSurface;
+      return p.foreground;
   }
 }
 
@@ -1162,112 +1497,85 @@ export type Frame = {
   name: string;
   x: number;
   y: number;
+  /** the window's own size; older projects fall back to the default */
+  w?: number;
+  h?: number;
+  /** the shell this window uses, which the prompt states before the parts */
+  shell?: Shell;
   bg?: ColorToken;
-  /** what this screen is for, in the author's words; goes into the prompt */
+  /** what this window is for, in the author's words; goes into the prompt */
   note?: string;
   /** what `note` said before the AI rewrote it */
   noteHistory?: string[];
-  /** frame ids reached by swiping in each direction */
-  swipe?: Partial<Record<SwipeDir, string>>;
 };
 
-export const frameRect = (f: Frame) => ({ l: f.x, t: f.y, r: f.x + PHONE_W, b: f.y + PHONE_H });
+export const frameW = (f: Frame) => f.w ?? WINDOW_W;
+export const frameH = (f: Frame) => f.h ?? WINDOW_H;
+export const frameRect = (f: Frame) => ({ l: f.x, t: f.y, r: f.x + frameW(f), b: f.y + frameH(f) });
 
 export type Placed = { item: Item; index: number; x: number; y: number; w: number; h: number };
 
 /** where each part of a run sits in world space: a connected run lays its parts
  *  out along its axis, a free group keeps the offsets it was grouped with */
 export function layoutOf(g: Group, widths: Record<string, number>): Placed[] {
-  const out: Placed[] = [];
-  let off = 0;
-  g.items.forEach((it, index) => {
-    const sz = sizeOf(it, widths);
-    if (g.free) {
-      const o = g.pos?.[it.id] ?? { x: 0, y: 0 };
-      out.push({ item: it, index, x: g.x + o.x, y: g.y + o.y, w: sz.w, h: sz.h });
-      return;
-    }
-    out.push({ item: it, index, x: g.axis === "x" ? g.x + off : g.x, y: g.axis === "x" ? g.y : g.y + off, w: sz.w, h: sz.h });
-    off += (g.axis === "x" ? sz.w : sz.h) + GAP;
-  });
-  return out;
-}
-
-/** world-space bounds of a whole run */
-export function groupBounds(g: Group, widths: Record<string, number>) {
-  let l = g.x;
-  let t = g.y;
-  let r = g.x;
-  let b = g.y;
-  for (const pl of layoutOf(g, widths)) {
-    l = Math.min(l, pl.x);
-    t = Math.min(t, pl.y);
-    r = Math.max(r, pl.x + pl.w);
-    b = Math.max(b, pl.y + pl.h);
-  }
-  return { l, t, r, b };
-}
-
-/** A free group written as the runs it holds: parts of one family that still sit
- *  one GAP apart along their axis stay a connected run, everything else is a run
- *  of one. Layout logic, the prompt and ungrouping all see the same runs. */
-export function explodeGroup(g: Group, widths: Record<string, number>): Group[] {
-  if (!g.free) return [g];
-  const placed = [...layoutOf(g, widths)].sort((a, b) => a.y - b.y || a.x - b.x);
-  const used = new Set<string>();
-  const out: Group[] = [];
-  const near = (a: number, b: number) => Math.abs(a - b) <= 3;
-  for (const start of placed) {
-    if (used.has(start.item.id)) continue;
-    used.add(start.item.id);
-    const run = [start];
-    const axis = connectSpecOf(start.item)?.axis ?? "x";
-    let last = start;
-    for (;;) {
-      const next = placed.find(
-        (q) =>
-          !used.has(q.item.id) &&
-          canJoin(last.item, q.item) &&
-          (axis === "x" ? near(q.y, last.y) && near(q.x, last.x + last.w + GAP) : near(q.x, last.x) && near(q.y, last.y + last.h + GAP)),
-      );
-      if (!next) break;
-      used.add(next.item.id);
-      run.push(next);
-      last = next;
-    }
-    out.push({ id: `${g.id}:${start.item.id}`, x: start.x, y: start.y, axis, items: run.map((r) => r.item) });
-  }
-  return out;
-}
-
-/** corners of one part of a run: round outside, small where it meets a neighbour */
-export function runCorners(axis: Axis, first: boolean, last: boolean, outer: number, inner: number): Radii {
-  const a = first ? outer : inner;
-  const b = last ? outer : inner;
-  return axis === "x" ? { tl: a, bl: a, tr: b, br: b } : { tl: a, tr: a, bl: b, br: b };
-}
-
-/** the corner radii of every part in a free group, with its hidden runs kept connected */
-export function freeRadii(g: Group, widths: Record<string, number>): Map<string, Radii> {
-  const out = new Map<string, Radii>();
-  for (const run of explodeGroup(g, widths)) {
-    const n = run.items.length;
-    run.items.forEach((it, i) => {
-      const c = connectSpecOf(it);
-      out.set(it.id, c ? runCorners(run.axis, i === 0, i === n - 1, c.outer, c.inner) : baseRadii(it));
+  if (g.free) {
+    return g.items.map((item, index) => {
+      const { w, h } = sizeOf(item, widths);
+      const at = g.pos?.[item.id] ?? { x: 0, y: 0 };
+      return { item, index, x: g.x + at.x, y: g.y + at.y, w, h };
     });
   }
+  let x = g.x;
+  let y = g.y;
+  return g.items.map((item, index) => {
+    const { w, h } = sizeOf(item, widths);
+    const at = { item, index, x, y, w, h };
+    if (g.axis === "x") x += w + GAP;
+    else y += h + GAP;
+    return at;
+  });
+}
+
+export function groupBounds(g: Group, widths: Record<string, number>) {
+  const placed = layoutOf(g, widths);
+  if (placed.length === 0) return { l: g.x, t: g.y, r: g.x, b: g.y, w: 0, h: 0 };
+  const l = Math.min(...placed.map((p) => p.x));
+  const t = Math.min(...placed.map((p) => p.y));
+  const r = Math.max(...placed.map((p) => p.x + p.w));
+  const b = Math.max(...placed.map((p) => p.y + p.h));
+  return { l, t, r, b, w: r - l, h: b - t };
+}
+
+export function explodeGroup(g: Group, widths: Record<string, number>): Group[] {
+  return layoutOf(g, widths).map((pl) => ({
+    id: uid(),
+    x: pl.x,
+    y: pl.y,
+    axis: g.axis,
+    items: [pl.item],
+  }));
+}
+
+export function runCorners(axis: Axis, first: boolean, last: boolean, outer: number, inner: number): Radii {
+  const s = first ? outer : inner;
+  const e = last ? outer : inner;
+  if (axis === "x") return { tl: s, bl: s, tr: e, br: e };
+  return { tl: s, tr: s, bl: e, br: e };
+}
+
+export function freeRadii(g: Group, widths: Record<string, number>): Map<string, Radii> {
+  const out = new Map<string, Radii>();
+  for (const pl of layoutOf(g, widths)) out.set(pl.item.id, baseRadii(pl.item));
   return out;
 }
 
-/** a run belongs to the frame that contains its centre */
 export function frameOfGroup(g: Group, frames: Frame[], widths: Record<string, number>): Frame | undefined {
-  const bb = groupBounds(g, widths);
-  const cx = (bb.l + bb.r) / 2;
-  const cy = (bb.t + bb.b) / 2;
+  const b = groupBounds(g, widths);
+  const cx = (b.l + b.r) / 2;
+  const cy = (b.t + b.b) / 2;
   return frames.find((f) => {
-    const fr = frameRect(f);
-    return cx >= fr.l && cx <= fr.r && cy >= fr.t && cy <= fr.b;
+    const r = frameRect(f);
+    return cx >= r.l && cx <= r.r && cy >= r.t && cy <= r.b;
   });
 }
 
@@ -1285,12 +1593,7 @@ export type Group = {
   pos?: Record<string, { x: number; y: number }>;
 };
 
-export type FrameMode = "blank" | "phone";
-
-/** where the generated prompt asks for the app to be built */
-export type Platform = "android" | "web";
-export const DEFAULT_PLATFORM: Platform = "android";
-export const isPlatform = (v: unknown): v is Platform => v === "android" || v === "web";
+export type FrameMode = "blank" | "window";
 
 export type Doc = {
   groups: Group[];
@@ -1298,35 +1601,80 @@ export type Doc = {
   paletteKey: string;
   /** the author's own scheme, used when paletteKey is "custom" */
   customPalette?: Palette;
-  /** the app should take its colors from the user's wallpaper (Material You) */
-  dynamicColor?: boolean;
   frame: FrameMode;
-  /** the implementation target the prompt names; Android unless the author picks the web */
-  platform?: Platform;
   title: string;
   brief: string;
   /** the prompt as the author rewrote it by hand; undefined means the generated one */
   promptEdit?: string;
-  /** shape, type, motion and the light / dark and contrast switches */
+  /** radius, type, density, motion and the light / dark switch */
   theme?: Theme;
+  /** the language the built-in defaults in this document were written in, so
+   *  starter content can follow the interface while the author's text stays */
+  lang?: Lang;
 };
 
-export const defaultTabs = (): NavTab[] => NAV_TABS[getLang()].map((t) => ({ ...t }));
+/* ---------- reading starter content back in another language ---------- */
 
-const TOOLBAR_ICONS = ["format_bold", "format_italic", "format_underlined", "attach_file", "format_color_text", "more_vert"];
+/** `it` with every string that is still a built-in default read in `to`.
+ *  Anything the author typed does not match a default, so it is left alone. */
+export function localizeItem(it: Item, to: Lang): Item {
+  const next: Item = { ...it, label: translateDefault(it.label, to) };
+  if (it.supporting !== undefined) next.supporting = translateDefault(it.supporting, to);
+  if (it.confirm !== undefined) next.confirm = translateDefault(it.confirm, to);
+  if (it.tabs) next.tabs = it.tabs.map((tab) => ({ ...tab, label: translateDefault(tab.label, to) }));
+  if (it.columns) next.columns = it.columns.map((c) => ({ ...c, label: translateDefault(c.label, to) }));
+  if (it.toggle?.label !== undefined) next.toggle = { ...it.toggle, label: translateDefault(it.toggle.label, to) };
+  return next;
+}
+
+export const localizeGroups = (groups: Group[], to: Lang): Group[] =>
+  groups.map((g) => ({ ...g, items: g.items.map((it) => localizeItem(it, to)) }));
+
+export const localizeFrames = (frames: Frame[], to: Lang): Frame[] =>
+  frames.map((f) => ({ ...f, name: translateFrameName(f.name, to) }));
+
+export const defaultTabs = (): NavTab[] => SIDEBAR_ITEMS[getLang()].map((x) => ({ ...x }));
+
+const TOOLBAR_ICONS = ["undo", "redo", "copy", "search", "settings-2", "ellipsis"];
+const BUTTON_GROUP_LABELS = ["Day", "Week", "Month"];
+const SELECT_OPTIONS = ["Small", "Medium", "Large"];
 
 /** the entries a kind starts with, also used to fill in rows the author adds */
 export function defaultTabsFor(kind: Kind): NavTab[] {
+  const lang = getLang();
   switch (kind) {
     case "tabs":
-      return TAB_LABELS[getLang()].map((label) => ({ icon: "", label }));
-    case "fabMenu":
-      return FAB_MENU_TABS[getLang()].map((t) => ({ ...t }));
+      return TAB_LABELS[lang].map((label) => ({ icon: "", label }));
+    case "menu":
+      return MENU_ITEMS[lang].map((x) => ({ ...x }));
     case "toolbar":
       return TOOLBAR_ICONS.map((icon) => ({ icon, label: "" }));
+    case "breadcrumb":
+      return BREADCRUMB_TRAIL[lang].map((label) => ({ icon: "", label }));
+    case "list":
+      return LIST_ROWS[lang].map((x) => ({ ...x }));
+    case "tree":
+      return TREE_NODES[lang].map((x) => ({ icon: x.icon, label: `${"  ".repeat(x.depth)}${x.label}` }));
+    case "dataTable":
+      return TABLE_ROWS[lang].map((label) => ({ icon: "", label }));
+    case "buttonGroup":
+      return BUTTON_GROUP_LABELS.map((label) => ({ icon: "", label }));
+    case "select":
+      return SELECT_OPTIONS.map((label) => ({ icon: "", label }));
+    case "radio":
+      return SELECT_OPTIONS.map((label) => ({ icon: "", label }));
     default:
       return defaultTabs();
   }
+}
+
+/** a data table's rows are one cell per column, joined by `ROW_SEP` so one
+ *  NavTab can carry a whole row without a second shape in the document */
+export const ROW_SEP = "\t";
+
+export function defaultColumnsFor(kind: Kind): Column[] {
+  if (kind !== "dataTable") return [];
+  return TABLE_COLUMNS[getLang()].map((c) => ({ ...c }));
 }
 
 export function makeItem(kind: Kind): Item {
@@ -1337,70 +1685,142 @@ export function makeItem(kind: Kind): Item {
     kind,
     label: text?.label ?? s.defLabel,
     icon: s.defIcon,
-    variant: s.defVariant ?? "filled",
+    variant: s.defVariant ?? "default",
   };
   if (s.defSupporting !== undefined) it.supporting = text?.supporting ?? s.defSupporting;
   if (s.defIcon2 !== undefined) it.icon2 = s.defIcon2;
   if (s.defSize !== undefined) it.size = s.defSize;
-  if (s.hasChecked) it.checked = kind !== "chip" && kind !== "box";
-  if (kind === "box") {
-    it.size2 = 220;
-    it.radiusTop = 28;
-    it.radiusBottom = 28;
-    it.fill = "surfaceContainerHigh";
+  if (s.hasChecked) it.checked = kind !== "tag";
+  if (s.hasTabs) it.tabs = defaultTabsFor(kind);
+  if (s.hasColumns) it.columns = defaultColumnsFor(kind);
+  if (s.hasControls) it.controls = "mac";
+  if (kind === "dialog") it.confirm = t("deleteVerb");
+  if (s.hasSide) it.side = kind === "sheet" ? "right" : "left";
+  switch (kind) {
+    case "panel":
+      it.size2 = 200;
+      it.radiusTop = R;
+      it.radiusBottom = R;
+      it.fill = "muted";
+      break;
+    case "groupBox":
+      it.size2 = 160;
+      break;
+    case "textarea":
+      it.size2 = 84;
+      break;
+    case "resizable":
+      it.size2 = 260;
+      it.value = 30;
+      break;
+    case "sheet":
+      it.size2 = WINDOW_H - TITLE_BAR_H;
+      break;
+    case "image":
+      it.size2 = 200;
+      break;
+    case "skeleton":
+      it.size2 = 16;
+      break;
+    case "slider":
+      it.value = 40;
+      break;
+    case "progress":
+      it.value = 60;
+      break;
+    case "tabs":
+    case "list":
+    case "tree":
+    case "radio":
+      it.value = 0;
+      break;
+    case "toolbar":
+      it.tabs = defaultTabsFor(kind).slice(0, 4);
+      break;
+    case "sidebar":
+      it.size2 = WINDOW_H - TITLE_BAR_H;
+      break;
   }
-  if (kind === "slider") it.value = 40;
-  if (kind === "bottomNav") {
-    it.tabs = defaultTabs();
-    it.radiusTop = 0;
-    it.radiusBottom = 0;
-  }
-  if (kind === "tabs" || kind === "fabMenu") it.tabs = defaultTabsFor(kind);
-  if (kind === "toolbar") it.tabs = defaultTabsFor(kind).slice(0, 4);
   return it;
 }
 
 /** Content-sized kinds are measured in the DOM; the rest derive from spec + size. */
-export const MEASURED: Kind[] = ["button", "extendedFab", "chip", "switch", "checkbox", "text", "splitButton", "radio", "badge"];
+export const MEASURED: Kind[] = ["button", "checkbox", "switch", "text", "label", "badge", "tag", "breadcrumb", "buttonGroup"];
+
+/** the rows a data table draws, split into cells */
+export const tableRowsOf = (it: Item): string[][] => (it.tabs ?? []).map((r) => r.label.split(ROW_SEP));
+
+/** a toolbar hugs its icon buttons: 32px each with 4px between, 4px at the ends */
+export const toolbarWidth = (it: Item) => {
+  const n = Math.max(1, it.tabs?.length ?? 0);
+  return 8 + n * H + (n - 1) * 4;
+};
 
 export function sizeOf(it: Item, widths: Record<string, number>) {
   const s = KIND_SPEC[it.kind];
   const n = it.size ?? s.defSize ?? s.w;
+  const rows = it.tabs?.length ?? 0;
+  const hasSupporting = !!it.supporting?.trim();
   switch (it.kind) {
     case "button":
-    case "extendedFab":
-    case "chip":
-    case "switch":
     case "checkbox":
-    case "splitButton":
-    case "radio":
-      return { w: widths[it.id] ?? 128, h: s.h };
+    case "switch":
+    case "label":
+    case "tag":
+    case "breadcrumb":
+    case "buttonGroup":
+      return { w: widths[it.id] ?? 96, h: s.h };
     case "badge":
-      return { w: widths[it.id] ?? 16, h: it.label.trim() ? s.h : 6 };
-    case "fabMenu":
-      return { w: n, h: 56 + (it.tabs?.length ?? 0) * (FAB_MENU_ITEM_H + FAB_MENU_GAP) };
+      return { w: widths[it.id] ?? 16, h: it.label.trim() ? s.h : 8 };
+    case "text":
+      return { w: widths[it.id] ?? 120, h: Math.round(n * 1.4) };
     case "toolbar":
       return { w: toolbarWidth(it), h: s.h };
+    case "titleBar":
+    case "statusBar":
+      return { w: n, h: s.h };
+    case "iconButton":
+    case "spinner":
+      return { w: n, h: n };
+    case "icon":
+      return { w: n, h: n };
+    case "sidebar":
+      return { w: it.collapsed ? SIDEBAR_COLLAPSED_W : n, h: it.size2 ?? s.h };
+    case "sheet":
+      return it.side === "top" || it.side === "bottom" ? { w: it.size2 ?? WINDOW_W, h: n } : { w: n, h: it.size2 ?? s.h };
+    case "menu":
+      return { w: n, h: 8 + rows * MENU_ROW_H };
+    case "list":
+      return { w: n, h: 8 + rows * LIST_ROW_H };
+    case "tree":
+      return { w: n, h: 8 + rows * TREE_ROW_H };
+    case "dataTable":
+      return { w: n, h: TABLE_ROW_H * (rows + 1) + 1 };
+    case "radio":
+      return { w: n, h: rows * 24 + Math.max(0, rows - 1) * 4 };
+    case "dialog":
+      return { w: n, h: 16 + 22 + (hasSupporting ? 8 + 20 : 0) + 12 + H + 16 };
+    case "popover":
+    case "notification":
+      return { w: n, h: 12 + 20 + (hasSupporting ? 4 + 18 : 0) + 12 };
+    case "alert":
+      return { w: n, h: 12 + 20 + (hasSupporting ? 4 + 18 : 0) + 12 };
+    case "progress":
+      return it.circle ? { w: 32, h: 32 } : { w: n, h: s.h };
+    case "input":
+      return { w: n, h: s.h + (hasSupporting ? 18 : 0) };
+    case "textarea":
+      return { w: n, h: (it.size2 ?? s.h) + (hasSupporting ? 18 : 0) };
+    case "select":
+    case "slider":
+    case "divider":
     case "tabs":
       return { w: n, h: s.h };
-    case "text":
-      return { w: widths[it.id] ?? 120, h: Math.round(n * 1.3) };
-    case "iconButton":
-    case "fab":
-    case "circularProgress":
-    case "loadingIndicator":
+    case "panel":
+    case "groupBox":
+    case "resizable":
     case "image":
-      return { w: n, h: n };
-    case "searchBar":
-    case "listItem":
-    case "textField":
-    case "slider":
-    case "linearProgress":
-    case "divider":
-      return { w: n, h: s.h };
-    case "card":
-      return { w: n, h: Math.round(n * 0.5875) };
-    case "box":
+    case "skeleton":
       return { w: n, h: it.size2 ?? s.h };
     default:
       return { w: s.w, h: s.h };
@@ -1408,46 +1828,33 @@ export function sizeOf(it: Item, widths: Record<string, number>) {
 }
 
 /** Corners for a part that is not part of a connected run. Defaults follow the
- *  document's shape scale; a radius the author typed in is kept as is. */
+ *  document's radius scale; a radius the author typed in is kept as is. */
 export function baseRadii(it: Item): Radii {
   const s = KIND_SPEC[it.kind];
   switch (it.kind) {
-    case "box":
-    case "bottomNav":
-    case "topAppBar":
-    case "tabs": {
-      const t = it.radiusTop ?? 0;
-      const b = it.radiusBottom ?? 0;
-      return { tl: t, tr: t, bl: b, br: b };
+    case "panel":
+    case "titleBar":
+    case "statusBar":
+    case "sidebar":
+    case "sheet": {
+      const top = it.radiusTop ?? 0;
+      const bottom = it.radiusBottom ?? 0;
+      return { tl: top, tr: top, bl: bottom, br: bottom };
     }
-    case "fab":
-      return uniformRadii(scaleR(Math.round((it.size ?? 56) * 0.28)));
-    case "fabMenu":
-      return uniformRadii(0);
-    case "iconButton":
-      return uniformRadii(scaleR((it.size ?? 48) / 2));
-    case "circularProgress":
-    case "loadingIndicator":
-      return uniformRadii((it.size ?? 48) / 2);
+    case "spinner":
+    case "progress":
+      return uniformRadii(R_FULL);
     case "image":
-    case "card":
       return uniformRadii(it.radiusTop ?? scaleR(s.radius));
     case "badge":
+    case "switch":
+    case "slider":
     case "radio":
-    case "splitButton":
       return uniformRadii(s.radius);
     default:
       return uniformRadii(scaleR(s.radius));
   }
 }
-
-export const FAB_MENU_ITEM_H = 56;
-export const FAB_MENU_GAP = 8;
-/** a toolbar hugs its icon buttons: 48dp each with 4dp between, 8dp at the ends */
-export const toolbarWidth = (it: Item) => {
-  const n = Math.max(1, it.tabs?.length ?? 0);
-  return 16 + n * 48 + (n - 1) * 4;
-};
 
 export const connectSpecOf = (it: Item): ConnectSpec | undefined => {
   const c = KIND_SPEC[it.kind].connect;
@@ -1466,29 +1873,24 @@ export type IconSlot = { key: string; label: string; value: string | null };
 
 export function iconSlotsOf(it: Item): IconSlot[] {
   switch (it.kind) {
-    case "listItem":
-    case "topAppBar":
-    case "searchBar":
+    case "titleBar":
+    case "statusBar":
       return [
         { key: "icon", label: t("leading"), value: it.icon },
         { key: "icon2", label: t("trailing"), value: it.icon2 ?? null },
       ];
-    case "bottomNav":
     case "toolbar":
-      return (it.tabs ?? []).map((t, i) => ({
+    case "sidebar":
+    case "menu":
+    case "list":
+    case "tree":
+      return (it.tabs ?? []).map((tab, i) => ({
         key: `tab:${i}`,
-        label: `${i + 1}`,
-        value: t.icon || null,
+        label: tab.label || `${i + 1}`,
+        value: tab.icon || null,
       }));
-    case "fabMenu":
-      return [
-        { key: "icon", label: t("icon"), value: it.icon },
-        ...(it.tabs ?? []).map((t, i) => ({ key: `tab:${i}`, label: `${i + 1}`, value: t.icon || null })),
-      ];
     default:
-      return KIND_SPEC[it.kind].hasIcon
-        ? [{ key: "icon", label: t("icon"), value: it.icon }]
-        : [];
+      return KIND_SPEC[it.kind].hasIcon ? [{ key: "icon", label: t("icon"), value: it.icon }] : [];
   }
 }
 
@@ -1498,7 +1900,7 @@ export function setIconSlot(it: Item, key: string, v: string | null): Partial<It
   if (key === "toggle") return { toggle: { ...(it.toggle ?? {}), icon: v } };
   if (key.startsWith("tab:")) {
     const i = Number(key.slice(4));
-    const tabs = (it.tabs ?? []).map((t, j) => (j === i ? { ...t, icon: v ?? "" } : t));
+    const tabs = (it.tabs ?? []).map((tab, j) => (j === i ? { ...tab, icon: v ?? "" } : tab));
     return { tabs };
   }
   return {};

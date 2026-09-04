@@ -1,4 +1,5 @@
-import { Doc, KIND_ORDER, Kind, VARIANTS, isPlatform } from "./tokens";
+import { Doc, KIND_ORDER, Kind, VARIANTS, isShell } from "./tokens";
+import { isLang } from "./i18n";
 
 /* A project file is the Doc as JSON, nothing more. Reading one back only checks
  * the shape the editor relies on; the same migrations that run on a saved
@@ -33,20 +34,33 @@ const validGroup = (group: unknown) =>
   group.items.every(validItem);
 
 const validFrame = (frame: unknown) =>
-  isRecord(frame) && typeof frame.id === "string" && typeof frame.name === "string" && Number.isFinite(frame.x) && Number.isFinite(frame.y) && (frame.note === undefined || typeof frame.note === "string");
+  isRecord(frame) &&
+  typeof frame.id === "string" &&
+  typeof frame.name === "string" &&
+  Number.isFinite(frame.x) &&
+  Number.isFinite(frame.y) &&
+  (frame.w === undefined || Number.isFinite(frame.w)) &&
+  (frame.h === undefined || Number.isFinite(frame.h)) &&
+  (frame.shell === undefined || isShell(frame.shell)) &&
+  (frame.note === undefined || typeof frame.note === "string");
 
 /** whether a parsed file has the shape of a document the editor can open */
 export const isProject = (value: unknown): value is Doc =>
-  isRecord(value) && Array.isArray(value.groups) && Array.isArray(value.frames) && value.groups.every(validGroup) && value.frames.every(validFrame) && (value.platform === undefined || isPlatform(value.platform));
+  isRecord(value) &&
+  Array.isArray(value.groups) &&
+  Array.isArray(value.frames) &&
+  value.groups.every(validGroup) &&
+  value.frames.every(validFrame) &&
+  (value.lang === undefined || isLang(value.lang));
 
-/** the file name a project is saved under: m3e-canvas, followed by the app's name when it has one */
+/** the file name a project is saved under: gpui-kit-canvas, followed by the app's name when it has one */
 export const projectFileName = (doc: Doc) => {
   const name = doc.title
     .trim()
     .replace(/[\\/:*?"<>|]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  return name ? `m3e-canvas ${name}.json` : "m3e-canvas.json";
+  return name ? `gpui-kit-canvas ${name}.json` : "gpui-kit-canvas.json";
 };
 
 /** hands the document to the browser as a JSON download */

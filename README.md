@@ -2,59 +2,155 @@
   <img src="app/icon.svg" width="72" alt="" />
 </p>
 
-<h1 align="center">M3E Canvas</h1>
+<h1 align="center">GPUI Kit Canvas</h1>
 
 <p align="center">
-  <strong>Sketch Material 3 Expressive screens in the browser, link them, tap through them, and copy a prompt for your AI coding tool.</strong>
+  <strong>Sketch <a href="https://github.com/longbridge/gpui-kit">gpui-kit</a> desktop windows in the browser, link them, click through them, and copy a prompt for your AI coding tool.</strong>
 </p>
 
 <p align="center">
-  <a href="https://lnkiai.github.io/m3e-canvas/"><img alt="Live demo" src="https://img.shields.io/badge/demo-lnkiai.github.io%2Fm3e--canvas-6750A4?logo=googlechrome&logoColor=white" /></a>
-  <a href="https://github.com/lnkiai/m3e-canvas/actions/workflows/deploy.yml"><img alt="Deploy" src="https://github.com/lnkiai/m3e-canvas/actions/workflows/deploy.yml/badge.svg" /></a>
-  <a href="https://github.com/lnkiai/m3e-canvas/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/lnkiai/m3e-canvas?style=flat&logo=github&color=6750A4" /></a>
   <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-blue.svg" /></a>
   <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16-black?logo=nextdotjs" />
   <img alt="React" src="https://img.shields.io/badge/React-19-20232a?logo=react&logoColor=61DAFB" />
-  <img alt="Material 3 Expressive" src="https://img.shields.io/badge/Material%203-Expressive-EADDFF?logo=materialdesign&logoColor=6750A4" />
+  <img alt="gpui-kit" src="https://img.shields.io/badge/target-gpui--kit%20(Rust)-171717" />
   <img alt="No backend" src="https://img.shields.io/badge/backend-none%20(localStorage)-2E6A45" />
 </p>
 
 <p align="center">
-  <a href="#日本語">日本語</a> · <a href="#中文">中文</a> · <a href="https://lnkiai.github.io/m3e-canvas/">Open the app</a>
+  <a href="#日本語">日本語</a> · <a href="#中文">中文</a>
 </p>
 
-![Sketching a recipes app in M3E Canvas, changing its theme, copying the prompt, an AI coding tool building it, and the app running on Android](docs/story.gif)
-
-<p align="center"><sub>Sketch a recipes app, retheme it, copy the prompt, hand it to an AI coding tool, and run the result on Android. (<a href="docs/story.mp4">mp4</a>)</sub></p>
+![The editor: a gpui-kit window with a title bar, sidebar, toolbar, breadcrumb, data table and status bar, beside the parts palette](docs/editor.png)
 
 Works with any AI coding tool that takes a prompt, such as Claude Code, Codex, Gemini CLI or Cursor: copy the prompt, paste it into the tool, and ask for the app.
 
+This is a fork of [lnkiai/m3e-canvas](https://github.com/lnkiai/m3e-canvas), retargeted from Material 3
+Expressive phone screens to gpui-kit desktop windows.
+
 ## What it does
 
-- **Drag-and-drop parts** – buttons, icon buttons, FABs, split buttons, FAB menus, chips, app bars, navigation bars, floating toolbars, tabs, search bars, cards, lists, dialogs, snackbars, text fields, switches, checkboxes, radio buttons, sliders, text, images, badges, boxes and dividers, all drawn to Material 3 Expressive.
-- **Magnetic connections** – bring two buttons or list items close and they fuse into a connected group; the corners soften as they meet.
-- **Real M3 Expressive loading** – the shape-morphing Loading Indicator (ported from material-components-android) and wavy linear / circular progress indicators.
-- **Phone screens** – add as many screens as you like, name them, pick a background, and drag a screen to move everything on it.
-- **Tap to navigate** – give any tappable part, an app bar icon or a navigation bar destination a target screen (or "back") and a transition: slide from any of the four sides, fade, expand or none. Arrows show the flow on the canvas; the preview lets you tap through it, and back plays the transition in reverse.
-- **Swipe to navigate** – a screen can open another on a left / right / up / down swipe. In the preview the screen follows your finger, and the reverse swipe goes back.
-- **Toggle buttons** – any button can flip on tap, changing its icon and style.
-- **Layers and groups** – a layers panel lists the z-order of each screen; drag or use the arrows to bring parts forward or send them back. Select several parts and group them to keep their overlap and move them as one. The prompt describes overlaps and side-by-side rows explicitly so the generated layout keeps them.
-- **Theme** – the four M3 Expressive axes in one panel. Color: seven presets or one seed color that becomes a full Material 3 scheme you can fine-tune, light / dark, three contrast levels and a dynamic-color switch (match the phone wallpaper). Shape: square, rounded or full corners for every part at once. Type: Roboto, Roboto Flex, Roboto Serif or the system font, with the emphasized styles. Motion: the standard or the expressive spring scheme, which also drives the preview.
-- **Prompt output** – the whole design (or a single screen) becomes a concise natural-language prompt in Japanese, English or Chinese, including your own notes on what each part does. Pick Android (the default) or the web as the target and the prompt asks for the matching stack.
-- **Tidy** – one button snaps bars to the edges, the FAB to the corner, joins neighbouring list items and buttons, and stacks the rest on 16dp margins. Press it again to undo.
-- **Optional AI helper** – bring your own key (OpenAI, Claude, Gemini or DeepSeek) and let the model write a part's behavior note or a screen's description, in your language. Each rewrite can be undone. The key stays in your browser and the request goes straight to the provider; there is no server in between.
-- **Export** – copy the prompt (edit it by hand first if you like) or save a screen as a PNG.
-- **Alignment guides**, undo/redo, keyboard shortcuts, seven color themes, a favorites row in the parts panel, and everything is saved in your browser (localStorage).
-- **Phone-friendly** – on a phone you get one fixed screen and a buttons-only editor: tap the plus to add a button, tap a button to move it, and edit its text, icon and style in a bottom sheet. The full multi-screen editor is for desktop browsers.
+- **Drag-and-drop parts** – the window shell (title bar, sidebar, toolbar, status bar, breadcrumb),
+  actions (button, icon button, button group, menu), inputs (input, textarea, select, checkbox, radio
+  group, switch, slider, label), containment (panel, group box, tabs, resizable split), overlays
+  (dialog, sheet, popover, notification), data views (list, data table, tree), content (text, icon,
+  image, divider, badge, tag) and feedback (alert, progress, spinner, skeleton) — 38 parts, each one
+  a real `gpui_kit::component`.
+- **Real gpui-kit geometry** – control heights, paddings, radii and row heights come from gpui-kit's
+  own source (`sizing.rs`, `title_bar.rs`, `sidebar/mod.rs`), so a medium Button is 32px and a table
+  row is 32px on the canvas too.
+- **Real gpui-kit themes** – 33 palettes resolved from a gpui-kit checkout: the built-in Default
+  Light and Dark plus the 21 theme sets it ships (Tokyo Night, Gruvbox, Catppuccin, Solarized,
+  macOS Classic and the rest). Every colour on the canvas is one of gpui-kit's semantic tokens, and
+  the prompt names them by their real keys (`primary.background`, `sidebar.accent.background`, …).
+- **Real gpui-kit icons** – the icon picker offers exactly the 101 Lucide icons `gpui-kit-assets`
+  ships, and the prompt quotes them as `IconName::` variants, so a sketch can never name an icon the
+  generated app cannot draw.
+- **Window shells** – each window declares one of the five shells the Design Guides name (single
+  workspace, sidebar workspace, master–detail, document workspace, utility window), and the prompt
+  states it before any part.
+- **Magnetic connections** – bring two buttons close and they fuse into one `ButtonGroup`; the
+  corners square off where they meet, the way gpui-kit draws a connected run.
+- **Many windows** – add as many as you like, name them, give each its own size (1024×640 up to
+  1680×1050) and background token, and drag a window to move everything in it.
+- **Click to navigate** – give any clickable part, a title bar icon or a sidebar, tab, menu, list or
+  breadcrumb entry a target window (or "back"). Arrows show the flow on the canvas; the preview lets
+  you click through it.
+- **Keyboard shortcuts** – give a part a keybinding and the prompt asks for the matching `actions!`
+  declaration, `bind_keys` entry and `Kbd` in its tooltip.
+- **Editable data** – a data table's columns carry their own labels and a numeric flag (which
+  right-aligns them, the way comparable numbers want); its rows are edited cell by cell. A dialog
+  names its own commit verb, so the prompt asks for `Delete` rather than `OK`.
+- **Layers and groups** – a layers panel lists the z-order of each window. Select several parts and
+  group them to keep their overlap and move them as one. The prompt describes overlaps and
+  side-by-side rows explicitly so the generated layout keeps them.
+- **Theme** – the axes a gpui-kit `ThemeConfig` actually has. Colour: 33 shipped palettes or a
+  hand-tuned token set, light / dark, and a "follow the system" switch. Radius: square, default or
+  round for `theme.radius` and `radius.lg` at once. Type: the system UI font or a named face.
+  Density: compact / default / comfortable, which is the components' default `Size`. Plus
+  `theme.shadow` and `theme.focus_ring`.
+- **Prompt output** – the whole design (or a single window) becomes a concise brief in Japanese,
+  English or Chinese: the shell, the theme as a drop-in `ThemeConfig` JSON block, the layout, the
+  behaviour, the exact `gpui_kit::component` for every part in use, and closing guidance that starts
+  by telling the tool to read the gpui-kit skills or docs and never to invent an API.
+- **Tidy** – one button pins the title bar to the top, the sidebar to the leading edge and the status
+  bar to the bottom, lays the toolbar and breadcrumb out as bands under the title bar, centres a
+  dialog, drops a notification into the trailing corner, and flows the rest on 16px panel padding.
+  Press it again to undo.
+- **Optional AI helper** – bring your own key (OpenAI, Claude, Gemini or DeepSeek) and let the model
+  write a part's behaviour note or a window's description, in your language. The key stays in your
+  browser and the request goes straight to the provider; there is no server in between.
+- **Export** – copy the prompt (edit it by hand first if you like) or save a window as a PNG.
+- **Three languages** – the interface, the starter document and the prompt are all available in
+  Japanese, English and Chinese. A first visit picks the language from the browser and builds the
+  starter window in it; a document you have saved keeps whatever you wrote.
+- **Alignment guides**, undo/redo, keyboard shortcuts, a favorites row in the parts panel, and
+  everything is saved in your browser (localStorage).
 
-<table>
-  <tr>
-    <td width="50%"><img src="docs/preview.png" alt="Tap-through preview" /><br /><sub>Preview: tap a part and the linked screen slides in.</sub></td>
-    <td width="50%"><img src="docs/prompt.png" alt="Prompt panel" /><br /><sub>Prompt: the design as a concise brief, in Japanese or English.</sub></td>
-  </tr>
-</table>
+## The prompt it writes
 
-<p align="center"><img src="docs/mobile.png" width="240" alt="Phone version" /><br /><sub>Phone: one screen, buttons only, edited in a bottom sheet.</sub></p>
+An excerpt for a two-window sketch on the Tokyo Night theme. The theme block is abridged;
+everything else is verbatim:
+
+```markdown
+Please implement Fleet with gpui-kit, the Rust desktop UI framework. A tool for
+watching a fleet of build machines.
+It is a desktop app whose default window is 1280×800. Desktop does not mean
+fixed-size, so decide what happens as the window narrows. Dark theme only.
+
+## Window shell
+- A sidebar workspace: persistent navigation beside a changing detail view. Keep
+  the navigation stable while the content changes.
+- A utility window: one focused task with a short, fixed action path.
+
+## Theme
+The theme is Tokyo Night, which gpui-kit ships as themes/tokyonight.json. Load it
+through the ThemeRegistry and read every UI colour through its role on cx.theme().
+Its main tokens, for reference:
+{ "$schema": "…/.theme-schema.json", "name": "Tokyo Night", "mode": "dark",
+  "radius": 6, "colors": { "background": "#1a1b26", "primary.background": "#7aa2f7",
+  "sidebar.background": "#1c1e2a", "title_bar.background": "#161720", … } }
+
+## Layout
+There are 2 windows (views): "Main", "Settings".
+
+The "Main" window, 1280×800 — overlapping parts are called out as such:
+- Near the top: a title bar titled "App" with macOS traffic lights on the left,
+  IconName::Ellipsis trailing.
+- In the middle, on the leading edge: a sidebar headed "Navigation", 255px wide,
+  with the entries "Inbox" (IconName::Inbox), "Projects" (IconName::Folder),
+  "Reports" (IconName::ChartPie), "Settings" (IconName::Settings).
+- Near the top, centred: a data table with the columns "Name", "Status",
+  "Updated", "Count" (numeric, right-aligned) and 3 sample rows: Roadmap /
+  In progress / 3 days ago / 12; Design / In review / Yesterday / 4; …
+- Near the bottom: a status bar with IconName::CircleCheck and "Ready" leading
+  and "3 items" trailing.
+
+## Behaviour and navigation
+- Clicking the "Settings" entry of the "Navigation" sidebar opens the "Settings"
+  view immediately.
+- The "Save" button opens the "Settings" view with a fade when clicked. It also
+  is bound to cmd-s (declare the action with actions!, bind it with bind_keys,
+  and show it with Kbd in the button's tooltip).
+
+## Components to use
+- data table: `table::{DataTable, TableState, TableDelegate}` — Repeat the column
+  geometry through headers, rows, summaries, loading states and inline editors.
+  Right-align comparable numbers; left-align prose and identifiers.
+```
+
+## Keeping up with gpui-kit
+
+The palettes and icons are generated from a gpui-kit checkout, so they never drift into invention:
+
+```bash
+npm run gen:themes -- ../gpui-kit   # lib/kit-themes.gen.ts  (33 palettes)
+npm run gen:icons  -- ../gpui-kit   # lib/kit-icons.gen.ts   (101 icons)
+```
+
+Both default to `../gpui-kit`, and `GPUI_KIT` overrides the path.
+`script/gen-kit-themes.mjs` resolves a theme's missing tokens with the same fallback chain as
+`ColorsConfig::apply_config` in `crates/component/src/theme/schema.rs`, so a theme that only sets
+`background` still gets a coherent sidebar, list and table.
 
 ## Keyboard
 
@@ -65,8 +161,10 @@ Works with any AI coding tool that takes a prompt, such as Claude Code, Codex, G
 | `+` `-` `0` | Zoom in, zoom out, fit |
 | `Ctrl+Z` / `Ctrl+Shift+Z` | Undo / redo |
 | `Ctrl+D` | Duplicate |
+| `Ctrl+G` / `Ctrl+Shift+G` | Group / ungroup the selection |
 | Arrows (`Shift` = 10) | Nudge |
-| `Delete` | Delete part or screen |
+| `Delete` | Delete the selected parts, or the selected window |
+| `Esc` | Clear the selection |
 | `P` | Preview |
 
 ## Develop
@@ -74,60 +172,77 @@ Works with any AI coding tool that takes a prompt, such as Claude Code, Codex, G
 ```bash
 npm install
 npm run dev        # http://localhost:3000
+npm run typecheck  # tsc --noEmit
 npm run build      # static export to ./out
 ```
 
-The app is a static Next.js export. To host it under a sub-path (for example a GitHub Pages project site), set `NEXT_PUBLIC_BASE_PATH=/your-repo` at build time. `.github/workflows/deploy.yml` does this automatically and publishes `out/` to GitHub Pages on every push to `main`.
+The app is a static Next.js export (`output: "export"`): there is no server, and `out/` is the whole
+site. To host it under a sub-path (for example a GitHub Pages project site), set
+`NEXT_PUBLIC_BASE_PATH=/your-repo` at build time.
 
-## Contributing
+## Deploy
 
-Bug reports, part requests and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) explains the setup, the conventions (English comments, three languages for every string) and where each kind of change lives. Questions go to [Discussions](https://github.com/lnkiai/m3e-canvas/discussions).
+### Cloudflare Workers
+
+`wrangler.jsonc` deploys `out/` as a Workers static-assets site — no adapter, no Worker script:
+
+```bash
+npm run build
+npm run preview    # wrangler dev, serves ./out locally
+npm run deploy     # wrangler deploy
+```
+
+Leave `NEXT_PUBLIC_BASE_PATH` unset here: the site is served from the domain root. Keeping
+`wrangler.jsonc` committed matters — without it `wrangler deploy` auto-detects "Next.js", installs
+the OpenNext adapter and then fails looking for `.next/standalone`, which a static export never
+produces.
+
+### GitHub Pages
+
+`.github/workflows/deploy.yml` builds with `NEXT_PUBLIC_BASE_PATH=/<repo>` and publishes `out/` on
+every push to `main`.
 
 ## Credits
 
-- Loading indicator shapes and animation model: [material-components-android](https://github.com/material-components/material-components-android) (Apache-2.0) via [Aler1x/m3-loading-indicator](https://github.com/Aler1x/m3-loading-indicator). See `NOTICE`.
-- Icons: [Material Symbols](https://fonts.google.com/icons) (Apache-2.0). Fonts are loaded from Google Fonts.
-
-## See also
-
-- [matraic/m3e](https://github.com/matraic/m3e) – Material 3 Expressive as Lit web components (MIT), with React bindings and an icon package. A good home for the screens you sketch here.
-- [Beer CSS](https://www.beercss.com/) – Material Design 3 as a plain CSS framework (MIT). Another way to build the web version of a screen you sketch here.
+- Component set, geometry, themes and icons: [longbridge/gpui-kit](https://github.com/longbridge/gpui-kit) (Apache-2.0).
+- Icons: [Lucide](https://lucide.dev) (ISC), as bundled by `gpui-kit-assets`.
+- The editor itself: forked from [lnkiai/m3e-canvas](https://github.com/lnkiai/m3e-canvas) (MIT).
 
 ## License
 
-MIT © lnkiai
+MIT
 
 ---
 
 ## 日本語
 
-**Material 3 Expressive の画面をブラウザで組み立てて、画面同士をつなぎ、タップして確かめ、そのまま AI コーディング用のプロンプトにするツールです。**
-
-公開版: https://lnkiai.github.io/m3e-canvas/
-
-![M3E Canvas でレシピアプリを組み、テーマを変え、プロンプトをコピーして AI コーディングツールに渡し、Android で動かすまで](docs/story.gif)
-
-<p align="center"><sub>レシピアプリを組み、テーマを変え、プロンプトをコピーして AI コーディングツールに渡し、できたアプリを Android で動かすまで。（<a href="docs/story.mp4">mp4</a>）</sub></p>
+**[gpui-kit](https://github.com/longbridge/gpui-kit) のデスクトップ画面をブラウザで組み立てて、画面同士をつなぎ、クリックして確かめ、そのまま AI コーディング用のプロンプトにするツールです。**
 
 Claude Code、Codex、Gemini CLI、Cursor など、プロンプトを受け取れる AI コーディングツールならどれでも使えます。プロンプトをコピーしてツールに貼り、アプリを作ってと頼むだけです。
 
+[lnkiai/m3e-canvas](https://github.com/lnkiai/m3e-canvas) の fork で、対象を Material 3 Expressive のスマホ画面から gpui-kit のデスクトップウィンドウへ移しています。
+
 ### できること
 
-- **ドラッグ＆ドロップ** – ボタン、アイコンボタン、FAB、スプリットボタン、FAB メニュー、チップ、アプリバー、ナビゲーションバー、フローティングツールバー、タブ、検索バー、カード、リスト、ダイアログ、スナックバー、テキスト入力、スイッチ、チェックボックス、ラジオボタン、スライダー、テキスト、画像、バッジ、ボックス、区切り線。
-- **磁石のような連結** – ボタンやリスト項目を近づけると 1 つのグループにくっつき、角が溶けてつながります。
-- **本物の M3 Expressive ローディング** – 形が変化する Loading Indicator（Android 実装からの移植）と、波形のリニア／サーキュラープログレス。
-- **スマホ画面** – 画面を何枚でも追加して名前や背景色を付け、画面ごと動かせます。
-- **タップで遷移** – 部品、アプリバーのアイコン、ナビゲーションバーの項目に移動先の画面（または「戻る」）と遷移を設定。スライドは上下左右の 4 方向、ほかにフェード／拡大／なし。キャンバスに矢印が出て、プレビューでは実際にタップして確かめられ、戻るときは遷移が逆再生されます。
-- **スワイプで遷移** – 画面に左右上下のスワイプ先を設定できます。プレビューでは指の動きに画面が追従し、逆方向のスワイプで戻れます。
-- **切り替えボタン** – ボタンをタップでオン／オフが切り替わるトグルにして、オン時のアイコンとスタイルを指定できます。
-- **レイヤーとグループ** – 画面ごとの重なり順をレイヤーパネルで確認し、ドラッグや矢印で前後を入れ替えられます。複数選択してグループ化すると、重なりを保ったまま一緒に動かせます。プロンプトには重なりや横並びが明示され、生成されるレイアウトが崩れにくくなります。
-- **テーマ** – M3 Expressive の 4 つの軸を 1 つのパネルで。カラーは 7 種のプリセットか、ベース色 1 つから Material 3 のスキーム全体を生成して微調整でき、ライト／ダーク、3 段階のコントラスト、壁紙に合わせるダイナミックカラーも指定できます。シェイプは全部品の角丸をスクエア／標準／フルでまとめて切り替え。タイポグラフィは Roboto、Roboto Flex、Roboto Serif、システムフォントと強調スタイル。モーションはスタンダード／エクスプレッシブで、プレビューの遷移にも反映されます。
-- **プロンプト出力** – デザイン全体、または 1 画面だけを、日本語・英語・中国語の簡潔な文章にします。部品ごとの「振る舞い」メモもそのまま入ります。実装先は Android（既定）と Web から選べ、プロンプトはそれに合った技術で書かれます。
-- **整える** – ボタンひとつでバーを端に、FAB を隅に寄せ、隣り合うリスト項目やボタンをつなげ、残りを余白 16dp で積み直します。もう一度押すと元に戻ります。
-- **AI 補助（任意）** – 自分のキー（OpenAI、Claude、Gemini、DeepSeek）を入れると、部品の動作や画面の説明を UI の言語で書いてもらえます。書き換えは元に戻せます。キーはブラウザ内にだけ保存され、リクエストはプロバイダへ直接送られます（間にサーバーはありません）。
-- **書き出し** – プロンプトのコピー（手で編集してからも可）、画面の PNG 保存。
-- **補助線スナップ**、Undo/Redo、キーボードショートカット、7 種のカラーテーマ、お気に入り部品。作業内容はブラウザ（localStorage）に自動保存されます。
-- **スマホでも** – スマホでは 1 画面固定のボタン専用エディタになります。プラスでボタンを追加し、タップして動かし、ボトムシートでテキスト・アイコン・スタイルを編集できます。複数画面のフル機能は PC のブラウザ向けです。
+- **ドラッグ＆ドロップ** – ウィンドウの骨格（タイトルバー、サイドバー、ツールバー、ステータスバー、パンくず）、アクション（ボタン、アイコンボタン、ボタングループ、メニュー）、入力（入力欄、複数行入力、セレクト、チェックボックス、ラジオグループ、スイッチ、スライダー、ラベル）、コンテナ（パネル、グループボックス、タブ、リサイズ分割）、オーバーレイ（ダイアログ、シート、ポップオーバー、通知）、データ（リスト、データテーブル、ツリー）、コンテンツ（テキスト、アイコン、画像、区切り線、バッジ、タグ）、フィードバック（アラート、プログレス、スピナー、スケルトン）の 38 部品。すべて実在する `gpui_kit::component` です。
+- **本物の寸法** – 部品の高さ・余白・角丸・行の高さは gpui-kit のソース（`sizing.rs`、`title_bar.rs`、`sidebar/mod.rs`）から取っています。medium のボタンは 32px、テーブルの行も 32px です。
+- **本物のテーマ** – gpui-kit のチェックアウトから解決した 33 パレット（組み込みの Default Light / Dark と同梱の 21 テーマ）。キャンバスの色はすべて gpui-kit のセマンティックトークンで、プロンプトには実際のキー（`primary.background` など）で書き出されます。
+- **本物のアイコン** – `gpui-kit-assets` が同梱する Lucide アイコン 101 個だけを選べます。プロンプトには `IconName::` の形で書き出されるので、描けないアイコンを指定してしまうことがありません。
+- **ウィンドウの骨格** – Design Guides が挙げる 5 つの骨格（単一ワークスペース、サイドバー、一覧と詳細、ドキュメント、ユーティリティ）から選び、プロンプトは部品より先に骨格を伝えます。
+- **磁石のような連結** – ボタンを近づけると 1 つの `ButtonGroup` にくっつき、接する側の角が角ばります。
+- **複数ウィンドウ** – 何枚でも追加でき、名前・サイズ（1024×640 〜 1680×1050）・背景トークンを個別に設定できます。
+- **クリックで遷移** – 部品、タイトルバーのアイコン、サイドバー・タブ・メニュー・リスト・パンくずの項目に移動先を設定できます。キャンバスに矢印が出て、プレビューで実際にクリックして確かめられます。
+- **ショートカット** – 部品にキーバインドを設定すると、プロンプトが `actions!` の定義、`bind_keys` の割り当て、tooltip の `Kbd` 表示まで要求します。
+- **編集できるデータ** – データテーブルの列はラベルと「数値」フラグ（比較できる数値なので右寄せになります）を持ち、行はセル単位で編集できます。ダイアログは確定ボタンの文言を自分で持つので、プロンプトは `OK` ではなく `削除` を要求します。
+- **3 言語** – UI・初期ドキュメント・プロンプトのすべてが日本語・英語・中国語に対応します。初回はブラウザの言語で初期ウィンドウを組み立て、保存済みのドキュメントは書いた内容がそのまま残ります。
+- **レイヤーとグループ**、**テーマ**（カラー／角丸／書体／密度／影／フォーカスリング）、**整える**、**AI 補助（任意）**、**書き出し**、**補助線スナップ**、Undo/Redo。作業内容はブラウザ（localStorage）に自動保存されます。
+
+### gpui-kit への追従
+
+```bash
+npm run gen:themes -- ../gpui-kit   # lib/kit-themes.gen.ts
+npm run gen:icons  -- ../gpui-kit   # lib/kit-icons.gen.ts
+```
 
 ### 開発
 
@@ -137,47 +252,41 @@ npm run dev        # http://localhost:3000
 npm run build      # ./out に静的書き出し
 ```
 
-静的サイトとして書き出す構成です。サブパス（GitHub Pages のプロジェクトサイトなど）で配信するときはビルド時に `NEXT_PUBLIC_BASE_PATH=/リポジトリ名` を指定してください。`.github/workflows/deploy.yml` が `main` への push ごとにこれを行い、GitHub Pages に公開します。
-
-### 貢献
-
-バグ報告、部品のリクエスト、PR を歓迎します。手順と約束事は [CONTRIBUTING.md](CONTRIBUTING.md) にまとめています。質問は [Discussions](https://github.com/lnkiai/m3e-canvas/discussions) へどうぞ。
-
 ### ライセンス
 
-MIT © lnkiai
+MIT
 
 ---
 
 ## 中文
 
-**在浏览器中拼装 Material 3 Expressive 界面，把屏幕连起来、点一点试试，然后直接变成给 AI 编程工具的提示词。**
-
-在线版本：https://lnkiai.github.io/m3e-canvas/
-
-![在 M3E Canvas 中拼装食谱应用、更换主题、复制提示词、交给 AI 编程工具构建，最后在 Android 上运行](docs/story.gif)
-
-<p align="center"><sub>拼装一个食谱应用、更换主题、复制提示词、交给 AI 编程工具，然后在 Android 上运行成品。（<a href="docs/story.mp4">mp4</a>）</sub></p>
+**在浏览器中拼装 [gpui-kit](https://github.com/longbridge/gpui-kit) 的桌面窗口，把窗口连起来、点一点试试，然后直接变成给 AI 编程工具的提示词。**
 
 可配合任何接受提示词的 AI 编程工具使用，例如 Claude Code、Codex、Gemini CLI 或 Cursor：复制提示词，粘贴到工具里，让它把应用做出来。
 
+本项目 fork 自 [lnkiai/m3e-canvas](https://github.com/lnkiai/m3e-canvas)，把目标从 Material 3 Expressive 手机界面改为 gpui-kit 桌面窗口。
+
 ### 功能
 
-- **拖放组件** – 按钮、图标按钮、FAB、拆分按钮、FAB 菜单、标签片、应用栏、导航栏、悬浮工具栏、标签页、搜索栏、卡片、列表、对话框、消息条、文本输入框、开关、复选框、单选按钮、滑块、文本、图片、徽标、容器框和分割线，全部按 Material 3 Expressive 绘制。
-- **磁吸连接** – 把两个按钮或列表项靠近，它们会合并成一个相连的组，圆角随之融合。
-- **真正的 M3 Expressive 加载动画** – 形状变化的 Loading Indicator（移植自 material-components-android）以及波浪形的线性／圆形进度条。
-- **手机屏幕** – 想加多少个屏幕都可以，为它们命名、选择背景，拖动屏幕即可整体移动。
-- **点击跳转** – 给任意可点击的组件、应用栏图标或导航栏项目设置目标屏幕（或“返回”）和过渡：从四个方向滑入、淡入、放大或无动画。画布上会显示流程箭头，预览中可以真的点击跳转，返回时反向播放过渡。
-- **滑动跳转** – 屏幕可以设置左右上下滑动的目标。预览中屏幕会跟随手指移动。
-- **切换按钮** – 任何按钮都可以做成点击切换的按钮，开启时改变文字、图标和样式。
-- **图层与编组** – 图层面板显示每个屏幕的层叠顺序，可拖动或用箭头调整前后；多选后可编组，保持叠放关系并一起移动。提示词会明确写出叠放和横向排列，让生成的布局不走样。
-- **主题** – 在一个面板里调整 M3 Expressive 的四个维度。配色：七套预设，或用一个基准色生成整套 Material 3 配色并微调，支持浅色／深色、三档对比度和动态配色（跟随手机壁纸）。形状：一次切换所有组件的圆角（方形／圆角／全圆）。字体：Roboto、Roboto Flex、Roboto Serif 或系统字体，并可开启强调样式。动效：标准或富有表现力的弹簧方案，同时作用于预览过渡。
-- **提示词输出** – 整个设计（或单个屏幕）会变成简洁的自然语言提示词，支持日文、英文和中文，并包含你为每个组件写的行为说明。目标平台可选 Android（默认）或 Web，提示词会相应地要求对应的技术栈。
-- **整理** – 一键把栏贴到边缘、FAB 放到角落、相邻的列表项和按钮连成一组，其余组件按 16dp 边距重新堆叠。再按一次即可撤销。
-- **AI 辅助（可选）** – 填入自己的密钥（OpenAI、Claude、Gemini 或 DeepSeek），让模型用界面语言写出组件的行为或屏幕的说明。每次改写都可以撤销。密钥只保存在浏览器中，请求直接发送给服务商，中间没有服务器。
-- **导出** – 复制提示词（也可先手动编辑），或把屏幕保存为 PNG。
-- **对齐辅助线**、撤销／重做、键盘快捷键、收藏组件，所有内容自动保存在浏览器（localStorage）中。
-- **手机也能用** – 在手机上是一个固定屏幕、只有按钮的简易编辑器：点加号添加按钮，点按钮移动，在底部面板里编辑文字、图标和样式。多屏幕的完整功能请在电脑浏览器中使用。
+- **拖放组件** – 窗口骨架（标题栏、侧边栏、工具栏、状态栏、面包屑）、操作（按钮、图标按钮、按钮组、菜单）、输入（输入框、多行输入、下拉选择、复选框、单选组、开关、滑块、标签）、容器（面板、分组框、标签页、可调分栏）、浮层（对话框、抽屉面板、浮层、通知）、数据（列表、数据表格、树）、内容（文本、图标、图片、分割线、徽标、标签块）与反馈（提示条、进度条、加载指示器、骨架屏）共 38 个组件，每一个都对应真实存在的 `gpui_kit::component`。
+- **真实的尺寸** – 组件高度、内边距、圆角和行高均取自 gpui-kit 源码（`sizing.rs`、`title_bar.rs`、`sidebar/mod.rs`）：medium 按钮为 32px，表格行同样是 32px。
+- **真实的主题** – 从 gpui-kit 仓库解析出的 33 套配色（内置 Default Light / Dark 加上自带的 21 套主题）。画布上的所有颜色都是 gpui-kit 的语义 token，提示词中会用真实的键名写出（如 `primary.background`）。
+- **真实的图标** – 图标选择器只提供 `gpui-kit-assets` 自带的 101 个 Lucide 图标，提示词中写成 `IconName::` 变体，因此草图不会指定生成的应用画不出来的图标。
+- **窗口骨架** – 每个窗口从设计规范列出的五种骨架（单一工作区、侧栏工作区、列表与详情、文档标签、工具窗口）中选择，提示词会在描述组件之前先说明骨架。
+- **磁吸连接** – 把两个按钮靠近，它们会合并成一个 `ButtonGroup`，相接的一侧圆角变方。
+- **多窗口** – 可添加任意多个窗口，并分别设置名称、尺寸（1024×640 至 1680×1050）与背景 token。
+- **点击跳转** – 可为组件、标题栏图标，以及侧边栏、标签页、菜单、列表、面包屑的条目设置目标窗口。画布上会显示流程箭头，预览中可以真的点击跳转。
+- **快捷键** – 为组件设置快捷键后，提示词会要求生成对应的 `actions!` 定义、`bind_keys` 绑定，并在 tooltip 中用 `Kbd` 展示。
+- **可编辑的数据** – 数据表格的每一列都有自己的标签和「数值」标记（标记后右对齐，符合可比较数值的排版惯例），行则按单元格编辑。对话框自带确认按钮文案，因此提示词要求的是「删除」而不是「确定」。
+- **三种语言** – 界面、初始文档和提示词都提供日文、英文、中文。首次访问会按浏览器语言生成初始窗口；已保存的文档则保留你写下的内容。
+- **图层与编组**、**主题**（配色／圆角／字体／密度／阴影／焦点环）、**整理**、**AI 辅助（可选）**、**导出**、**对齐辅助线**、撤销／重做。所有内容自动保存在浏览器（localStorage）中。
+
+### 跟随 gpui-kit 更新
+
+```bash
+npm run gen:themes -- ../gpui-kit   # lib/kit-themes.gen.ts
+npm run gen:icons  -- ../gpui-kit   # lib/kit-icons.gen.ts
+```
 
 ### 开发
 
@@ -187,12 +296,6 @@ npm run dev        # http://localhost:3000
 npm run build      # 静态导出到 ./out
 ```
 
-项目以静态站点方式导出。若要部署在子路径下（例如 GitHub Pages 的项目站点），请在构建时设置 `NEXT_PUBLIC_BASE_PATH=/仓库名`。`.github/workflows/deploy.yml` 会在每次推送到 `main` 时自动完成这一步并发布到 GitHub Pages。
-
-### 参与贡献
-
-欢迎 Bug 报告、组件请求和 PR。步骤和约定见 [CONTRIBUTING.md](CONTRIBUTING.md)。提问请到 [Discussions](https://github.com/lnkiai/m3e-canvas/discussions)。
-
 ### 许可证
 
-MIT © lnkiai
+MIT

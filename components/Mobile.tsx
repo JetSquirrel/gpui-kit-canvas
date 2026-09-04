@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { motion, useDragControls } from "motion/react";
-import { CONTRASTS, Contrast, FONTS, Item, KIND_SPEC, NavTab, PALETTES, Palette, SHAPES, ShapeScale, Theme, defaultTabsFor, iconSlotsOf, setIconSlot } from "@/lib/tokens";
+import { DENSITIES, Density, FONTS, Item, KIND_SPEC, NavTab, PALETTE_SETS, Palette, RADII, RadiusScale, Theme, defaultTabsFor, iconSlotsOf, setIconSlot } from "@/lib/tokens";
 import { ensureFontLoaded } from "@/lib/theme";
 import { LANGS, Lang, t, useLang } from "@/lib/i18n";
 import { IconPicker } from "./IconPicker";
-import { Icon } from "./M3Node";
+import { Icon } from "./KitNode";
 import { VariantSwatch, variantsOf } from "./Inspector";
 import { Field, IconBtn, Segmented, Toggle } from "./ui";
 
@@ -40,7 +40,7 @@ export function BottomSheet({ p, onClose, children }: { p: Palette; onClose: () 
         flexDirection: "column",
         borderTopLeftRadius: 28,
         borderTopRightRadius: 28,
-        background: p.surfaceContainerLow,
+        background: p.muted,
         boxShadow: "0 -6px 24px rgba(0,0,0,0.16)",
         zIndex: 60,
         paddingBottom: "calc(var(--bottom-ui, 0px) + env(safe-area-inset-bottom))",
@@ -61,7 +61,7 @@ export function BottomSheet({ p, onClose, children }: { p: Palette; onClose: () 
           touchAction: "none",
         }}
       >
-        <span style={{ width: 32, height: 4, borderRadius: 2, background: p.outlineVariant }} />
+        <span style={{ width: 32, height: 4, borderRadius: 2, background: p.border }} />
       </button>
       <div className="no-scrollbar" style={{ overflowY: "auto", padding: "0 14px 16px", minHeight: 0 }}>
         {children}
@@ -79,7 +79,7 @@ function Row({ icon, label, p, children }: { icon: string; label: string; p: Pal
           alignItems: "center",
           gap: 6,
           marginBottom: 6,
-          color: p.onSurfaceVariant,
+          color: p.mutedForeground,
           fontSize: 12,
           fontWeight: 700,
           letterSpacing: 0.4,
@@ -137,28 +137,28 @@ export function MobileInspector({
             width: 40,
             height: 40,
             borderRadius: 20,
-            background: p.secondaryContainer,
-            color: p.onSecondaryContainer,
+            background: p.secondary,
+            color: p.secondaryForeground,
             display: "grid",
             placeItems: "center",
           }}
         >
           <Icon name={spec.paletteIcon} size={22} />
         </div>
-        <span style={{ fontSize: 16, fontWeight: 700, color: p.onSurface, flex: 1 }}>{spec.label}</span>
-        <IconBtn icon="content_copy" p={p} onClick={onDuplicate} title={t("duplicate", lang)} size={44} />
+        <span style={{ fontSize: 16, fontWeight: 700, color: p.foreground, flex: 1 }}>{spec.label}</span>
+        <IconBtn icon="copy" p={p} onClick={onDuplicate} title={t("duplicate", lang)} size={44} />
         <IconBtn icon="delete" p={p} danger onClick={onDelete} title={t("delete", lang)} size={44} />
         <IconBtn icon="check" p={p} on onClick={onClose} title={t("done", lang)} size={44} />
       </div>
 
       {(spec.hasLabel || spec.hasSupporting) && (
-        <Row icon="title" label={t("text", lang)} p={p}>
+        <Row icon="a-large-small" label={t("text", lang)} p={p}>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {spec.hasLabel && (
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <Field value={item.label} onChange={(label) => onChange({ label })} placeholder={t("label", lang)} p={p} icon="short_text" height={48} />
+                <Field value={item.label} onChange={(label) => onChange({ label })} placeholder={t("label", lang)} p={p} icon="a-large-small" height={48} />
                 {item.kind === "text" && (
-                  <IconBtn icon="format_bold" p={p} size={48} on={!!item.bold} onClick={() => onChange({ bold: !item.bold })} title={t("bold", lang)} />
+                  <IconBtn icon="a-large-small" p={p} size={48} on={!!item.bold} onClick={() => onChange({ bold: !item.bold })} title={t("bold", lang)} />
                 )}
               </div>
             )}
@@ -166,9 +166,9 @@ export function MobileInspector({
               <Field
                 value={item.supporting ?? ""}
                 onChange={(supporting) => onChange({ supporting })}
-                placeholder={item.kind === "snackbar" ? t("action", lang) : t("supporting", lang)}
+                placeholder={item.kind === "statusBar" ? t("trailing", lang) : t("supporting", lang)}
                 p={p}
-                icon="notes"
+                icon="file-text"
                 height={48}
               />
             )}
@@ -177,7 +177,7 @@ export function MobileInspector({
       )}
 
       {spec.hasTabs && (
-        <Row icon="view_column" label={t("tabs", lang)} p={p}>
+        <Row icon="layout-dashboard" label={t("tabs", lang)} p={p}>
           <Segmented
             options={(item.kind === "toolbar" ? [2, 3, 4, 5, 6] : [2, 3, 4, 5]).map((n) => ({ key: String(n), label: String(n) }))}
             value={String(tabs.length)}
@@ -206,7 +206,7 @@ export function MobileInspector({
       )}
 
       {slots.length > 0 && activeSlot && (
-        <Row icon="emoji_symbols" label={t("icon", lang)} p={p}>
+        <Row icon="star" label={t("icon", lang)} p={p}>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {slots.map((s) => {
               const on = s.key === activeSlot.key && pickerOpen;
@@ -218,15 +218,15 @@ export function MobileInspector({
                     setPickerOpen(!(on && pickerOpen));
                   }}
                   title={s.label}
-                  className="m3-press"
+                  className="kit-press"
                   style={{
                     height: 48,
                     minWidth: 48,
                     padding: slots.length > 1 ? "0 14px 0 10px" : 0,
                     borderRadius: 24,
                     border: "none",
-                    background: on ? p.primary : p.surfaceContainerHigh,
-                    color: on ? p.onPrimary : s.value ? p.onSurface : p.outline,
+                    background: on ? p.primary : p.accent,
+                    color: on ? p.primaryForeground : s.value ? p.foreground : p.border,
                     cursor: "pointer",
                     display: "inline-flex",
                     alignItems: "center",
@@ -244,14 +244,14 @@ export function MobileInspector({
             {activeSlot.value && (
               <button
                 onClick={() => onChange(setIconSlot(item, activeSlot.key, null))}
-                className="m3-press"
+                className="kit-press"
                 style={{
                   height: 48,
                   padding: "0 14px 0 10px",
                   borderRadius: 24,
-                  border: `1px solid ${p.outline}`,
+                  border: `1px solid ${p.border}`,
                   background: "transparent",
-                  color: p.onSurfaceVariant,
+                  color: p.mutedForeground,
                   cursor: "pointer",
                   display: "inline-flex",
                   alignItems: "center",
@@ -284,19 +284,19 @@ export function MobileInspector({
       )}
 
       {spec.hasChecked && (
-        <Row icon="tune" label={t("state", lang)} p={p}>
+        <Row icon="settings-2" label={t("state", lang)} p={p}>
           <Toggle
             on={!!item.checked}
             onChange={(checked) => onChange({ checked })}
             p={p}
-            icon={item.kind === "chip" ? "check_circle" : item.kind === "box" ? "drag_handle" : "toggle_on"}
-            label={item.kind === "chip" ? t("selected", lang) : item.kind === "box" ? t("handle", lang) : t("on", lang)}
+            icon={item.kind === "tag" ? "close" : "check"}
+            label={item.kind === "tag" ? t("selected", lang) : t("on", lang)}
           />
         </Row>
       )}
 
-      <Row icon="bolt" label={t("behavior", lang)} p={p}>
-        <Field value={item.note ?? ""} onChange={(note) => onChange({ note })} placeholder={["button", "fab", "iconButton", "extendedFab"].includes(item.kind) ? t("whenPressed", lang) : t("whatItDoes", lang)} p={p} icon="bolt" height={48} />
+      <Row icon="square-terminal" label={t("behavior", lang)} p={p}>
+        <Field value={item.note ?? ""} onChange={(note) => onChange({ note })} placeholder={["button", "iconButton", "buttonGroup"].includes(item.kind) ? t("whenPressed", lang) : t("whatItDoes", lang)} p={p} icon="square-terminal" height={48} />
       </Row>
     </div>
   );
@@ -305,7 +305,7 @@ export function MobileInspector({
 /** The language list, one row per language. */
 export function MobileLang({ palette: p, lang, onLang }: { palette: Palette; lang: Lang; onLang: (l: Lang) => void }) {
   return (
-    <Row icon="translate" label={t("language", lang)} p={p}>
+    <Row icon="globe" label={t("language", lang)} p={p}>
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         {LANGS.map((l) => {
           const on = l.key === lang;
@@ -314,14 +314,14 @@ export function MobileLang({ palette: p, lang, onLang }: { palette: Palette; lan
               key={l.key}
               onClick={() => onLang(l.key)}
               aria-pressed={on}
-              className="m3-press"
+              className="kit-press"
               style={{
                 height: 52,
                 padding: "0 16px 0 12px",
                 borderRadius: 16,
                 border: "none",
-                background: on ? p.secondaryContainer : p.surfaceContainerHigh,
-                color: on ? p.onSecondaryContainer : p.onSurface,
+                background: on ? p.secondary : p.accent,
+                color: on ? p.secondaryForeground : p.foreground,
                 fontSize: 15,
                 fontWeight: 600,
                 cursor: "pointer",
@@ -356,14 +356,15 @@ export function MobileSettings({
   onTheme: (patch: Partial<Theme>) => void;
 }) {
   const lang = useLang();
-  const shapeLabel = (k: ShapeScale) => (k === "square" ? t("shapeSquare", lang) : k === "full" ? t("shapeFull", lang) : t("shapeRounded", lang));
+  const radiusLabel = (k: RadiusScale) => (k === "square" ? t("radiusSquare", lang) : k === "round" ? t("radiusRound", lang) : t("radiusDefault", lang));
+  const densityLabel = (k: Density) => (k === "compact" ? t("densityCompact", lang) : k === "comfortable" ? t("densityComfortable", lang) : t("densityDefault", lang));
   return (
     <div>
-      <Row icon="brightness_6" label={t("brightness", lang)} p={p}>
+      <Row icon="sun" label={t("brightness", lang)} p={p}>
         <Segmented<"light" | "dark">
           options={[
-            { key: "light", icon: "light_mode", label: t("light", lang) },
-            { key: "dark", icon: "dark_mode", label: t("dark", lang) },
+            { key: "light", icon: "sun", label: t("light", lang) },
+            { key: "dark", icon: "moon", label: t("dark", lang) },
           ]}
           value={theme.dark ? "dark" : "light"}
           onChange={(k) => onTheme({ dark: k === "dark" })}
@@ -371,41 +372,42 @@ export function MobileSettings({
           height={44}
         />
         <div style={{ marginTop: 8 }}>
-          <Toggle on={theme.bothModes} onChange={(bothModes) => onTheme({ bothModes })} p={p} icon="routine" label={t("bothModes", lang)} grow />
+          <Toggle on={theme.bothModes} onChange={(bothModes) => onTheme({ bothModes })} p={p} icon="replace" label={t("bothModes", lang)} grow />
         </div>
       </Row>
-      <Row icon="contrast" label={t("contrast", lang)} p={p}>
-        <Segmented<Contrast>
-          options={CONTRASTS.map((c) => ({ key: c.key, label: c.key === "high" ? t("contrastHigh", lang) : c.key === "medium" ? t("contrastMedium", lang) : t("contrastStandard", lang) }))}
-          value={theme.contrast}
-          onChange={(contrast) => onTheme({ contrast })}
+      <Row icon="a-large-small" label={t("density", lang)} p={p}>
+        <Segmented<Density>
+          options={DENSITIES.map((d) => ({ key: d.key, label: densityLabel(d.key) }))}
+          value={theme.density}
+          onChange={(density) => onTheme({ density })}
           p={p}
           height={44}
         />
       </Row>
       <Row icon="palette" label={t("theme", lang)} p={p}>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", padding: "2px 0" }}>
-          {PALETTES.map((pal) => {
+          {PALETTE_SETS.map((entry) => {
+            const pal = (theme.dark ? entry.dark : entry.light) ?? entry.dark ?? entry.light!;
             const on = pal.key === paletteKey;
             return (
               <button
-                key={pal.key}
+                key={entry.set}
                 onClick={() => onPalette(pal.key)}
                 title={pal.label}
                 aria-label={pal.label}
                 aria-pressed={on}
-                className="m3-press"
+                className="kit-press"
                 style={{
                   width: 48,
                   height: 48,
                   borderRadius: 24,
                   border: "none",
                   background: pal.primary,
-                  color: pal.onPrimary,
+                  color: pal.primaryForeground,
                   cursor: "pointer",
                   display: "grid",
                   placeItems: "center",
-                  outline: on ? `3px solid ${p.onSurface}` : "3px solid transparent",
+                  outline: on ? `3px solid ${p.foreground}` : "3px solid transparent",
                   outlineOffset: 3,
                 }}
               >
@@ -415,16 +417,16 @@ export function MobileSettings({
           })}
         </div>
       </Row>
-      <Row icon="rounded_corner" label={t("shape", lang)} p={p}>
-        <Segmented<ShapeScale>
-          options={SHAPES.map((s) => ({ key: s.key, icon: s.icon, label: shapeLabel(s.key) }))}
-          value={theme.shape}
-          onChange={(shape) => onTheme({ shape })}
+      <Row icon="frame" label={t("shape", lang)} p={p}>
+        <Segmented<RadiusScale>
+          options={RADII.map((r) => ({ key: r.key, icon: r.icon, label: radiusLabel(r.key) }))}
+          value={theme.radius}
+          onChange={(radius) => onTheme({ radius })}
           p={p}
           height={44}
         />
       </Row>
-      <Row icon="text_fields" label={t("typography", lang)} p={p}>
+      <Row icon="a-large-small" label={t("typography", lang)} p={p}>
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           {FONTS.map((f) => {
             const on = theme.font === f.key;
@@ -434,14 +436,14 @@ export function MobileSettings({
                 key={f.key}
                 onClick={() => onTheme({ font: f.key })}
                 aria-pressed={on}
-                className="m3-press"
+                className="kit-press"
                 style={{
                   height: 48,
                   padding: "0 16px 0 12px",
                   borderRadius: 16,
                   border: "none",
-                  background: on ? p.secondaryContainer : p.surfaceContainerHigh,
-                  color: on ? p.onSecondaryContainer : p.onSurface,
+                  background: on ? p.secondary : p.accent,
+                  color: on ? p.secondaryForeground : p.foreground,
                   fontSize: 15,
                   fontWeight: 600,
                   cursor: "pointer",
@@ -458,15 +460,15 @@ export function MobileSettings({
             );
           })}
           <div style={{ marginTop: 4 }}>
-            <Toggle on={theme.emphasized} onChange={(emphasized) => onTheme({ emphasized })} p={p} icon="format_bold" label={t("emphasized", lang)} />
+            <Toggle on={theme.shadow} onChange={(shadow) => onTheme({ shadow })} p={p} icon="panel-bottom" label={t("shadow", lang)} />
           </div>
         </div>
       </Row>
-      <Row icon="animation" label={t("motion", lang)} p={p}>
-        <Segmented<"standard" | "expressive">
+      <Row icon="play" label={t("motion", lang)} p={p}>
+        <Segmented<"default" | "reduced">
           options={[
-            { key: "standard", label: t("motionStandard", lang) },
-            { key: "expressive", label: t("motionExpressive", lang) },
+            { key: "default", label: t("motionDefault", lang) },
+            { key: "reduced", label: t("motionReduced", lang) },
           ]}
           value={theme.motion}
           onChange={(motion) => onTheme({ motion })}
@@ -501,21 +503,21 @@ export function MobileActionBar({
         gap: 4,
         padding: 6,
         borderRadius: 32,
-        background: p.surface,
+        background: p.background,
         boxShadow: "0 6px 18px rgba(0,0,0,0.14)",
         zIndex: 46,
       }}
     >
       <button
         onClick={onEdit}
-        className="m3-press"
+        className="kit-press"
         style={{
           height: 52,
           padding: "0 20px 0 16px",
           borderRadius: 26,
           border: "none",
           background: p.primary,
-          color: p.onPrimary,
+          color: p.primaryForeground,
           fontSize: 15,
           fontWeight: 700,
           cursor: "pointer",
@@ -524,10 +526,10 @@ export function MobileActionBar({
           gap: 8,
         }}
       >
-        <Icon name="tune" size={22} />
+        <Icon name="settings-2" size={22} />
         {t("edit", lang)}
       </button>
-      <IconBtn icon="content_copy" p={p} size={52} title={t("duplicate", lang)} onClick={onDuplicate} />
+      <IconBtn icon="copy" p={p} size={52} title={t("duplicate", lang)} onClick={onDuplicate} />
       <IconBtn icon="delete" p={p} size={52} danger title={t("delete", lang)} onClick={onDelete} />
     </div>
   );

@@ -1,12 +1,16 @@
 {
-  "name": "m3e-canvas",
+  "name": "gpui-kit-canvas",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "npx serve out",
-    "typecheck": "tsc --noEmit -p ."
+    "typecheck": "tsc --noEmit -p .",
+    "gen:themes": "node script/gen-kit-themes.mjs",
+    "gen:icons": "node script/gen-kit-icons.mjs",
+    "deploy": "wrangler deploy",
+    "preview": "wrangler dev"
   },
   "dependencies": {
     "html-to-image": "^1.11.13",
@@ -21,13 +25,14 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "tailwindcss": "^4",
-    "typescript": "^7"
+    "typescript": "^7",
+    "wrangler": "^4.129.0"
   },
-  "description": "Sketch Material 3 Expressive screens in the browser and turn them into vibe-coding prompts.",
+  "description": "Sketch gpui-kit desktop windows in the browser and turn them into vibe-coding prompts.",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/lnkiai/m3e-canvas.git"
+    "url": "https://github.com/JetSquirrel/gpui-kit-canvas.git"
   },
-  "homepage": "https://lnkiai.github.io/m3e-canvas/"
+  "homepage": "https://github.com/JetSquirrel/gpui-kit-canvas"
 }

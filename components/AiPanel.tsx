@@ -4,7 +4,7 @@ import { useRef } from "react";
 import { Palette } from "@/lib/tokens";
 import { t, useLang } from "@/lib/i18n";
 import { AiSettings, PROVIDERS, Provider, providerSpec } from "@/lib/ai";
-import { Icon } from "./M3Node";
+import { Icon } from "./KitNode";
 
 /** the message shown for a failed request, mapped from the error codes lib/ai throws */
 export function aiErrorText(e: unknown, lang: ReturnType<typeof useLang>): string {
@@ -29,14 +29,14 @@ export function AiWriteBtn({ p, busy, disabled, onClick, onCancel, label, title 
       disabled={disabled}
       title={shown}
       aria-label={shown}
-      className="m3-press"
+      className="kit-press"
       style={{
         height: 40,
         padding: "0 16px 0 12px",
         borderRadius: 20,
         border: "none",
-        background: disabled ? p.surfaceContainerHighest : p.primary,
-        color: disabled ? p.onSurfaceVariant : p.onPrimary,
+        background: disabled ? p.secondary : p.primary,
+        color: disabled ? p.mutedForeground : p.primaryForeground,
         fontSize: 13,
         fontWeight: 600,
         cursor: disabled ? "default" : "pointer",
@@ -48,7 +48,7 @@ export function AiWriteBtn({ p, busy, disabled, onClick, onCancel, label, title 
         whiteSpace: "nowrap",
       }}
     >
-      <span className={busy ? "m3-spin" : undefined} style={{ display: "inline-flex" }}>
+      <span className={busy ? "kit-spin" : undefined} style={{ display: "inline-flex" }}>
         <Icon name={busy ? "progress_activity" : "auto_awesome"} size={20} />
       </span>
       {/* both labels are laid out so the button keeps one width while it flips */}
@@ -67,9 +67,9 @@ const field = (p: Palette): React.CSSProperties => ({
   height: 44,
   padding: "0 14px",
   borderRadius: 22,
-  border: `1px solid ${p.outlineVariant}`,
-  background: p.surface,
-  color: p.onSurface,
+  border: `1px solid ${p.border}`,
+  background: p.background,
+  color: p.foreground,
   fontSize: 13,
   fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
   outline: "none",
@@ -81,7 +81,7 @@ function Input({ value, onChange, placeholder, p, type = "text", label }: { valu
 }
 
 const Label = ({ children, p, right }: { children: React.ReactNode; p: Palette; right?: React.ReactNode }) => (
-  <div style={{ display: "flex", alignItems: "baseline", gap: 8, fontSize: 12, fontWeight: 700, letterSpacing: 0.4, color: p.onSurfaceVariant, marginBottom: 6, padding: "0 4px" }}>
+  <div style={{ display: "flex", alignItems: "baseline", gap: 8, fontSize: 12, fontWeight: 700, letterSpacing: 0.4, color: p.mutedForeground, marginBottom: 6, padding: "0 4px" }}>
     <span style={{ flex: 1 }}>{children}</span>
     {right}
   </div>
@@ -122,14 +122,14 @@ function ProviderGroup({ value, onChange, p }: { value: Provider; onChange: (k: 
                 move(i, -1);
               }
             }}
-            className="m3-press"
+            className="kit-press"
             style={{
               flex: 1,
               height: 44,
               border: "none",
               borderRadius: `${l}px ${r}px ${r}px ${l}px`,
-              background: on ? p.primary : p.surfaceContainerHigh,
-              color: on ? p.onPrimary : p.onSurfaceVariant,
+              background: on ? p.primary : p.accent,
+              color: on ? p.primaryForeground : p.mutedForeground,
               cursor: "pointer",
               display: "grid",
               placeItems: "center",
@@ -170,7 +170,7 @@ export function AiPanel({ p, settings, onSettings }: { p: Palette; settings: AiS
   };
   return (
     <div className="no-scrollbar" style={{ height: "100%", overflowY: "auto", padding: "12px 12px 20px" }}>
-      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.4, color: p.onSurfaceVariant, padding: "8px 6px 12px" }}>{t("aiSettings", lang)}</div>
+      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.4, color: p.mutedForeground, padding: "8px 6px 12px" }}>{t("aiSettings", lang)}</div>
       <div style={{ padding: "0 4px" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
@@ -199,7 +199,7 @@ export function AiPanel({ p, settings, onSettings }: { p: Palette; settings: AiS
               {t("aiKey", lang)}
             </Label>
             <Input label={t("aiKey", lang)} value={settings.key} onChange={(key) => onSettings({ ...settings, key })} placeholder="sk-…" p={p} type="password" />
-            <div style={{ fontSize: 12, lineHeight: 1.5, color: p.onSurfaceVariant, marginTop: 8, padding: "0 4px" }}>{t("aiKeyHint", lang)}</div>
+            <div style={{ fontSize: 12, lineHeight: 1.5, color: p.mutedForeground, marginTop: 8, padding: "0 4px" }}>{t("aiKeyHint", lang)}</div>
           </div>
         </div>
       </div>

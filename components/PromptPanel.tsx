@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { buildPrompt } from "@/lib/prompt";
-import { DEFAULT_PLATFORM, Doc, Palette, Platform } from "@/lib/tokens";
-import { Icon } from "./M3Node";
+import { Doc, Palette } from "@/lib/tokens";
+import { Icon } from "./KitNode";
 import { Field, IconBtn, Segmented } from "./ui";
 import { t, useLang } from "@/lib/i18n";
 
@@ -40,14 +40,14 @@ export function PromptPanel({
   const projectButton = (icon: string, label: string, onClick: () => void) => (
     <button
       onClick={onClick}
-      className="m3-press"
+      className="kit-press"
       style={{
         flex: 1,
         height: 42,
         borderRadius: 21,
         border: "none",
-        background: p.secondaryContainer,
-        color: p.onSecondaryContainer,
+        background: p.secondary,
+        color: p.secondaryForeground,
         fontSize: 13,
         fontWeight: 600,
         cursor: "pointer",
@@ -69,27 +69,18 @@ export function PromptPanel({
         onChange={(title) => onDoc({ title })}
         placeholder={t("appName", lang)}
         p={p}
-        icon="smartphone"
+        icon="window-restore"
       />
       <Field
         value={doc.brief}
         onChange={(brief) => onDoc({ brief })}
         placeholder={t("brief", lang)}
         p={p}
-        icon="lightbulb"
+        icon="info"
         multiline
         rows={3}
       />
-      <Segmented<Platform>
-        options={[
-          { key: "android", icon: "android", label: "Android", title: t("targetAndroid", lang) },
-          { key: "web", icon: "language", label: "Web", title: t("targetWeb", lang) },
-        ]}
-        value={doc.platform ?? DEFAULT_PLATFORM}
-        onChange={(platform) => onDoc({ platform })}
-        p={p}
-        height={40}
-      />
+      <p style={{ margin: 0, fontSize: 12, lineHeight: 1.6, color: p.mutedForeground }}>{t("promptTargetHint", lang)}</p>
       <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex" }}>
         <textarea
           className="no-scrollbar"
@@ -103,11 +94,11 @@ export function PromptPanel({
             width: "100%",
             borderRadius: 18,
             border: "none",
-            background: p.surfaceContainerLow,
+            background: p.muted,
             padding: edited ? "14px 14px 48px" : 14,
             fontSize: 13,
             lineHeight: 1.75,
-            color: p.onSurface,
+            color: p.foreground,
             fontFamily: "inherit",
             resize: "none",
             outline: "none",
@@ -122,13 +113,13 @@ export function PromptPanel({
       </div>
       <button
         onClick={copy}
-        className="m3-press"
+        className="kit-press"
         style={{
           height: 48,
           borderRadius: 24,
           border: "none",
-          background: copied ? p.tertiaryContainer : p.primary,
-          color: copied ? p.onTertiaryContainer : p.onPrimary,
+          background: copied ? p.muted : p.primary,
+          color: copied ? p.mutedForeground : p.primaryForeground,
           fontSize: 14,
           fontWeight: 600,
           cursor: "pointer",

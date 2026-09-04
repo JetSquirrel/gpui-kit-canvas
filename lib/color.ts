@@ -1,9 +1,9 @@
 /**
- * A small Material-style scheme generator: one seed color becomes a light
- * color scheme by placing each role at a fixed tone (CIE L*) with the seed's
- * hue and a role-specific chroma, then clipping chroma into the sRGB gamut.
- * It follows the shape of Material's HCT tonal palettes without the full
- * CAM16 model, which is more than enough for a mockup palette.
+ * Colour utilities for the canvas: sRGB <-> CIELAB conversions, a readable
+ * foreground for an arbitrary background, and the compositing gpui-kit's own
+ * theme resolution does. There is no scheme generator here: a gpui-kit theme
+ * declares its tokens outright, and `lib/kit-themes.gen.ts` resolves the ones a
+ * theme leaves out the same way `ColorsConfig::apply_config` does.
  */
 
 import type { Palette } from "./tokens";
@@ -82,101 +82,56 @@ export function tone(L: number, C: number, h: number): string {
   return rgbToHex(rgb[0], rgb[1], rgb[2]);
 }
 
-export type Contrast = "standard" | "medium" | "high";
-export type SchemeOptions = { dark?: boolean; contrast?: Contrast; /** keep a muted seed muted instead of lifting it to a vivid accent */ keepChroma?: boolean };
-
-/** tone (CIE L*) of every role, light and dark, at each contrast level.
- *  The standard tones are Material's; medium and high push the accents and
- *  outlines further from their backgrounds the way Material Theme Builder does. */
-type Tones = Record<
-  | "primary" | "onPrimary" | "primaryContainer" | "onPrimaryContainer" | "inversePrimary"
-  | "secondaryContainer" | "onSecondaryContainer" | "tertiaryContainer" | "onTertiaryContainer"
-  | "surface" | "surfaceContainerLow" | "surfaceContainer" | "surfaceContainerHigh" | "surfaceContainerHighest"
-  | "onSurface" | "onSurfaceVariant" | "outline" | "outlineVariant" | "inverseSurface" | "inverseOnSurface",
-  number
->;
-
-const LIGHT: Tones = {
-  primary: 40, onPrimary: 100, primaryContainer: 90, onPrimaryContainer: 10, inversePrimary: 80,
-  secondaryContainer: 90, onSecondaryContainer: 10, tertiaryContainer: 90, onTertiaryContainer: 10,
-  surface: 98, surfaceContainerLow: 96, surfaceContainer: 94, surfaceContainerHigh: 92, surfaceContainerHighest: 90,
-  onSurface: 10, onSurfaceVariant: 30, outline: 50, outlineVariant: 80, inverseSurface: 20, inverseOnSurface: 95,
-};
-const DARK: Tones = {
-  primary: 80, onPrimary: 20, primaryContainer: 30, onPrimaryContainer: 90, inversePrimary: 40,
-  secondaryContainer: 30, onSecondaryContainer: 90, tertiaryContainer: 30, onTertiaryContainer: 90,
-  surface: 6, surfaceContainerLow: 10, surfaceContainer: 12, surfaceContainerHigh: 17, surfaceContainerHighest: 22,
-  onSurface: 90, onSurfaceVariant: 80, outline: 60, outlineVariant: 30, inverseSurface: 90, inverseOnSurface: 20,
-};
-
-function tonesFor(dark: boolean, contrast: Contrast): Tones {
-  const t = { ...(dark ? DARK : LIGHT) };
-  if (contrast === "medium") {
-    if (dark) Object.assign(t, { primary: 85, onPrimaryContainer: 95, onSecondaryContainer: 95, onTertiaryContainer: 95, onSurfaceVariant: 85, outline: 70, outlineVariant: 50 });
-    else Object.assign(t, { primary: 30, onPrimaryContainer: 20, onSecondaryContainer: 20, onTertiaryContainer: 20, onSurfaceVariant: 25, outline: 40, outlineVariant: 65 });
-  } else if (contrast === "high") {
-    if (dark) Object.assign(t, { primary: 95, onPrimary: 0, primaryContainer: 80, onPrimaryContainer: 0, secondaryContainer: 80, onSecondaryContainer: 0, tertiaryContainer: 80, onTertiaryContainer: 0, onSurface: 100, onSurfaceVariant: 95, outline: 90, outlineVariant: 90 });
-    else Object.assign(t, { primary: 20, primaryContainer: 30, onPrimaryContainer: 100, secondaryContainer: 30, onSecondaryContainer: 100, tertiaryContainer: 30, onTertiaryContainer: 100, onSurface: 0, onSurfaceVariant: 10, outline: 20, outlineVariant: 20 });
-  }
-  return t;
-}
-
-const ERROR_LIGHT = { error: "#B3261E", onError: "#FFFFFF", errorContainer: "#F9DEDC", onErrorContainer: "#410E0B" };
-const ERROR_DARK = { error: "#F2B8B5", onError: "#601410", errorContainer: "#8C1D18", onErrorContainer: "#F9DEDC" };
-
-/** Material 3 scheme from a seed color: light by default, dark and higher
- *  contrast on request. */
-export function schemeFromSeed(seedHex: string, label = "Custom", opts: SchemeOptions = {}): Palette {
-  const rgb = hexToRgb(seedHex) ?? [103, 80, 164];
-  const lch = labToLch(rgbToLab(rgb[0], rgb[1], rgb[2]));
-  const h = lch.h;
-  const primaryC = opts.keepChroma ? Math.min(lch.C, 60) : Math.max(36, Math.min(lch.C, 60));
-  const secondaryC = primaryC / 3;
-  const tertiaryH = (h + 60) % 360;
-  const tertiaryC = primaryC / 2;
-  const neutralC = 3;
-  const neutralVarC = 7;
-  const P = (L: number) => tone(L, primaryC, h);
-  const S = (L: number) => tone(L, secondaryC, h);
-  const T = (L: number) => tone(L, tertiaryC, tertiaryH);
-  const N = (L: number) => tone(L, neutralC, h);
-  const NV = (L: number) => tone(L, neutralVarC, h);
-  const dark = !!opts.dark;
-  const k = tonesFor(dark, opts.contrast ?? "standard");
-  return {
-    key: "custom",
-    label,
-    seed: seedHex.toUpperCase(),
-    primary: P(k.primary),
-    onPrimary: P(k.onPrimary),
-    primaryContainer: P(k.primaryContainer),
-    onPrimaryContainer: P(k.onPrimaryContainer),
-    inversePrimary: P(k.inversePrimary),
-    secondaryContainer: S(k.secondaryContainer),
-    onSecondaryContainer: S(k.onSecondaryContainer),
-    tertiaryContainer: T(k.tertiaryContainer),
-    onTertiaryContainer: T(k.onTertiaryContainer),
-    surface: N(k.surface),
-    surfaceContainerLow: N(k.surfaceContainerLow),
-    surfaceContainer: N(k.surfaceContainer),
-    surfaceContainerHigh: N(k.surfaceContainerHigh),
-    surfaceContainerHighest: N(k.surfaceContainerHighest),
-    onSurface: N(k.onSurface),
-    onSurfaceVariant: NV(k.onSurfaceVariant),
-    outline: NV(k.outline),
-    outlineVariant: NV(k.outlineVariant),
-    inverseSurface: N(k.inverseSurface),
-    inverseOnSurface: N(k.inverseOnSurface),
-    ...(dark ? ERROR_DARK : ERROR_LIGHT),
-  };
-}
-
-/** readable text color for an arbitrary background: the same hue at tone 10 or 100 */
+/** readable text for an arbitrary background: near-black or near-white, whichever
+ *  the background's lightness calls for. Keeps a hint of the background's hue so a
+ *  hand-tuned token still reads as one family. */
 export function onColorFor(hex: string): string {
   const rgb = hexToRgb(hex);
   if (!rgb) return "#000000";
   const lch = labToLch(rgbToLab(rgb[0], rgb[1], rgb[2]));
-  return lch.L > 60 ? tone(10, Math.min(lch.C, 30), lch.h) : tone(100, 0, lch.h);
+  return lch.L > 60 ? tone(12, Math.min(lch.C, 12), lch.h) : tone(98, Math.min(lch.C, 6), lch.h);
 }
 
-export const isHex = (v: string) => /^#[0-9a-f]{6}$/i.test(v.trim());
+/** a 6- or 8-digit hex, which is what a gpui-kit theme file writes */
+export const isHex = (v: string) => /^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(v.trim());
+
+/** the alpha carried by an 8-digit hex; 1 for anything else */
+export function alphaOf(hex: string): number {
+  const m = /^#?[0-9a-f]{6}([0-9a-f]{2})$/i.exec(hex.trim());
+  return m ? parseInt(m[1], 16) / 255 : 1;
+}
+
+/** the opaque colour a token resolves to over `under`, which is what a
+ *  translucent token such as `list.active.background` actually looks like */
+export function flatten(hex: string, under: string): string {
+  const a = alphaOf(hex);
+  if (a >= 1) return hex.slice(0, 7);
+  const top = hexToRgb(hex.slice(0, 7));
+  const base = hexToRgb(under.length > 7 ? under.slice(0, 7) : under);
+  if (!top || !base) return hex.slice(0, 7);
+  return rgbToHex(...(top.map((c, i) => c * a + base[i] * (1 - a)) as [number, number, number]));
+}
+
+/** `hex` with the given alpha, as an 8-digit hex */
+export function withAlpha(hex: string, a: number): string {
+  const base = hex.slice(0, 7);
+  const byte = Math.round(Math.min(1, Math.max(0, a)) * 255)
+    .toString(16)
+    .padStart(2, "0");
+  return `${base}${byte}`;
+}
+
+/** `factor` of `a` mixed with the rest of `b`, in sRGB */
+export function mix(a: string, b: string, factor: number): string {
+  const ca = hexToRgb(a.slice(0, 7));
+  const cb = hexToRgb(b.slice(0, 7));
+  if (!ca || !cb) return a;
+  return rgbToHex(...(ca.map((c, i) => c * factor + cb[i] * (1 - factor)) as [number, number, number]));
+}
+
+/** whether a palette reads as dark, so a preview can pick its own chrome */
+export const isDarkColor = (hex: string) => {
+  const rgb = hexToRgb(hex.slice(0, 7));
+  if (!rgb) return false;
+  return labToLch(rgbToLab(rgb[0], rgb[1], rgb[2])).L < 50;
+};

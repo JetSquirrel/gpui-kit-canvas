@@ -1,17 +1,23 @@
-M3E Canvas
+GPUI Kit Canvas
 
-This product contains code ported from material-components-android
+This product contains data generated from GPUI Kit
 (Apache License 2.0):
-  Copyright (C) 2024 The Android Open Source Project
-  https://github.com/material-components/material-components-android
+  Copyright 2024 - 2026 Longbridge <https://longbridge.com>
+  https://github.com/longbridge/gpui-kit
 
-  LoadingIndicatorAnimatorDelegate.java -> lib/shapes.ts (LoadingAnimator, Spring)
-  LoadingIndicatorDrawingDelegate.java  -> lib/shapes.ts (shape sampling)
+  crates/component/src/theme/default-theme.json  -> lib/kit-themes.gen.ts
+  crates/component/src/theme/default-colors.json -> lib/kit-themes.gen.ts
+  themes/*.json                                  -> lib/kit-themes.gen.ts
+  crates/assets/assets/icons/*.svg               -> lib/kit-icons.gen.ts
 
-The port follows the TypeScript adaptation in
-https://github.com/Aler1x/m3-loading-indicator (Apache License 2.0,
-Copyright 2026 Alerix).
+The generators are script/gen-kit-themes.mjs and script/gen-kit-icons.mjs.
 
-This product contains SVG shape path data from Material Design assets:
-  Copyright (C) 2024 Google LLC
-  https://m3.material.io/components/loading-indicator
+The icon set gpui-kit bundles is Lucide (ISC License):
+  Copyright (c) for portions of Lucide are held by Cole Bemis 2013-2022
+  as part of Feather (MIT). All other copyright (c) for Lucide are held by
+  Lucide Contributors 2022.
+  https://lucide.dev
+
+This product is a fork of M3E Canvas (MIT License):
+  Copyright (c) lnkiai
+  https://github.com/lnkiai/m3e-canvas

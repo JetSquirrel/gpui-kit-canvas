@@ -1,0 +1,25 @@
+{
+  // This project is a static Next.js export (`output: "export"` in
+  // next.config.ts), so there is nothing to run on the server: the whole app is
+  // HTML, JS and CSS in ./out. It deploys as a Workers static-assets site with
+  // no Worker script and no adapter.
+  //
+  // Keeping this file in the repo also stops `wrangler deploy` from running its
+  // framework auto-detection, which mistakes a static export for a
+  // server-rendered app and installs the OpenNext adapter — that then fails
+  // looking for .next/standalone, which an export never produces.
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "gpui-kit-canvas",
+  "compatibility_date": "2026-09-03",
+  "assets": {
+    "directory": "./out",
+    // `trailingSlash: true` in next.config.ts exports directory-style paths
+    // (out/index.html, out/404/index.html), so requests keep their slash.
+    "html_handling": "force-trailing-slash",
+    // The export writes out/404.html; serve it for anything unmatched.
+    "not_found_handling": "404-page"
+  },
+  "observability": {
+    "enabled": true
+  }
+}

@@ -27,7 +27,7 @@ export const providerSpec = (k: Provider) => PROVIDERS.find((p) => p.key === k) 
 
 export const DEFAULT_AI: AiSettings = { provider: PROVIDERS[0].key, baseUrl: PROVIDERS[0].baseUrl, model: PROVIDERS[0].model, key: "" };
 
-const STORE_KEY = "m3e:ai";
+const STORE_KEY = "gpui-kit-canvas:ai";
 
 export function loadAiSettings(): AiSettings {
   const s = { ...DEFAULT_AI };

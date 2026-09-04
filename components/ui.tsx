@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { COLOR_TOKENS, ColorToken, Palette, R_INNER, clamp } from "@/lib/tokens";
 import { AnimatePresence, motion } from "motion/react";
 import { t, useLang } from "@/lib/i18n";
-import { Icon } from "./M3Node";
+import { Icon } from "./KitNode";
 
 export function IconBtn({
   icon,
@@ -15,7 +15,6 @@ export function IconBtn({
   p,
   danger,
   disabled,
-  fill,
 }: {
   icon: string;
   on?: boolean;
@@ -25,7 +24,6 @@ export function IconBtn({
   p: Palette;
   danger?: boolean;
   disabled?: boolean;
-  fill?: boolean;
 }) {
   return (
     <button
@@ -33,27 +31,27 @@ export function IconBtn({
       title={title}
       aria-label={title}
       disabled={disabled}
-      className="m3-press"
+      className="kit-press"
       style={{
         width: size,
         height: size,
         borderRadius: size / 2,
         border: "none",
-        background: on ? (danger ? p.errorContainer : p.secondaryContainer) : "transparent",
+        background: on ? (danger ? p.danger : p.secondary) : "transparent",
         color: disabled
-          ? p.outlineVariant
+          ? p.border
           : danger
-            ? p.error
+            ? p.danger
             : on
-              ? p.onSecondaryContainer
-              : p.onSurfaceVariant,
+              ? p.secondaryForeground
+              : p.mutedForeground,
         cursor: disabled ? "default" : "pointer",
         display: "grid",
         placeItems: "center",
         flex: "0 0 auto",
       }}
     >
-      <Icon name={icon} size={Math.round(size * 0.58)} fill={fill ?? on} />
+      <Icon name={icon} size={Math.round(size * 0.58)} />
     </button>
   );
 }
@@ -89,7 +87,7 @@ export function Segmented<K extends string>({
             onClick={() => onChange(o.key)}
             title={o.title ?? o.label}
             aria-label={o.title ?? o.label}
-            className="m3-press"
+            className="kit-press"
             style={{
               flex: (o.grow ?? grow) ? 1 : "0 0 auto",
               minWidth: o.wide ? height * 1.4 : height,
@@ -101,8 +99,8 @@ export function Segmented<K extends string>({
               borderBottomLeftRadius: first ? outer : R_INNER,
               borderTopRightRadius: last ? outer : R_INNER,
               borderBottomRightRadius: last ? outer : R_INNER,
-              background: on ? p.primary : p.surfaceContainerHigh,
-              color: on ? p.onPrimary : p.onSurfaceVariant,
+              background: on ? p.primary : p.accent,
+              color: on ? p.primaryForeground : p.mutedForeground,
               display: "inline-flex",
               alignItems: "center",
               justifyContent: "center",
@@ -113,7 +111,7 @@ export function Segmented<K extends string>({
               position: "relative",
             }}
           >
-            {o.icon && <Icon name={o.icon} size={Math.round(height * 0.5)} fill={on} />}
+            {o.icon && <Icon name={o.icon} size={Math.round(height * 0.5)} />}
             {o.label && <span>{o.label}</span>}
             {o.dot && (
               <span
@@ -125,7 +123,7 @@ export function Segmented<K extends string>({
                   width: 6,
                   height: 6,
                   borderRadius: 3,
-                  background: on ? p.onPrimary : p.primary,
+                  background: on ? p.primaryForeground : p.primary,
                 }}
               />
             )}
@@ -162,8 +160,8 @@ export function Field({
     padding: multiline ? `12px ${filled ? 40 : 14}px 12px ${icon ? 42 : 14}px` : `0 ${filled ? 40 : 14}px 0 ${icon ? 42 : 14}px`,
     borderRadius: multiline ? 18 : height / 2,
     border: "none",
-    background: p.surfaceContainerHigh,
-    color: p.onSurface,
+    background: p.accent,
+    color: p.foreground,
     fontSize: 14,
     lineHeight: multiline ? 1.55 : undefined,
     outline: "none",
@@ -179,7 +177,7 @@ export function Field({
             position: "absolute",
             left: 12,
             top: multiline ? 12 : (height - 20) / 2,
-            color: p.onSurfaceVariant,
+            color: p.mutedForeground,
             pointerEvents: "none",
             lineHeight: 1,
           }}
@@ -217,7 +215,7 @@ export function Field({
             borderRadius: 15,
             border: "none",
             background: "transparent",
-            color: p.onSurfaceVariant,
+            color: p.mutedForeground,
             cursor: "pointer",
             display: "grid",
             placeItems: "center",
@@ -282,19 +280,19 @@ export function Slider({
   };
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-      <span title={title} style={{ color: p.onSurfaceVariant, lineHeight: 1, flex: "0 0 auto", display: "inline-flex" }}>
+      <span title={title} style={{ color: p.mutedForeground, lineHeight: 1, flex: "0 0 auto", display: "inline-flex" }}>
         {iconNode ?? <Icon name={icon} size={20} />}
       </span>
       <input
         type="range"
-        className="m3-range"
+        className="kit-range"
         aria-label={title}
         min={min}
         max={max}
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        style={{ "--track": p.secondaryContainer, "--thumb": p.primary } as React.CSSProperties}
+        style={{ "--track": p.secondary, "--thumb": p.primary } as React.CSSProperties}
       />
       <span style={{ position: "relative", flex: "0 0 auto", display: "inline-flex", alignItems: "center" }}>
         <input
@@ -323,15 +321,15 @@ export function Slider({
               e.currentTarget.blur();
             }
           }}
-          className="m3-number"
+          className="kit-number"
           style={{
             width: unit ? 56 : 52,
             height: 30,
             padding: unit ? "0 18px 0 6px" : "0 6px",
             borderRadius: 8,
             border: "none",
-            background: p.surfaceContainerHigh,
-            color: p.onSurface,
+            background: p.accent,
+            color: p.foreground,
             fontSize: 12,
             fontWeight: 600,
             textAlign: "right",
@@ -348,7 +346,7 @@ export function Slider({
               position: "absolute",
               right: 6,
               fontSize: 11,
-              color: p.onSurfaceVariant,
+              color: p.mutedForeground,
               pointerEvents: "none",
             }}
           >
@@ -394,14 +392,14 @@ export function SizePresets({
             title={label}
             aria-label={label ? `${label}: ${v}` : String(v)}
             aria-pressed={on}
-            className="m3-press"
+            className="kit-press"
             style={{
               height: 28,
               padding: "0 10px",
               borderRadius: 14,
-              border: on ? "1px solid transparent" : `1px solid ${p.outlineVariant}`,
-              background: on ? p.secondaryContainer : "transparent",
-              color: on ? p.onSecondaryContainer : p.onSurfaceVariant,
+              border: on ? "1px solid transparent" : `1px solid ${p.border}`,
+              background: on ? p.secondary : "transparent",
+              color: on ? p.secondaryForeground : p.mutedForeground,
               fontSize: 12,
               fontWeight: 600,
               fontVariantNumeric: "tabular-nums",
@@ -450,19 +448,19 @@ export function Toggle({
         background: "transparent",
         cursor: "pointer",
         padding: 0,
-        color: p.onSurfaceVariant,
+        color: p.mutedForeground,
       }}
     >
       {icon && <Icon name={icon} size={20} />}
-      {label && <span style={{ fontSize: 13, color: p.onSurface, flex: grow ? 1 : undefined, textAlign: "left" }}>{label}</span>}
+      {label && <span style={{ fontSize: 13, color: p.foreground, flex: grow ? 1 : undefined, textAlign: "left" }}>{label}</span>}
       <span
         style={{
           position: "relative",
           width: 44,
           height: 26,
           borderRadius: 13,
-          background: on ? p.primary : p.surfaceContainerHighest,
-          border: on ? "2px solid transparent" : `2px solid ${p.outline}`,
+          background: on ? p.primary : p.secondary,
+          border: on ? "2px solid transparent" : `2px solid ${p.border}`,
           boxSizing: "border-box",
           transition: "background 160ms",
           flex: "0 0 auto",
@@ -477,7 +475,7 @@ export function Toggle({
             height: on ? 18 : 12,
             marginTop: on ? -9 : -6,
             borderRadius: 9,
-            background: on ? p.onPrimary : p.outline,
+            background: on ? p.primaryForeground : p.border,
             transition: "left 160ms, width 160ms, height 160ms, margin 160ms",
           }}
         />
@@ -507,14 +505,14 @@ export function Section({
   const [open, setOpen] = useState(defaultOpen);
   useEffect(() => {
     try {
-      const v = localStorage.getItem(`m3e:sec:${id}`);
+      const v = localStorage.getItem(`gpui-kit-canvas:sec:${id}`);
       if (v !== null) setOpen(v === "1");
     } catch {}
   }, [id]);
   const toggle = () => {
     setOpen((o) => {
       try {
-        localStorage.setItem(`m3e:sec:${id}`, o ? "0" : "1");
+        localStorage.setItem(`gpui-kit-canvas:sec:${id}`, o ? "0" : "1");
       } catch {}
       return !o;
     });
@@ -534,7 +532,7 @@ export function Section({
             padding: "0 6px",
             border: "none",
             background: "transparent",
-            color: p.onSurfaceVariant,
+            color: p.mutedForeground,
             cursor: "pointer",
             borderRadius: 12,
             fontSize: 12,
@@ -578,7 +576,7 @@ export function Tile({
   const lang = useLang();
   return (
     <div
-      className="m3-tile"
+      className="kit-tile"
       onPointerDown={onPointerDown}
       onClick={onClick}
       title={label}
@@ -591,8 +589,8 @@ export function Tile({
         gap: compact ? 10 : 6,
         padding: compact ? "8px 12px" : "12px 6px 10px",
         borderRadius: 16,
-        background: active ? p.secondaryContainer : p.surfaceContainerLow,
-        color: active ? p.onSecondaryContainer : p.onSurface,
+        background: active ? p.secondary : p.muted,
+        color: active ? p.secondaryForeground : p.foreground,
         cursor: onPointerDown ? "grab" : "pointer",
         userSelect: "none",
         touchAction: "none",
@@ -600,14 +598,14 @@ export function Tile({
         boxSizing: "border-box",
       }}
     >
-      <Icon name={icon} size={compact ? 20 : 26} color={active ? p.onSecondaryContainer : p.primary} />
+      <Icon name={icon} size={compact ? 20 : 26} color={active ? p.secondaryForeground : p.primary} />
       <span
         style={{
           fontSize: 11,
           fontWeight: 500,
           lineHeight: 1.2,
           textAlign: "center",
-          color: active ? p.onSecondaryContainer : p.onSurfaceVariant,
+          color: active ? p.secondaryForeground : p.mutedForeground,
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
@@ -618,7 +616,7 @@ export function Tile({
       </span>
       {onStar && (
         <button
-          className="m3-star"
+          className="kit-star"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation();
@@ -635,14 +633,14 @@ export function Tile({
             borderRadius: 12,
             border: "none",
             background: "transparent",
-            color: starred ? p.primary : p.outline,
+            color: starred ? p.primary : p.border,
             cursor: "pointer",
             display: "grid",
             placeItems: "center",
             opacity: starred ? 1 : undefined,
           }}
         >
-          <Icon name="star" size={16} fill={starred} />
+          <Icon name={starred ? "star-fill" : "star"} size={16} />
         </button>
       )}
     </div>
@@ -675,23 +673,23 @@ export function TokenChips({
           title={t("noBackground", lang)}
           aria-label={t("noBackground", lang)}
           aria-pressed={noneOn}
-          className="m3-press"
+          className="kit-press"
           style={{
             width: 30,
             height: 30,
             borderRadius: 15,
-            border: `1px solid ${p.outlineVariant}`,
+            border: `1px solid ${p.border}`,
             padding: 0,
             cursor: "pointer",
             background: "transparent",
-            color: p.onSurfaceVariant,
+            color: p.mutedForeground,
             display: "grid",
             placeItems: "center",
             outline: noneOn ? `2px solid ${p.primary}` : "2px solid transparent",
             outlineOffset: 2,
           }}
         >
-          <Icon name="block" size={16} />
+          <Icon name="circle-x" size={16} />
         </button>
       )}
       {COLOR_TOKENS.map((t) => {
@@ -703,12 +701,12 @@ export function TokenChips({
             title={t.label}
             aria-label={t.label}
             aria-pressed={on}
-            className="m3-press"
+            className="kit-press"
             style={{
               width: 30,
               height: 30,
               borderRadius: 15,
-              border: `1px solid ${p.outlineVariant}`,
+              border: `1px solid ${p.border}`,
               padding: 0,
               cursor: "pointer",
               background: p[t.key],
@@ -725,7 +723,7 @@ export function TokenChips({
 /** M3 basic dialog for a destructive confirmation. */
 /** A run of buttons fused like the canvas's connected buttons: round outside, small corners where they meet. */
 export function ButtonRun({ children }: { children: React.ReactNode }) {
-  return <div className="m3-run" style={{ display: "flex", gap: 3 }}>{children}</div>;
+  return <div className="kit-run" style={{ display: "flex", gap: 3 }}>{children}</div>;
 }
 
 export type TidyState = "tidy" | "undo" | "done";
@@ -742,15 +740,15 @@ export function TidyButton({ state, onClick, p, pill }: { state: TidyState; onCl
       disabled={done}
       title={label}
       aria-label={label}
-      className="m3-press"
+      className="kit-press"
       style={{
         width: pill ? (done ? 40 : undefined) : "100%",
         height: pill ? 40 : 44,
         padding: done ? 0 : pill ? "0 16px 0 12px" : "0 16px",
         borderRadius: pill ? 20 : 22,
         border: "none",
-        background: done ? "transparent" : state === "undo" ? p.tertiaryContainer : p.secondaryContainer,
-        color: done ? p.onSurfaceVariant : state === "undo" ? p.onTertiaryContainer : p.onSecondaryContainer,
+        background: done ? "transparent" : state === "undo" ? p.muted : p.secondary,
+        color: done ? p.mutedForeground : state === "undo" ? p.mutedForeground : p.secondaryForeground,
         fontSize: 13,
         fontWeight: 600,
         cursor: done ? "default" : "pointer",
@@ -804,14 +802,14 @@ export function ConfirmDialog({
   const btn = (label: string, primary: boolean, onClick: () => void) => (
     <button
       onClick={onClick}
-      className="m3-press"
+      className="kit-press"
       style={{
         height: 40,
         padding: "0 16px",
         borderRadius: 20,
         border: "none",
         background: primary ? p.primary : "transparent",
-        color: primary ? p.onPrimary : p.primary,
+        color: primary ? p.primaryForeground : p.primary,
         fontSize: 14,
         fontWeight: 600,
         cursor: "pointer",
@@ -853,19 +851,19 @@ export function ConfirmDialog({
               width: "min(100%, 340px)",
               padding: 24,
               borderRadius: 28,
-              background: p.surfaceContainerHigh,
-              color: p.onSurface,
+              background: p.accent,
+              color: p.foreground,
               boxShadow: "0 8px 24px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.10)",
               display: "flex",
               flexDirection: "column",
               gap: 16,
             }}
           >
-            <div style={{ textAlign: "center", color: p.error }}>
+            <div style={{ textAlign: "center", color: p.danger }}>
               <Icon name={icon} size={28} />
             </div>
             <div style={{ fontSize: 22, textAlign: "center" }}>{title}</div>
-            <div style={{ fontSize: 14, lineHeight: 1.5, color: p.onSurfaceVariant }}>{body}</div>
+            <div style={{ fontSize: 14, lineHeight: 1.5, color: p.mutedForeground }}>{body}</div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
               {btn(t("cancel", lang), false, onCancel)}
               {btn(t("ok", lang), true, onConfirm)}

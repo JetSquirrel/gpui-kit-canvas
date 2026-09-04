@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { CATEGORIES, KIND_ORDER, KIND_SPEC, Kind, Palette } from "@/lib/tokens";
-import { Icon } from "./M3Node";
+import { Icon } from "./KitNode";
 import { t, useLang } from "@/lib/i18n";
 import { Field, Section, Tile } from "./ui";
 
@@ -27,7 +27,7 @@ export function PartsPalette({
     if (!s) return KIND_ORDER;
     return KIND_ORDER.filter((k) => {
       const sp = KIND_SPEC[k];
-      return sp.label.toLowerCase().includes(s) || sp.noun.includes(s) || k.toLowerCase().includes(s);
+      return sp.label.toLowerCase().includes(s) || sp.api.toLowerCase().includes(s) || k.toLowerCase().includes(s);
     });
   }, [q]);
 
@@ -68,8 +68,8 @@ export function PartsPalette({
           <div style={{ ...grid, padding: "4px 4px 12px" }}>
             {filtered.map(tile)}
             {filtered.length === 0 && (
-              <div style={{ gridColumn: "1 / -1", color: p.outline, fontSize: 13, padding: 12, textAlign: "center" }}>
-                <Icon name="search_off" size={28} />
+              <div style={{ gridColumn: "1 / -1", color: p.border, fontSize: 13, padding: 12, textAlign: "center" }}>
+                <Icon name="eye-off" size={28} />
               </div>
             )}
           </div>
@@ -91,7 +91,7 @@ export function PartsPalette({
             display: "grid",
             placeItems: "center",
             pointerEvents: "none",
-            color: p.error,
+            color: p.danger,
             borderRadius: "inherit",
           }}
         >
@@ -100,8 +100,8 @@ export function PartsPalette({
               width: 72,
               height: 72,
               borderRadius: 36,
-              background: p.errorContainer,
-              color: p.onErrorContainer,
+              background: p.danger,
+              color: p.dangerForeground,
               display: "grid",
               placeItems: "center",
               boxShadow: "0 4px 14px rgba(0,0,0,0.14)",

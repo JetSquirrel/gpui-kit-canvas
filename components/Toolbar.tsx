@@ -3,13 +3,13 @@
 import { AnimatePresence, motion } from "motion/react";
 import { FrameMode, Palette } from "@/lib/tokens";
 import { IconBtn, Segmented, TidyButton, TidyState } from "./ui";
-import { Icon } from "./M3Node";
+import { Icon } from "./KitNode";
 import { Popover } from "./Menus";
 import { t, useLang } from "@/lib/i18n";
 
 export type Mode = "select" | "hand";
 
-const REPO_URL = "https://github.com/lnkiai/m3e-canvas";
+const REPO_URL = "https://github.com/JetSquirrel/gpui-kit-canvas";
 
 export function GitHubLink({ p, size = 40 }: { p: Palette; size?: number }) {
   return (
@@ -19,14 +19,14 @@ export function GitHubLink({ p, size = 40 }: { p: Palette; size?: number }) {
       rel="noreferrer"
       title="GitHub"
       aria-label="GitHub"
-      className="m3-press"
+      className="kit-press"
       style={{
         width: size,
         height: size,
         borderRadius: size / 2,
         display: "grid",
         placeItems: "center",
-        color: p.onSurfaceVariant,
+        color: p.mutedForeground,
         textDecoration: "none",
         flex: "0 0 auto",
       }}
@@ -47,7 +47,7 @@ function Pill({ p, children }: { p: Palette; children: React.ReactNode }) {
         gap: 4,
         padding: 6,
         borderRadius: 28,
-        background: p.surfaceContainerLow,
+        background: p.muted,
         boxShadow: "0 2px 10px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.04)",
         pointerEvents: "auto",
       }}
@@ -133,20 +133,20 @@ export function Toolbar({
         <Pill p={p}>
           <IconBtn icon="undo" p={p} onClick={onUndo} disabled={!canUndo} title={t("undo", lang)} size={S} />
           <IconBtn icon="redo" p={p} onClick={onRedo} disabled={!canRedo} title={t("redo", lang)} size={S} />
-          <IconBtn icon="translate" p={p} onClick={onLangSheet} title={t("language", lang)} size={S} />
+          <IconBtn icon="globe" p={p} onClick={onLangSheet} title={t("language", lang)} size={S} />
           <IconBtn icon="palette" p={p} onClick={onSettings} title={t("settings", lang)} size={S} />
           <GitHubLink p={p} size={S} />
           <button
             onClick={onPrompt}
             title={t("copyPrompt", lang)}
-            className="m3-press"
+            className="kit-press"
             style={{
               height: S,
               padding: "0 14px 0 10px",
               borderRadius: S / 2,
               border: "none",
               background: p.primary,
-              color: p.onPrimary,
+              color: p.primaryForeground,
               fontSize: 14,
               fontWeight: 700,
               cursor: "pointer",
@@ -156,7 +156,7 @@ export function Toolbar({
               whiteSpace: "nowrap",
             }}
           >
-            <Icon name="auto_awesome" size={22} />
+            <Icon name="bot" size={22} />
             {t("prompt", lang)}
           </button>
         </Pill>
@@ -190,8 +190,8 @@ export function Toolbar({
                 height: 40,
                 padding: "0 16px",
                 borderRadius: 20,
-                background: p.inverseSurface,
-                color: p.inverseOnSurface,
+                background: p.foreground,
+                color: p.background,
                 fontSize: 13,
                 fontWeight: 600,
                 display: "inline-flex",
@@ -215,7 +215,7 @@ export function Toolbar({
         )}
         <Pill p={p}>
           <IconBtn
-            icon="remove"
+            icon="minus"
             p={p}
             onClick={() => onZoom(zoom / 1.2)}
             title={t("zoomOut", lang)}
@@ -224,14 +224,14 @@ export function Toolbar({
           <button
             onClick={onFit}
             title={t("fit", lang)}
-            className="m3-press"
+            className="kit-press"
             style={{
               height: 40,
               minWidth: 56,
               borderRadius: 20,
               border: "none",
               background: "transparent",
-              color: p.onSurface,
+              color: p.foreground,
               fontSize: 13,
               fontWeight: 600,
               cursor: "pointer",
@@ -241,13 +241,13 @@ export function Toolbar({
             {Math.round(zoom * 100)}%
           </button>
           <IconBtn
-            icon="add"
+            icon="plus"
             p={p}
             onClick={() => onZoom(zoom * 1.2)}
             title={t("zoomIn", lang)}
             size={40}
           />
-          <IconBtn icon="fit_screen" p={p} onClick={onFit} title={t("fit", lang)} size={40} />
+          <IconBtn icon="maximize" p={p} onClick={onFit} title={t("fit", lang)} size={40} />
         </Pill>
       </div>
       <div
@@ -270,10 +270,10 @@ export function Toolbar({
             options={[
               {
                 key: "select",
-                icon: "arrow_selector_tool",
+                icon: "inspector",
                 title: t("select", lang),
               },
-              { key: "hand", icon: "pan_tool", title: t("hand", lang) },
+              { key: "hand", icon: "map", title: t("hand", lang) },
             ]}
             value={mode}
             onChange={onMode}
@@ -284,9 +284,9 @@ export function Toolbar({
         </Pill>
 
         <Pill p={p}>
-          {frame === "phone" && (
+          {frame === "window" && (
             <IconBtn
-              icon="add_to_photos"
+              icon="plus"
               p={p}
               onClick={onAddFrame}
               title={t("addFrame", lang)}
@@ -294,12 +294,11 @@ export function Toolbar({
             />
           )}
           <IconBtn
-            icon="play_arrow"
+            icon="play"
             p={p}
             onClick={onPreview}
             title={t("preview", lang)}
             size={40}
-            fill
           />
         </Pill>
 
@@ -321,18 +320,18 @@ export function Toolbar({
             size={40}
           />
           <IconBtn
-            icon="delete_sweep"
+            icon="delete"
             p={p}
             onClick={onClear}
             title={t("clearAll", lang)}
             size={40}
           />
           {onSaveProject && onOpenProject && (
-            <Popover p={p} icon="folder_open" title={t("project", lang)} size={40}>
+            <Popover p={p} icon="folder-open" title={t("project", lang)} size={40}>
               {(close) => (
                 <div style={{ display: "flex", gap: 2 }}>
                   <IconBtn
-                    icon="download"
+                    icon="arrow-down"
                     p={p}
                     size={44}
                     title={t("saveProject", lang)}
@@ -342,7 +341,7 @@ export function Toolbar({
                     }}
                   />
                   <IconBtn
-                    icon="upload"
+                    icon="arrow-up"
                     p={p}
                     size={44}
                     title={t("openProject", lang)}

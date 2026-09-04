@@ -1,23 +1,14 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Palette } from "@/lib/tokens";
+import { KIT_ICONS } from "@/lib/kit-icons.gen";
 import { t, useLang } from "@/lib/i18n";
+import { Icon } from "./KitNode";
 
-type IconMeta = { n: string; p: number; t: string };
-
-const FONT = '24px "Material Symbols Rounded"';
-/** module-level so validation survives re-mounts of the panel */
-let cache: IconMeta[] | null = null;
-const glyphOk = new Map<string, boolean>();
-
-/** Candidates measured per pass. A real Material Symbols glyph is exactly 1em
- *  wide; a name with no glyph falls back to text and measures wider. Icon names
- *  can be as short as "tv"/"4k", so we compare against a known-good reference
- *  glyph rather than a width threshold. */
-const BATCH = 400;
-const SHOWN = 240;
-
+/** The icons gpui-kit ships, and nothing else: a sketch can only name an icon
+ *  the generated app can actually draw. The whole set is bundled, so there is
+ *  no font to wait for and no glyph to probe. */
 export function IconPicker({
   value,
   onChange,
@@ -28,180 +19,89 @@ export function IconPicker({
   palette: Palette;
 }) {
   const lang = useLang();
-  const [icons, setIcons] = useState<IconMeta[] | null>(cache);
   const [q, setQ] = useState("");
-  const [fontReady, setFontReady] = useState(false);
-  /* bumped after each measuring pass; the visible list depends on it because
-   * glyphOk is a plain map, not React state */
-  const [tick, bump] = useState(0);
 
-  const refEl = useRef<HTMLSpanElement>(null);
-  const probeEls = useRef<Map<string, HTMLElement>>(new Map());
-
-  useEffect(() => {
-    if (cache) return;
-    fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/material-symbols.json`)
-      .then((r) => r.json())
-      .then((d: IconMeta[]) => {
-        cache = d;
-        setIcons(d);
-      })
-      .catch(() => setIcons([]));
-  }, []);
-
-  useEffect(() => {
-    let alive = true;
-    const done = () => alive && setFontReady(true);
-    if (document.fonts.check(FONT)) {
-      done();
-      return;
-    }
-    document.fonts.load(FONT, "search").then(done, done);
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  const candidates = useMemo(() => {
-    if (!icons) return [];
-    const s = q.trim().toLowerCase().replace(/\s+/g, "_");
-    if (!s) return icons.slice(0, BATCH);
-    const raw = q.trim().toLowerCase();
-    const starts: IconMeta[] = [];
-    const rest: IconMeta[] = [];
-    for (const i of icons) {
-      if (i.n.startsWith(s)) starts.push(i);
-      else if (i.n.includes(s) || i.t.includes(raw)) rest.push(i);
-      if (starts.length + rest.length >= BATCH * 2) break;
-    }
-    return [...starts, ...rest].slice(0, BATCH);
-  }, [icons, q]);
-
-  const unknown = useMemo(() => candidates.filter((c) => !glyphOk.has(c.n)), [candidates]);
-
-  useLayoutEffect(() => {
-    if (!fontReady || unknown.length === 0) return;
-    const ref = refEl.current?.getBoundingClientRect().width ?? 0;
-    if (ref <= 0) return;
-    let learned = false;
-    for (const c of unknown) {
-      const el = probeEls.current.get(c.n);
-      if (!el) continue;
-      const w = el.getBoundingClientRect().width;
-      glyphOk.set(c.n, Math.abs(w - ref) < 0.75);
-      learned = true;
-    }
-    if (learned) bump((v) => v + 1);
-  }, [fontReady, unknown]);
-
-  const visible = useMemo(
-    () => candidates.filter((c) => glyphOk.get(c.n) === true).slice(0, SHOWN),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [candidates, fontReady, tick],
-  );
-
-  const loading = !icons || !fontReady;
+  const visible = useMemo(() => {
+    const s = q.trim().toLowerCase().replace(/[\s_]+/g, "-");
+    if (!s) return KIT_ICONS;
+    return KIT_ICONS.filter((i) => i.name.includes(s) || i.pascal.toLowerCase().includes(s.replace(/-/g, "")));
+  }, [q]);
 
   return (
     <div>
-      {/* hidden probes — measured before paint, so nothing broken ever renders */}
-      <div
-        aria-hidden
-        style={{ position: "fixed", left: -99999, top: 0, visibility: "hidden", pointerEvents: "none" }}
-      >
-        <span ref={refEl} className="msr" style={{ fontSize: 24 }}>
-          search
+      <div style={{ position: "relative", marginBottom: 8 }}>
+        <span style={{ position: "absolute", left: 8, top: 8, color: palette.mutedForeground }}>
+          <Icon name="search" size={16} />
         </span>
-        {unknown.map((c) => (
-          <span
-            key={c.n}
-            ref={(el) => {
-              if (el) probeEls.current.set(c.n, el);
-              else probeEls.current.delete(c.n);
-            }}
-            className="msr"
-            style={{ fontSize: 24 }}
-          >
-            {c.n}
-          </span>
-        ))}
-      </div>
-
-      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
-        <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
-          <span
-            className="msr"
-            style={{ position: "absolute", left: 12, top: 10, fontSize: 20, color: palette.outline }}
-          >
-            search
-          </span>
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder={icons ? t("searchIcons", lang) : "…"}
-            style={{
-              width: "100%",
-              height: 40,
-              paddingLeft: 40,
-              paddingRight: 12,
-              borderRadius: 20,
-              border: "none",
-              background: palette.surfaceContainerHigh,
-              color: palette.onSurface,
-              fontSize: 14,
-              outline: "none",
-            }}
-          />
-        </div>
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder={t("searchIcons", lang)}
+          style={{
+            width: "100%",
+            height: 32,
+            paddingLeft: 30,
+            paddingRight: 10,
+            borderRadius: 6,
+            border: `1px solid ${palette.input}`,
+            background: palette.background,
+            color: palette.foreground,
+            fontSize: 14,
+            outline: "none",
+          }}
+        />
       </div>
 
       <div
         className="no-scrollbar"
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(42px, 1fr))",
-          gap: 4,
-          height: 244,
+          gridTemplateColumns: "repeat(auto-fill, minmax(36px, 1fr))",
+          gap: 2,
+          height: 236,
           overflowY: "auto",
           overflowX: "hidden",
-          padding: 6,
-          borderRadius: 16,
-          background: palette.surfaceContainerLow,
+          padding: 4,
+          borderRadius: 6,
+          border: `1px solid ${palette.border}`,
+          background: palette.background,
           alignContent: "start",
         }}
       >
-        {visible.map((i) => (
-          <button
-            key={i.n}
-            title={i.n}
-            onClick={() => onChange(i.n)}
-            style={{
-              aspectRatio: "1",
-              minWidth: 0,
-              display: "grid",
-              placeItems: "center",
-              borderRadius: 12,
-              border: "none",
-              background: value === i.n ? palette.primary : "transparent",
-              color: value === i.n ? palette.onPrimary : palette.onSurfaceVariant,
-              cursor: "pointer",
-            }}
-          >
-            <span className="msr" style={{ fontSize: 22 }}>
-              {i.n}
-            </span>
-          </button>
-        ))}
-        {!loading && visible.length === 0 && (
-          <div style={{ gridColumn: "1 / -1", padding: 16, fontSize: 13, color: palette.outline }}>
-            <span className="msr" style={{ fontSize: 24 }}>search_off</span>
+        {visible.map((i) => {
+          const on = value === i.name;
+          return (
+            <button
+              key={i.name}
+              /* the tooltip names the variant the prompt will quote */
+              title={`IconName::${i.pascal}`}
+              aria-label={i.name}
+              aria-pressed={on}
+              onClick={() => onChange(i.name)}
+              style={{
+                aspectRatio: "1",
+                minWidth: 0,
+                display: "grid",
+                placeItems: "center",
+                borderRadius: 4,
+                border: "none",
+                background: on ? palette.primary : "transparent",
+                color: on ? palette.primaryForeground : palette.foreground,
+                cursor: "pointer",
+              }}
+            >
+              <Icon name={i.name} size={16} />
+            </button>
+          );
+        })}
+        {visible.length === 0 && (
+          <div style={{ gridColumn: "1 / -1", padding: 16, color: palette.mutedForeground, display: "grid", placeItems: "center" }}>
+            <Icon name="eye-off" size={20} />
           </div>
         )}
-        {loading && (
-          <div style={{ gridColumn: "1 / -1", padding: 16, fontSize: 13, color: palette.outline }}>
-            <span className="msr" style={{ fontSize: 24 }}>hourglass_top</span>
-          </div>
-        )}
+      </div>
+      <div style={{ fontSize: 11, lineHeight: 1.5, color: palette.mutedForeground, padding: "6px 4px 0" }}>
+        {t("iconSetHint", lang)}
       </div>
     </div>
   );

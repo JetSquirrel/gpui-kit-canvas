@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        For a new Material 3 part, use the **Part request** template instead. For open-ended ideas, Discussions is a better place.
+        For a new gpui-kit part, use the **Part request** template instead. For open-ended ideas, Discussions is a better place.
   - type: textarea
     id: problem
     attributes:

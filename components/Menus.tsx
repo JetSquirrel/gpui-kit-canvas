@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Palette } from "@/lib/tokens";
 import { LANGS, Lang, t, useLang } from "@/lib/i18n";
 import { IconBtn } from "./ui";
-import { Icon } from "./M3Node";
+import { Icon } from "./KitNode";
 
 const EASE = [0.2, 0, 0, 1] as const;
 
@@ -60,7 +60,7 @@ export function Popover({
               position: "absolute",
               padding: 6,
               borderRadius: 18,
-              background: p.surfaceContainerLow,
+              background: p.muted,
               boxShadow: "0 6px 20px rgba(0,0,0,0.16), 0 0 0 1px rgba(0,0,0,0.04)",
               zIndex: 60,
               ...anchor,
@@ -77,7 +77,7 @@ export function Popover({
 export function LangMenu({ p, onLang, side, size }: { p: Palette; onLang: (l: Lang) => void; side?: "down" | "right"; size?: number }) {
   const lang = useLang();
   return (
-    <Popover p={p} icon="translate" title={t("language", lang)} side={side} size={size}>
+    <Popover p={p} icon="globe" title={t("language", lang)} side={side} size={size}>
       {(close) => (
         <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 140 }}>
           {LANGS.map((l) => {
@@ -91,14 +91,14 @@ export function LangMenu({ p, onLang, side, size }: { p: Palette; onLang: (l: La
                   onLang(l.key);
                   close();
                 }}
-                className="m3-press"
+                className="kit-press"
                 style={{
                   height: 40,
                   padding: "0 14px 0 10px",
                   borderRadius: 12,
                   border: "none",
-                  background: on ? p.secondaryContainer : "transparent",
-                  color: on ? p.onSecondaryContainer : p.onSurface,
+                  background: on ? p.secondary : "transparent",
+                  color: on ? p.secondaryForeground : p.foreground,
                   fontSize: 13,
                   fontWeight: 600,
                   cursor: "pointer",

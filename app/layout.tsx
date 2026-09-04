@@ -4,13 +4,13 @@ import "./globals.css";
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_ORIGIN ?? "https://lnkiai.github.io"),
-  title: "M3E Canvas",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_ORIGIN ?? "https://jetsquirrel.github.io"),
+  title: "GPUI Kit Canvas",
   description:
-    "Sketch Material 3 Expressive screens in the browser and turn them into vibe-coding prompts. / Material 3 Expressive の画面をブラウザで組み立てて、そのままプロンプトに。",
+    "Sketch gpui-kit desktop windows in the browser and turn them into vibe-coding prompts. / gpui-kit のデスクトップ画面をブラウザで組み立てて、そのままプロンプトに。",
   openGraph: {
-    title: "M3E Canvas",
-    description: "Design Material 3 Expressive screens, link them, preview them, and copy a prompt for your AI coding tool.",
+    title: "GPUI Kit Canvas",
+    description: "Design gpui-kit desktop windows, link them, preview them, and copy a prompt for your AI coding tool.",
     images: [`${BASE}/og.png`],
     type: "website",
   },
@@ -29,18 +29,13 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <head>
+        {/* The default typeface is the system UI font, which is what gpui-kit's
+            `.SystemUIFont` resolves to. The other faces are fetched only when
+            the author picks them; see lib/theme.ts. */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap"
-        />
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400..700,0..1,0&display=block"
-        />
       </head>
-      <body style={{ fontFamily: "Roboto, system-ui, sans-serif" }}>{children}</body>
+      <body style={{ fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif" }}>{children}</body>
     </html>
   );
 }

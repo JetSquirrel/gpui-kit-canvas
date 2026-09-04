@@ -1,39 +1,44 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CONTRASTS, Contrast, PALETTES, Palette, Theme } from "@/lib/tokens";
-import { isHex, onColorFor, schemeFromSeed } from "@/lib/color";
+import { PALETTES, PALETTE_SETS, Palette, TOKEN_NAMES, Theme } from "@/lib/tokens";
+import { isHex, onColorFor } from "@/lib/color";
 import { t, useLang } from "@/lib/i18n";
 import { Section, Segmented } from "./ui";
-import { Icon } from "./M3Node";
+import { Icon } from "./KitNode";
 
-/** roles the author can override by hand; their "on" color follows automatically */
-type Role = Exclude<keyof Palette, "seed">;
+/** the roles the author can override by hand; a foreground follows its surface */
+type Role = keyof Palette;
 const TUNABLE: { key: Role; on?: Role }[] = [
-  { key: "primary", on: "onPrimary" },
-  { key: "primaryContainer", on: "onPrimaryContainer" },
-  { key: "secondaryContainer", on: "onSecondaryContainer" },
-  { key: "tertiaryContainer", on: "onTertiaryContainer" },
-  { key: "surfaceContainer" },
-  { key: "surfaceContainerHigh" },
-  { key: "inverseSurface", on: "inverseOnSurface" },
+  { key: "background", on: "foreground" },
+  { key: "border" },
+  { key: "primary", on: "primaryForeground" },
+  { key: "secondary", on: "secondaryForeground" },
+  { key: "accent", on: "accentForeground" },
+  { key: "muted", on: "mutedForeground" },
+  { key: "sidebar", on: "sidebarForeground" },
+  { key: "titleBar" },
+  { key: "statusBar" },
+  { key: "groupBox", on: "groupBoxForeground" },
+  { key: "danger", on: "dangerForeground" },
+  { key: "ring" },
 ];
 
-/** the palette's key colors as overlapping dots, right-aligned in the row */
+/** a theme's key colours as overlapping dots, trailing-aligned in the row */
 function Swatches({ pal, p }: { pal: Palette; p: Palette }) {
-  const colors = [pal.primary, pal.primaryContainer, pal.secondaryContainer, pal.tertiaryContainer, pal.surfaceContainerHigh];
+  const colors = [pal.background, pal.primary, pal.accent, pal.secondary, pal.border];
   return (
     <span style={{ display: "inline-flex", flex: "0 0 auto", marginLeft: "auto", paddingLeft: 8 }}>
       {colors.map((c, i) => (
         <span
           key={i}
           style={{
-            width: 20,
-            height: 20,
-            borderRadius: 10,
+            width: 18,
+            height: 18,
+            borderRadius: 9,
             background: c,
-            marginLeft: i === 0 ? 0 : -7,
-            boxShadow: `0 0 0 2px ${p.surfaceContainerLow}, inset 0 0 0 1px rgba(0,0,0,0.08)`,
+            marginLeft: i === 0 ? 0 : -6,
+            boxShadow: `0 0 0 1.5px ${p.background}, inset 0 0 0 1px rgba(0,0,0,0.10)`,
             zIndex: colors.length - i,
             position: "relative",
           }}
@@ -43,48 +48,82 @@ function Swatches({ pal, p }: { pal: Palette; p: Palette }) {
   );
 }
 
-function ColorField({ value, onChange, p, label }: { value: string; onChange: (hex: string) => void; p: Palette; label: string }) {
+function ColorField({
+  value,
+  onChange,
+  p,
+  label,
+}: {
+  value: string;
+  onChange: (hex: string) => void;
+  p: Palette;
+  label: string;
+}) {
   const [text, setText] = useState(value);
   useEffect(() => setText(value), [value]);
   return (
-    <label style={{ display: "flex", alignItems: "center", gap: 8, height: 36 }}>
-      <span style={{ position: "relative", width: 28, height: 28, borderRadius: 14, background: value, boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.12)", flex: "0 0 auto", overflow: "hidden" }}>
+    <label style={{ display: "flex", alignItems: "center", gap: 8, height: 32 }}>
+      <span
+        style={{
+          position: "relative",
+          width: 22,
+          height: 22,
+          borderRadius: 4,
+          background: value,
+          boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.14)",
+          flex: "0 0 auto",
+          overflow: "hidden",
+        }}
+      >
         <input
           type="color"
-          value={value}
-          onChange={(e) => onChange(e.target.value.toUpperCase())}
+          value={value.slice(0, 7)}
+          onChange={(e) => onChange(e.target.value.toLowerCase())}
           aria-label={label}
-          style={{ position: "absolute", inset: -8, width: 44, height: 44, opacity: 0, cursor: "pointer" }}
+          style={{ position: "absolute", inset: -8, width: 40, height: 40, opacity: 0, cursor: "pointer" }}
         />
       </span>
-      <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: p.onSurface, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
+      <span
+        style={{
+          flex: 1,
+          minWidth: 0,
+          fontSize: 12,
+          fontFamily: "var(--mono, ui-monospace, monospace)",
+          color: p.mutedForeground,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {label}
+      </span>
       <input
         value={text}
         onChange={(e) => {
           setText(e.target.value);
-          if (isHex(e.target.value)) onChange(e.target.value.toUpperCase());
+          if (isHex(e.target.value)) onChange(e.target.value.toLowerCase());
         }}
         onBlur={() => setText(value)}
         spellCheck={false}
+        aria-label={label}
         style={{
-          width: 76,
-          height: 28,
-          padding: "0 8px",
-          borderRadius: 8,
-          border: "none",
-          background: p.surfaceContainerHigh,
-          color: p.onSurface,
+          width: 84,
+          height: 26,
+          borderRadius: 6,
+          border: `1px solid ${p.input}`,
+          background: p.background,
+          color: p.foreground,
+          padding: "0 6px",
           fontSize: 12,
           fontFamily: "ui-monospace, monospace",
-          outline: "none",
+          flex: "0 0 auto",
         }}
       />
     </label>
   );
 }
 
-/** A settings row in the same shape as the palette rows: icon disc, label, and the
- *  value or switch at the trailing edge. The whole row is the control. */
+/** one row of the panel's own settings list */
 function SettingRow({
   p,
   icon,
@@ -104,26 +143,26 @@ function SettingRow({
     <button
       onClick={onClick}
       aria-pressed={pressed}
-      className="m3-press"
+      className="kit-press"
       style={{
         display: "flex",
         alignItems: "center",
         gap: 10,
-        height: 48,
-        padding: "0 12px 0 10px",
-        borderRadius: 16,
-        border: "none",
-        background: p.surfaceContainerLow,
-        color: p.onSurface,
+        height: 40,
+        padding: "0 12px",
+        borderRadius: 8,
+        border: `1px solid ${p.border}`,
+        background: p.background,
+        color: p.foreground,
         cursor: "pointer",
         textAlign: "left",
         width: "100%",
       }}
     >
-      <span style={{ width: 28, height: 28, borderRadius: 14, background: p.secondaryContainer, color: p.onSecondaryContainer, display: "grid", placeItems: "center", flex: "0 0 auto" }}>
-        <Icon name={icon} size={18} />
+      <Icon name={icon} size={16} color={p.mutedForeground} />
+      <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {label}
       </span>
-      <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
       {children}
     </button>
   );
@@ -136,43 +175,40 @@ function Knob({ on, p }: { on: boolean; p: Palette }) {
       aria-hidden
       style={{
         position: "relative",
-        width: 44,
-        height: 26,
-        borderRadius: 13,
-        background: on ? p.primary : p.surfaceContainerHighest,
-        border: on ? "2px solid transparent" : `2px solid ${p.outline}`,
+        width: 36,
+        height: 20,
+        borderRadius: 10,
+        background: on ? p.primary : p.switchBg,
         boxSizing: "border-box",
-        transition: "background 160ms",
+        transition: "background 140ms",
         flex: "0 0 auto",
       }}
     >
       <span
         style={{
           position: "absolute",
-          top: "50%",
-          left: on ? 20 : 3,
-          width: on ? 18 : 12,
-          height: on ? 18 : 12,
-          marginTop: on ? -9 : -6,
-          borderRadius: 9,
-          background: on ? p.onPrimary : p.outline,
-          transition: "left 160ms, width 160ms, height 160ms, margin 160ms",
+          top: 2,
+          left: on ? 18 : 2,
+          width: 16,
+          height: 16,
+          borderRadius: 8,
+          background: p.switchThumb,
+          boxShadow: "0 1px 2px rgba(0,0,0,0.18)",
+          transition: "left 140ms",
         }}
       />
     </span>
   );
 }
 
-/** The color tab of the theme panel: light / dark and contrast, preset themes,
- *  a seed-based custom scheme with per-role tweaks, and the dynamic-color switch. */
+/** The colour tab of the theme panel: light / dark, the themes gpui-kit ships,
+ *  and a hand-tuned set of its semantic tokens. */
 export function ColorPanel({
   p,
   paletteKey,
   onPalette,
   custom,
   onCustom,
-  dynamic,
-  onDynamic,
   theme,
   onTheme,
 }: {
@@ -181,88 +217,99 @@ export function ColorPanel({
   onPalette: (key: string) => void;
   custom: Palette | null;
   onCustom: (pal: Palette) => void;
-  dynamic: boolean;
-  onDynamic: (on: boolean) => void;
   theme: Theme;
   onTheme: (patch: Partial<Theme>) => void;
 }) {
   const lang = useLang();
-  const contrastLabel = (c: Contrast) => (c === "high" ? t("contrastHigh", lang) : c === "medium" ? t("contrastMedium", lang) : t("contrastStandard", lang));
   const [tab, setTab] = useState<"templates" | "custom">(paletteKey === "custom" ? "custom" : "templates");
-  const [seed, setSeed] = useState(custom?.seed ?? custom?.primary ?? "#6750A4");
+  /* editing starts from whatever is on screen, so a tweak is a small step from it */
+  const cur = custom ?? { ...p, key: "custom", label: t("customColor", lang), set: "Custom" };
 
-  const applySeed = (hex: string) => {
-    setSeed(hex);
-    onCustom(schemeFromSeed(hex));
+  const tune = (role: Role, hex: string, on?: Role) => {
+    const next: Palette = { ...cur, [role]: hex };
+    if (on) (next as unknown as Record<string, string>)[on] = onColorFor(hex);
+    onCustom(next);
     onPalette("custom");
   };
-  const cur = custom ?? schemeFromSeed(seed);
 
   return (
     <div className="no-scrollbar" style={{ height: "100%", overflowY: "auto", padding: "12px 12px 20px" }}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
-        <SettingRow p={p} icon={theme.dark ? "dark_mode" : "light_mode"} label={t("brightness", lang)} onClick={() => onTheme({ dark: !theme.dark })} pressed={theme.dark}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13, fontWeight: 600, color: p.primary }}>
-            {theme.dark ? t("dark", lang) : t("light", lang)}
-            <Icon name="swap_horiz" size={18} />
-          </span>
-        </SettingRow>
-        <SettingRow p={p} icon="routine" label={t("bothModes", lang)} onClick={() => onTheme({ bothModes: !theme.bothModes })} pressed={theme.bothModes}>
-          <Knob on={theme.bothModes} p={p} />
-        </SettingRow>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
         <SettingRow
           p={p}
-          icon="contrast"
-          label={t("contrast", lang)}
-          onClick={() => {
-            const i = CONTRASTS.findIndex((c) => c.key === theme.contrast);
-            onTheme({ contrast: CONTRASTS[(i + 1) % CONTRASTS.length].key });
-          }}
+          icon={theme.dark ? "moon" : "sun"}
+          label={t("brightness", lang)}
+          onClick={() => onTheme({ dark: !theme.dark })}
+          pressed={theme.dark}
         >
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13, fontWeight: 600, color: p.primary }}>
-            {contrastLabel(theme.contrast)}
-            <Icon name="chevron_right" size={18} />
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13, fontWeight: 500, color: p.primary }}>
+            {theme.dark ? t("dark", lang) : t("light", lang)}
+            <Icon name="replace" size={14} />
           </span>
         </SettingRow>
+        <SettingRow p={p} icon="sun" label={t("bothModes", lang)} onClick={() => onTheme({ bothModes: !theme.bothModes })} pressed={theme.bothModes}>
+          <Knob on={theme.bothModes} p={p} />
+        </SettingRow>
+        <div style={{ fontSize: 11, lineHeight: 1.5, color: p.mutedForeground, padding: "0 4px" }}>{t("bothModesHint", lang)}</div>
       </div>
 
       <Segmented<"templates" | "custom">
         options={[
           { key: "templates", icon: "palette", label: t("templates", lang) },
-          { key: "custom", icon: "colorize", label: t("customColor", lang) },
+          { key: "custom", icon: "settings-2", label: t("customColor", lang) },
         ]}
         value={tab}
         onChange={setTab}
         p={p}
-        height={38}
+        height={34}
       />
 
       {tab === "templates" ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 12 }}>
-          {PALETTES.map((pal) => {
-            const on = pal.key === paletteKey;
+          <div style={{ fontSize: 11, lineHeight: 1.5, color: p.mutedForeground, padding: "0 4px 4px" }}>{t("themeHint", lang)}</div>
+          {PALETTE_SETS.map((entry) => {
+            /* a set may ship only one mode; the row picks the side that matches */
+            const pal = (theme.dark ? entry.dark : entry.light) ?? entry.dark ?? entry.light!;
+            const on = PALETTES.some((x) => x.set === entry.set && x.key === paletteKey);
+            const both = !!entry.light && !!entry.dark;
             return (
               <button
-                key={pal.key}
+                key={entry.set}
                 onClick={() => onPalette(pal.key)}
                 aria-pressed={on}
-                className="m3-press"
+                className="kit-press"
                 style={{
                   display: "flex",
                   alignItems: "center",
                   gap: 10,
-                  height: 48,
-                  padding: "0 12px 0 10px",
-                  borderRadius: 16,
-                  border: "none",
-                  background: on ? p.secondaryContainer : p.surfaceContainerLow,
-                  color: on ? p.onSecondaryContainer : p.onSurface,
+                  height: 40,
+                  padding: "0 10px",
+                  borderRadius: 8,
+                  border: `1px solid ${on ? p.primary : p.border}`,
+                  background: on ? p.accent : p.background,
+                  color: on ? p.accentForeground : p.foreground,
                   cursor: "pointer",
                   textAlign: "left",
                 }}
               >
-                <span style={{ width: 28, height: 28, borderRadius: 14, background: `linear-gradient(135deg, ${pal.primary} 50%, ${pal.primaryContainer} 50%)`, flex: "0 0 auto" }} />
-                <span style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{pal.label}</span>
+                <span
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: 6,
+                    background: `linear-gradient(135deg, ${pal.background} 50%, ${pal.primary} 50%)`,
+                    boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.12)",
+                    flex: "0 0 auto",
+                  }}
+                />
+                <span style={{ fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+                  {entry.set}
+                </span>
+                {!both && (
+                  <span style={{ fontSize: 10, color: p.mutedForeground, flex: "0 0 auto" }}>
+                    {pal.dark ? t("dark", lang) : t("light", lang)}
+                  </span>
+                )}
                 <Swatches pal={pal} p={p} />
               </button>
             );
@@ -270,74 +317,45 @@ export function ColorPanel({
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              flexWrap: "wrap",
-              justifyContent: "flex-end",
-              gap: 8,
-              padding: 10,
-              borderRadius: 16,
-              background: paletteKey === "custom" ? p.secondaryContainer : p.surfaceContainerLow,
-              color: paletteKey === "custom" ? p.onSecondaryContainer : p.onSurface,
-            }}
-          >
-            <div style={{ flex: "1 1 180px", minWidth: 0 }}>
-              <ColorField value={seed} onChange={applySeed} p={p} label={t("seedColor", lang)} />
-            </div>
-            {paletteKey !== "custom" && (
-              <button
-                onClick={() => applySeed(seed)}
-                className="m3-press"
-                style={{ height: 32, padding: "0 12px", borderRadius: 16, border: "none", background: p.primary, color: p.onPrimary, fontSize: 12, fontWeight: 600, cursor: "pointer" }}
-              >
-                {t("useThis", lang)}
-              </button>
-            )}
-          </div>
-          <div style={{ fontSize: 11, lineHeight: 1.5, color: p.onSurfaceVariant, padding: "0 4px" }}>{t("seedHint", lang)}</div>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", padding: "0 2px" }}>
-            {["#6750A4", "#0B57D0", "#2E6A45", "#984061", "#8B5000", "#00696E", "#B3261E", "#4A4459"].map((c) => (
-              <button
-                key={c}
-                onClick={() => applySeed(c)}
-                title={c}
-                aria-label={c}
-                className="m3-press"
-                style={{ width: 26, height: 26, borderRadius: 13, border: "none", padding: 0, background: c, cursor: "pointer", outline: seed === c ? `2px solid ${p.primary}` : "2px solid transparent", outlineOffset: 2 }}
-              />
-            ))}
-          </div>
-          <Section id="color-tune" icon="tune" title={t("fineTune", lang)} p={p} defaultOpen={false}>
+          <div style={{ fontSize: 11, lineHeight: 1.5, color: p.mutedForeground, padding: "0 4px" }}>{t("themeHint", lang)}</div>
+          {paletteKey !== "custom" && (
+            <button
+              onClick={() => {
+                onCustom(cur);
+                onPalette("custom");
+              }}
+              className="kit-press"
+              style={{
+                height: 32,
+                padding: "0 10px",
+                borderRadius: 6,
+                border: "none",
+                background: p.primary,
+                color: p.primaryForeground,
+                fontSize: 13,
+                fontWeight: 500,
+                cursor: "pointer",
+                alignSelf: "flex-start",
+              }}
+            >
+              {t("useThis", lang)}
+            </button>
+          )}
+          <Section id="color-tune" icon="settings-2" title={t("fineTune", lang)} p={p} defaultOpen>
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              {TUNABLE.map((r) => (
+              {TUNABLE.map((role) => (
                 <ColorField
-                  key={r.key}
-                  value={cur[r.key]}
-                  label={r.key}
+                  key={role.key}
+                  value={String(cur[role.key])}
+                  label={TOKEN_NAMES[role.key] ?? role.key}
                   p={p}
-                  onChange={(hex) => {
-                    const next: Palette = { ...cur, [r.key]: hex };
-                    if (r.on) (next as Record<string, string>)[r.on] = onColorFor(hex);
-                    onCustom(next);
-                    onPalette("custom");
-                  }}
+                  onChange={(hex) => tune(role.key, hex, role.on)}
                 />
               ))}
             </div>
           </Section>
         </div>
       )}
-
-      <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 6 }}>
-        <SettingRow p={p} icon="wallpaper" label={t("dynamicColor", lang)} onClick={() => onDynamic(!dynamic)} pressed={dynamic}>
-          <Knob on={dynamic} p={p} />
-        </SettingRow>
-        <div style={{ fontSize: 11, lineHeight: 1.5, color: p.onSurfaceVariant, padding: "2px 4px 0" }}>
-          {dynamic ? t("dynamicOnHint", lang) : t("dynamicOffHint", lang)}
-        </div>
-      </div>
     </div>
   );
 }

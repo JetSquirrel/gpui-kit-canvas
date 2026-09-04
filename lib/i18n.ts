@@ -10,9 +10,12 @@ export const LANGS: { key: Lang; label: string }[] = [
 ];
 export const isLang = (v: unknown): v is Lang => v === "ja" || v === "en" || v === "zh";
 
+/** The language the module starts in, which is what the server renders with. */
+export const DEFAULT_LANG: Lang = "ja";
+
 /* A module-level copy lets non-React helpers (item defaults, prompt text)
  * follow the language without threading it through every call. */
-let current: Lang = "ja";
+let current: Lang = DEFAULT_LANG;
 export const getLang = () => current;
 export const setGlobalLang = (l: Lang) => {
   current = l;
@@ -40,8 +43,8 @@ const UI = {
   select: { ja: "選択 (V)", en: "Select (V)", zh: "选择 (V)" },
   hand: { ja: "手のひら (H / Space)", en: "Hand (H / Space)", zh: "抓手 (H / Space)" },
   blank: { ja: "白紙", en: "Blank canvas", zh: "空白画布" },
-  phone: { ja: "スマホ画面", en: "Phone screens", zh: "手机屏幕" },
-  addFrame: { ja: "画面を追加", en: "Add screen", zh: "添加屏幕" },
+  window: { ja: "ウィンドウ", en: "App windows", zh: "应用窗口" },
+  addFrame: { ja: "ウィンドウを追加", en: "Add window", zh: "添加窗口" },
   preview: { ja: "プレビュー (P)", en: "Preview (P)", zh: "预览 (P)" },
   zoomIn: { ja: "拡大 (+)", en: "Zoom in (+)", zh: "放大 (+)" },
   zoomOut: { ja: "縮小 (-)", en: "Zoom out (-)", zh: "缩小 (-)" },
@@ -51,13 +54,13 @@ const UI = {
   clearAll: { ja: "すべて消す", en: "Clear canvas", zh: "全部清除" },
   clearAllTitle: { ja: "すべて消しますか？", en: "Clear the canvas?", zh: "要全部清除吗？" },
   clearAllBody: {
-    ja: "すべての画面と部品を削除します。元に戻す (Ctrl+Z) で復元できます。",
-    en: "Every screen and part will be removed. Undo (Ctrl+Z) can bring them back.",
-    zh: "将删除所有屏幕和组件。可以用撤销 (Ctrl+Z) 恢复。",
+    ja: "すべてのウィンドウと部品を削除します。元に戻す (Ctrl+Z) で復元できます。",
+    en: "Every window and part will be removed. Undo (Ctrl+Z) can bring them back.",
+    zh: "将删除所有窗口和组件。可以用撤销 (Ctrl+Z) 恢复。",
   },
   // inspector
-  screen: { ja: "画面", en: "Screen", zh: "屏幕" },
-  screenName: { ja: "画面の名前", en: "Screen name", zh: "屏幕名称" },
+  screen: { ja: "ウィンドウ", en: "Window", zh: "窗口" },
+  screenName: { ja: "ウィンドウの名前", en: "Window name", zh: "窗口名称" },
   name: { ja: "名前", en: "Name", zh: "名称" },
   background: { ja: "背景", en: "Background", zh: "背景" },
   export: { ja: "書き出し", en: "Export", zh: "导出" },
@@ -78,7 +81,7 @@ const UI = {
   copied: { ja: "コピーしました", en: "Copied", zh: "已复制" },
   saveImage: { ja: "画像で保存", en: "Save as image", zh: "保存为图片" },
   saving: { ja: "保存中…", en: "Saving…", zh: "保存中…" },
-  previewFrom: { ja: "この画面からプレビュー", en: "Preview from this screen", zh: "从此屏幕预览" },
+  previewFrom: { ja: "このウィンドウからプレビュー", en: "Preview from this window", zh: "从此窗口预览" },
   duplicate: { ja: "複製", en: "Duplicate", zh: "复制" },
   duplicateKey: { ja: "複製 (Ctrl+D)", en: "Duplicate (Ctrl+D)", zh: "复制 (Ctrl+D)" },
   delete: { ja: "削除 (Delete)", en: "Delete (Delete)", zh: "删除 (Delete)" },
@@ -90,20 +93,27 @@ const UI = {
   supporting: { ja: "サブテキスト", en: "Supporting text", zh: "辅助文本" },
   tabs: { ja: "項目", en: "Items", zh: "项目" },
   changeIcon: { ja: "アイコンを変更", en: "Change icon", zh: "更改图标" },
-  image: { ja: "画像", en: "Image", zh: "图片" },
-  pickImage: { ja: "画像を選ぶ", en: "Choose image", zh: "选择图片" },
-  removeImage: { ja: "画像を外す", en: "Remove image", zh: "移除图片" },
   icon: { ja: "アイコン", en: "Icon", zh: "图标" },
   noIcon: { ja: "アイコンなし", en: "No icon", zh: "无图标" },
   searchIcons: { ja: "アイコンを検索", en: "Search icons", zh: "搜索图标" },
+  noBackground: { ja: "背景なし", en: "No background", zh: "无背景" },
+  image: { ja: "画像", en: "Image", zh: "图片" },
+  pickImage: { ja: "画像を選ぶ", en: "Choose image", zh: "选择图片" },
+  removeImage: { ja: "画像を外す", en: "Remove image", zh: "移除图片" },
+  determinate: { ja: "確定", en: "Determinate", zh: "确定进度" },
+  normalState: { ja: "通常", en: "Normal", zh: "常态" },
+  onState: { ja: "オン", en: "On", zh: "开启" },
+  onStateHint: { ja: "オンのときの文字・アイコン・スタイル", en: "Text, icon and style when on", zh: "开启时的文字、图标和样式" },
+  iconSetHint: {
+    ja: "gpui-kit が同梱する Lucide アイコンだけを選べます。プロンプトには IconName で書き出されます。",
+    en: "Only the Lucide icons gpui-kit ships. The prompt quotes them as IconName variants.",
+    zh: "仅包含 gpui-kit 自带的 Lucide 图标，提示词中会写成 IconName 变体。",
+  },
   style: { ja: "スタイル", en: "Style", zh: "样式" },
   state: { ja: "状態", en: "State", zh: "状态" },
   selected: { ja: "選択", en: "Selected", zh: "已选中" },
-  handle: { ja: "ハンドル（ボトムシート）", en: "Handle (bottom sheet)", zh: "拖动条（底部面板）" },
   on: { ja: "オン", en: "On", zh: "开" },
-  container: { ja: "コンテナ", en: "Container", zh: "容器" },
-  wavy: { ja: "波形", en: "Wavy", zh: "波浪形" },
-  determinate: { ja: "確定", en: "Determinate", zh: "确定进度" },
+  disabled: { ja: "無効", en: "Disabled", zh: "禁用" },
   size: { ja: "サイズ", en: "Size", zh: "尺寸" },
   width: { ja: "幅", en: "Width", zh: "宽度" },
   height: { ja: "高さ", en: "Height", zh: "高度" },
@@ -111,18 +121,24 @@ const UI = {
   cornerRadius: { ja: "角丸", en: "Corner radius", zh: "圆角" },
   cornerTop: { ja: "上の角丸", en: "Top corners", zh: "上方圆角" },
   cornerBottom: { ja: "下の角丸", en: "Bottom corners", zh: "下方圆角" },
-  screenWidth: { ja: "画面いっぱい", en: "Screen width", zh: "全屏宽" },
-  contentWidth: { ja: "左右 16dp の余白", en: "16dp side margins", zh: "左右 16dp 边距" },
+  windowWidth: { ja: "ウィンドウいっぱい", en: "Full window", zh: "整个窗口" },
+  contentWidth: { ja: "左右 16px の余白", en: "16px side padding", zh: "左右 16px 内边距" },
   halfWidth: { ja: "2 列に並べる幅", en: "Half a row (two columns)", zh: "两列宽" },
-  screenHeight: { ja: "画面の高さ", en: "Screen height", zh: "全屏高" },
-  halfHeight: { ja: "画面の半分", en: "Half the screen", zh: "半屏高" },
-  tapTo: { ja: "タップで移動", en: "Tap to open", zh: "点击跳转" },
+  sidebarWidth: { ja: "サイドバーの幅", en: "Sidebar width", zh: "侧栏宽度" },
+  windowHeight: { ja: "ウィンドウの高さ", en: "Full height", zh: "整个高度" },
+  halfHeight: { ja: "ウィンドウの半分", en: "Half the window", zh: "半个窗口" },
+  windowSize: { ja: "ウィンドウのサイズ", en: "Window size", zh: "窗口尺寸" },
+  clickTo: { ja: "クリックで移動", en: "Click to open", zh: "点击跳转" },
   none: { ja: "なし", en: "None", zh: "无" },
   goBack: { ja: "戻る", en: "Back", zh: "返回" },
-  swipeTo: { ja: "スワイプで移動", en: "Swipe to open", zh: "滑动跳转" },
   toggle: { ja: "切り替えボタン", en: "Toggle button", zh: "切换按钮" },
-  toggleHint: { ja: "タップでオン／オフ", en: "Tap toggles on / off", zh: "点击切换开/关" },
-  thumbCheck: { ja: "オンのときチェックアイコン", en: "Check icon when on", zh: "开启时显示勾选图标" },
+  toggleHint: { ja: "クリックでオン／オフ", en: "Click toggles on / off", zh: "点击切换开/关" },
+  shortcut: { ja: "ショートカット", en: "Shortcut", zh: "快捷键" },
+  shortcutHint: {
+    ja: "この操作のキーバインド。プロンプトでは actions! と bind_keys として要求されます。",
+    en: "The keybinding for this command. The prompt asks for it as an action and bind_keys entry.",
+    zh: "该操作的快捷键。提示词会要求生成对应的 action 与 bind_keys。",
+  },
   behavior: { ja: "振る舞い", en: "Behavior", zh: "行为" },
   whenPressed: { ja: "押したとき…", en: "When pressed…", zh: "按下时…" },
   whatItDoes: { ja: "この部品の動き…", en: "What this part does…", zh: "这个组件的作用…" },
@@ -136,59 +152,52 @@ const UI = {
     en: "Keeps the overlap and moves as one layer",
     zh: "保持叠放关系，作为一个图层一起移动",
   },
-  iconBackground: { ja: "アイコンの背景", en: "Icon background", zh: "图标背景" },
-  noBackground: { ja: "背景なし", en: "No background", zh: "无背景" },
-  normalState: { ja: "通常", en: "Normal", zh: "常态" },
-  onState: { ja: "オン", en: "On", zh: "开启" },
-  onStateHint: { ja: "オンのときの文字・アイコン・スタイル", en: "Text, icon and style when on", zh: "开启时的文字、图标和样式" },
   groupEditNote: { ja: "中の部品を編集するにはグループを解除してください", en: "Ungroup to edit the parts inside", zh: "要编辑其中的组件，请先取消编组" },
   openPanel: { ja: "パネルを開く", en: "Open panel", zh: "打开面板" },
   colors: { ja: "カラー", en: "Colors", zh: "配色" },
-  templates: { ja: "パレット", en: "Palettes", zh: "调色板" },
+  templates: { ja: "テーマ", en: "Themes", zh: "主题" },
   customColor: { ja: "カスタム", en: "Custom", zh: "自定义" },
-  seedColor: { ja: "ベースの色", en: "Seed color", zh: "基准色" },
-  seedHint: {
-    ja: "1 色選ぶと Material 3 のスキーム全体を作ります。細かく調整で個別の色も変えられます。",
-    en: "One color builds the whole Material 3 scheme. Fine-tune changes single roles.",
-    zh: "选一个颜色即可生成整套 Material 3 配色。可在微调中单独修改。",
+  themeHint: {
+    ja: "gpui-kit が同梱するテーマです。選ぶとそのテーマ名がプロンプトに入ります。",
+    en: "The themes gpui-kit ships. The one you pick is named in the prompt.",
+    zh: "这些是 gpui-kit 自带的主题，所选主题会写入提示词。",
   },
-  useThis: { ja: "この色にする", en: "Use it", zh: "使用" },
+  useThis: { ja: "このテーマにする", en: "Use it", zh: "使用" },
   fineTune: { ja: "細かく調整", en: "Fine-tune", zh: "微调" },
-  dynamicColor: { ja: "ダイナミックカラー", en: "Dynamic color", zh: "动态配色" },
-  dynamicOnHint: {
-    ja: "ここの色はエディタ上だけ。実機では壁紙の色になります。",
-    en: "These colors are editor-only; the phone uses its wallpaper colors.",
-    zh: "这些颜色仅用于编辑器，手机上会使用壁纸颜色。",
-  },
-  dynamicOffHint: {
-    ja: "オンにすると実機は壁紙の色を使い、ここの色は予備になります。",
-    en: "When on, the phone uses wallpaper colors and these are the fallback.",
-    zh: "开启后手机使用壁纸颜色，这里的颜色作为备用。",
-  },
   closeBtn: { ja: "閉じる", en: "Close", zh: "关闭" },
-  screens: { ja: "画面を選ぶ", en: "Choose screen", zh: "选择屏幕" },
+  screens: { ja: "ウィンドウを選ぶ", en: "Choose window", zh: "选择窗口" },
   // layers
   layerUp: { ja: "前面へ", en: "Bring forward", zh: "上移一层" },
   layerDown: { ja: "背面へ", en: "Send backward", zh: "下移一层" },
-  noLayers: { ja: "この画面には部品がありません", en: "Nothing on this screen yet", zh: "此屏幕还没有组件" },
+  noLayers: { ja: "このウィンドウには部品がありません", en: "Nothing in this window yet", zh: "此窗口还没有组件" },
   // prompt panel
   brief: { ja: "このアプリの説明…", en: "What this app is…", zh: "这个应用的说明…" },
   appName: { ja: "アプリの名前", en: "App name", zh: "应用名称" },
-  targetPlatform: { ja: "実装先", en: "Target", zh: "目标平台" },
-  targetAndroid: { ja: "Android のネイティブアプリとして作る", en: "Build as a native Android app", zh: "作为 Android 原生应用构建" },
-  targetWeb: { ja: "ブラウザで動く Web アプリとして作る", en: "Build as a web app that runs in the browser", zh: "作为在浏览器中运行的 Web 应用构建" },
   copyPrompt: { ja: "プロンプトをコピー", en: "Copy prompt", zh: "复制提示词" },
+  promptTargetHint: {
+    ja: "実装先は gpui-kit（Rust のデスクトップアプリ）です。プロンプトは先に gpui-kit のスキルかドキュメントを読むよう指示します。",
+    en: "The target is gpui-kit, a Rust desktop app. The prompt tells the tool to read the gpui-kit skills or docs first.",
+    zh: "实现目标是 gpui-kit（Rust 桌面应用）。提示词会要求先阅读 gpui-kit 的 skill 或官方文档。",
+  },
   // preview
   back: { ja: "戻る", en: "Back", zh: "返回" },
   close: { ja: "閉じる (Esc)", en: "Close (Esc)", zh: "关闭 (Esc)" },
   // parts content
   cancel: { ja: "キャンセル", en: "Cancel", zh: "取消" },
   ok: { ja: "OK", en: "OK", zh: "确定" },
+  confirmVerb: { ja: "確定ボタンの文言", en: "Commit verb", zh: "确认按钮文字" },
+  deleteVerb: { ja: "削除", en: "Delete", zh: "删除" },
+  placeholderHint: {
+    ja: "入力欄のラベルはプレースホルダーです。項目名は Label 部品として別に置きます。",
+    en: "An input's label is its placeholder; the field's name is a separate Label part.",
+    zh: "输入框的标签即占位文本；字段名称请单独使用 Label 组件。",
+  },
+  save: { ja: "保存", en: "Save", zh: "保存" },
   leading: { ja: "先頭", en: "Leading", zh: "前置" },
   trailing: { ja: "末尾", en: "Trailing", zh: "后置" },
   // frames
-  home: { ja: "ホーム", en: "Home", zh: "首页" },
-  screenN: { ja: "画面", en: "Screen", zh: "屏幕" },
+  home: { ja: "メイン", en: "Main", zh: "主窗口" },
+  screenN: { ja: "ウィンドウ", en: "Window", zh: "窗口" },
   copySuffix: { ja: " コピー", en: " copy", zh: " 副本" },
   // mobile
   mobileNote: { ja: "フル機能は PC のブラウザで使えます", en: "Full features on a desktop browser", zh: "完整功能请在电脑浏览器中使用" },
@@ -196,50 +205,97 @@ const UI = {
   done: { ja: "完了", en: "Done", zh: "完成" },
   theme: { ja: "テーマ", en: "Theme", zh: "主题" },
   settings: { ja: "テーマと設定", en: "Theme and settings", zh: "主题与设置" },
-  // theme panels
-  shape: { ja: "シェイプ", en: "Shape", zh: "形状" },
+  // theme panel
+  shape: { ja: "角丸", en: "Radius", zh: "圆角" },
   typography: { ja: "タイポグラフィ", en: "Type", zh: "字体" },
   motion: { ja: "モーション", en: "Motion", zh: "动效" },
   brightness: { ja: "明るさ", en: "Brightness", zh: "明暗" },
   light: { ja: "ライト", en: "Light", zh: "浅色" },
   dark: { ja: "ダーク", en: "Dark", zh: "深色" },
-  contrast: { ja: "コントラスト", en: "Contrast", zh: "对比度" },
   bothModes: { ja: "両対応", en: "Both", zh: "两者" },
-  contrastStandard: { ja: "標準", en: "Standard", zh: "标准" },
-  contrastMedium: { ja: "中", en: "Medium", zh: "中" },
-  contrastHigh: { ja: "高", en: "High", zh: "高" },
-  shapeScale: { ja: "角丸の度合い", en: "Corner roundness", zh: "圆角程度" },
-  shapeSquare: { ja: "スクエア", en: "Square", zh: "方形" },
-  shapeRounded: { ja: "標準", en: "Rounded", zh: "圆角" },
-  shapeFull: { ja: "フル", en: "Full", zh: "全圆" },
-  shapeHint: {
-    ja: "すべての部品の初期の角丸をまとめて変えます。部品ごとに入力した角丸はそのまま残ります。",
-    en: "Changes the default corners of every part at once. A radius you typed on a part stays as it is.",
-    zh: "统一改变所有组件的默认圆角。已为单个组件输入的圆角保持不变。",
+  bothModesHint: {
+    ja: "OS の設定に合わせて切り替えます。キャンバスは選んだ側を表示します。",
+    en: "Follows the system setting; the canvas shows the mode you picked.",
+    zh: "跟随系统设置切换，画布显示所选的模式。",
+  },
+  radiusScale: { ja: "角丸の度合い", en: "Corner roundness", zh: "圆角程度" },
+  radiusSquare: { ja: "スクエア (0px)", en: "Square (0px)", zh: "方形 (0px)" },
+  radiusDefault: { ja: "標準 (6px)", en: "Default (6px)", zh: "标准 (6px)" },
+  radiusRound: { ja: "丸め (10px)", en: "Round (10px)", zh: "圆润 (10px)" },
+  radiusHint: {
+    ja: "テーマの radius と radius.lg をまとめて変えます。部品ごとに入力した角丸はそのまま残ります。",
+    en: "Sets the theme's radius and radius.lg together. A radius you typed on a part stays as it is.",
+    zh: "同时设置主题的 radius 与 radius.lg。已为单个组件输入的圆角保持不变。",
   },
   fontFamily: { ja: "書体", en: "Typeface", zh: "字体" },
-  emphasized: { ja: "強調スタイル", en: "Emphasized", zh: "强调样式" },
-  emphasizedHint: {
-    ja: "見出しやラベルを M3 Expressive の太めのスタイルにします。",
-    en: "Headlines and labels use the heavier M3 Expressive styles.",
-    zh: "标题和标签使用 M3 Expressive 的加粗样式。",
+  density: { ja: "密度", en: "Density", zh: "密度" },
+  densityCompact: { ja: "コンパクト (small)", en: "Compact (small)", zh: "紧凑 (small)" },
+  densityDefault: { ja: "標準 (medium)", en: "Default (medium)", zh: "标准 (medium)" },
+  densityComfortable: { ja: "ゆったり (large)", en: "Comfortable (large)", zh: "宽松 (large)" },
+  densityHint: {
+    ja: "部品の既定サイズです。ツールバーやデータ中心の画面はコンパクトが向いています。",
+    en: "The default component size. Toolbars and data-dense screens suit compact.",
+    zh: "组件的默认尺寸。工具栏和数据密集界面适合紧凑。",
   },
-  motionScheme: { ja: "動きの種類", en: "Motion scheme", zh: "动效方案" },
-  motionStandard: { ja: "スタンダード", en: "Standard", zh: "标准" },
-  motionExpressive: { ja: "エクスプレッシブ", en: "Expressive", zh: "富有表现力" },
+  shadow: { ja: "影", en: "Shadow", zh: "阴影" },
+  shadowHint: {
+    ja: "テーマの shadow です。ボタンやポップオーバーの影を切り替えます。",
+    en: "The theme's shadow flag; toggles the shadow on buttons and popovers.",
+    zh: "主题的 shadow 开关，控制按钮与浮层的阴影。",
+  },
+  focusRing: { ja: "フォーカスリング", en: "Focus ring", zh: "焦点环" },
+  focusRingHint: {
+    ja: "キーボード操作の可視化です。切るとアクセシビリティを損ないます。",
+    en: "Makes keyboard focus visible. Turning it off costs accessibility.",
+    zh: "让键盘焦点可见，关闭会损害可访问性。",
+  },
+  motionScheme: { ja: "動きの種類", en: "Motion", zh: "动效" },
+  motionDefault: { ja: "標準", en: "Default", zh: "标准" },
+  motionReduced: { ja: "控えめ", en: "Reduced", zh: "减弱" },
   motionHint: {
-    ja: "エクスプレッシブは弾むスプリング。プレビューの画面遷移とプロンプトに反映されます。",
-    en: "Expressive is a bouncy spring. It drives the preview transitions and the prompt.",
-    zh: "富有表现力为弹性弹簧动效，作用于预览的屏幕过渡和提示词。",
+    ja: "控えめにすると遷移は即座に切り替わります。プレビューとプロンプトに反映されます。",
+    en: "Reduced switches views instantly. It drives the preview and the prompt.",
+    zh: "减弱后视图会立即切换，作用于预览和提示词。",
   },
-  tryIt: { ja: "タップして確認", en: "Tap to try", zh: "点击试试" },
+  tryIt: { ja: "クリックして確認", en: "Click to try", zh: "点击试试" },
   // tidy
   tidy: { ja: "整える", en: "Tidy", zh: "整理" },
   tidyUndo: { ja: "整える前に戻す", en: "Undo tidy", zh: "撤销整理" },
   tidyDone: { ja: "すでに整っています", en: "Already tidy", zh: "已经整齐" },
-  // screen description
+  // window description
   description: { ja: "説明", en: "Description", zh: "说明" },
-  screenDescription: { ja: "この画面の目的", en: "What this screen is for", zh: "这个屏幕的用途" },
+  screenDescription: { ja: "このウィンドウの目的", en: "What this window is for", zh: "这个窗口的用途" },
+  // shell regions
+  shell: { ja: "ウィンドウ構成", en: "Window shell", zh: "窗口结构" },
+  shellSingle: { ja: "単一ワークスペース", en: "Single workspace", zh: "单一工作区" },
+  shellSidebar: { ja: "サイドバー", en: "Sidebar workspace", zh: "侧栏工作区" },
+  shellMasterDetail: { ja: "一覧と詳細", en: "Master–detail", zh: "列表与详情" },
+  shellDocument: { ja: "タブ（ドキュメント）", en: "Document workspace", zh: "文档标签" },
+  shellUtility: { ja: "ユーティリティ", en: "Utility window", zh: "工具窗口" },
+  shellHint: {
+    ja: "gpui-kit の Design Guides が挙げる 5 つの骨格です。プロンプトはこの骨格を最初に指示します。",
+    en: "The five shells the gpui-kit Design Guides name. The prompt states the shell first.",
+    zh: "gpui-kit 设计规范列出的五种骨架，提示词会首先说明所选骨架。",
+  },
+  columns: { ja: "列", en: "Columns", zh: "列" },
+  rows: { ja: "行", en: "Rows", zh: "行" },
+  addRow: { ja: "行を追加", en: "Add row", zh: "添加行" },
+  addColumn: { ja: "列を追加", en: "Add column", zh: "添加列" },
+  numeric: { ja: "数値（右寄せ）", en: "Numeric (right-aligned)", zh: "数值（右对齐）" },
+  placeholder: { ja: "プレースホルダー", en: "Placeholder", zh: "占位文本" },
+  side: { ja: "位置", en: "Side", zh: "位置" },
+  sideLeft: { ja: "左", en: "Left", zh: "左" },
+  sideRight: { ja: "右", en: "Right", zh: "右" },
+  sideTop: { ja: "上", en: "Top", zh: "上" },
+  sideBottom: { ja: "下", en: "Bottom", zh: "下" },
+  collapsed: { ja: "折りたたむ", en: "Collapsed", zh: "折叠" },
+  windowControls: { ja: "ウィンドウ操作ボタン", en: "Window controls", zh: "窗口控件" },
+  controlsMac: { ja: "macOS（左）", en: "macOS (left)", zh: "macOS（左侧）" },
+  controlsWin: { ja: "Windows（右）", en: "Windows (right)", zh: "Windows（右侧）" },
+  controlsNone: { ja: "なし", en: "None", zh: "无" },
+  value: { ja: "値", en: "Value", zh: "数值" },
+  indeterminate: { ja: "不確定", en: "Indeterminate", zh: "不确定" },
+  circle: { ja: "円形", en: "Circle", zh: "圆形" },
   // ai
   ai: { ja: "AI", en: "AI", zh: "AI" },
   promptReset: { ja: "生成されたプロンプトに戻す", en: "Back to the generated prompt", zh: "恢复为生成的提示词" },
@@ -258,7 +314,7 @@ const UI = {
   },
   aiRestore: { ja: "AI の前と切り替える", en: "Switch between the AI rewrite and the original", zh: "在 AI 改写与原文之间切换" },
   aiApplied: { ja: "適用しました", en: "Applied", zh: "已应用" },
-  aiSelectScreen: { ja: "先に画面を選んでください", en: "Select a screen first", zh: "请先选择一个屏幕" },
+  aiSelectScreen: { ja: "先にウィンドウを選んでください", en: "Select a window first", zh: "请先选择一个窗口" },
   aiNoKey: { ja: "AI タブでキーを入れると使えます", en: "Add a key in the AI tab to use this", zh: "在 AI 标签页中填写密钥后即可使用" },
   aiError: { ja: "AI の呼び出しに失敗しました", en: "The AI request failed", zh: "AI 请求失败" },
   aiErrorRefusal: { ja: "モデルが回答を拒否しました", en: "The model declined to answer", zh: "模型拒绝回答" },
@@ -283,151 +339,234 @@ export const KIND_TEXT: Record<
   Record<string, { noun: string; label?: string; supporting?: string }>
 > = {
   ja: {
-    box: { noun: "ボックス" },
+    titleBar: { noun: "タイトルバー", label: "アプリ" },
+    sidebar: { noun: "サイドバー", label: "ナビゲーション" },
+    toolbar: { noun: "ツールバー" },
+    statusBar: { noun: "ステータスバー", label: "準備完了", supporting: "3 件" },
+    breadcrumb: { noun: "パンくずリスト" },
     button: { noun: "ボタン", label: "ボタン" },
     iconButton: { noun: "アイコンボタン" },
-    fab: { noun: "FAB（フローティングボタン）" },
-    extendedFab: { noun: "拡張 FAB", label: "作成" },
-    chip: { noun: "チップ", label: "チップ" },
-    topAppBar: { noun: "トップアプリバー", label: "タイトル" },
-    bottomNav: { noun: "ナビゲーションバー" },
-    searchBar: { noun: "検索バー", label: "検索" },
-    card: { noun: "カード", label: "カードの見出し", supporting: "補足テキストがここに入ります。" },
-    listItem: { noun: "リスト項目", label: "リスト項目", supporting: "サブテキスト" },
-    dialog: { noun: "ダイアログ", label: "確認", supporting: "この操作を実行しますか？" },
-    snackbar: { noun: "スナックバー", label: "保存しました", supporting: "元に戻す" },
-    textField: { noun: "テキスト入力", label: "ラベル" },
-    switch: { noun: "スイッチ", label: "通知" },
+    buttonGroup: { noun: "ボタングループ" },
+    menu: { noun: "メニュー", label: "メニュー" },
+    input: { noun: "入力欄", label: "検索…", supporting: "" },
+    textarea: { noun: "複数行入力", label: "詳細を入力…", supporting: "" },
+    select: { noun: "セレクト", label: "選択してください" },
     checkbox: { noun: "チェックボックス", label: "同意する" },
-    slider: { noun: "スライダー" },
-    text: { noun: "テキスト", label: "見出し" },
-    image: { noun: "画像" },
-    divider: { noun: "区切り線" },
-    loadingIndicator: { noun: "ローディングインジケータ" },
-    linearProgress: { noun: "リニアプログレス" },
-    circularProgress: { noun: "サーキュラープログレス" },
-    splitButton: { noun: "スプリットボタン", label: "送信" },
-    fabMenu: { noun: "FAB メニュー" },
-    toolbar: { noun: "ツールバー" },
+    radio: { noun: "ラジオグループ", label: "選択肢" },
+    switch: { noun: "スイッチ", label: "通知" },
+    slider: { noun: "スライダー", label: "音量" },
+    label: { noun: "ラベル", label: "ラベル" },
+    panel: { noun: "パネル" },
+    groupBox: { noun: "グループボックス", label: "設定" },
     tabs: { noun: "タブ" },
-    radio: { noun: "ラジオボタン", label: "選択肢" },
+    resizable: { noun: "リサイズ可能な分割" },
+    dialog: { noun: "ダイアログ", label: "「Roadmap」を削除しますか？", supporting: "この操作は取り消せません。" },
+    sheet: { noun: "シート", label: "詳細" },
+    popover: { noun: "ポップオーバー", label: "ポップオーバー", supporting: "補足の説明がここに入ります。" },
+    notification: { noun: "通知", label: "保存しました", supporting: "変更はすべて反映されています。" },
+    list: { noun: "リスト" },
+    dataTable: { noun: "データテーブル" },
+    tree: { noun: "ツリー" },
+    text: { noun: "テキスト", label: "見出し" },
+    icon: { noun: "アイコン" },
+    divider: { noun: "区切り線" },
     badge: { noun: "バッジ", label: "3" },
+    tag: { noun: "タグ", label: "タグ" },
+    alert: { noun: "アラート", label: "確認が必要です", supporting: "続ける前に入力を確認してください。" },
+    progress: { noun: "プログレス" },
+    spinner: { noun: "スピナー" },
+    skeleton: { noun: "スケルトン" },
   },
   en: {
-    box: { noun: "box" },
+    titleBar: { noun: "title bar", label: "App" },
+    sidebar: { noun: "sidebar", label: "Navigation" },
+    toolbar: { noun: "toolbar" },
+    statusBar: { noun: "status bar", label: "Ready", supporting: "3 items" },
+    breadcrumb: { noun: "breadcrumb" },
     button: { noun: "button", label: "Button" },
     iconButton: { noun: "icon button" },
-    fab: { noun: "FAB" },
-    extendedFab: { noun: "extended FAB", label: "Create" },
-    chip: { noun: "chip", label: "Chip" },
-    topAppBar: { noun: "top app bar", label: "Title" },
-    bottomNav: { noun: "navigation bar" },
-    searchBar: { noun: "search bar", label: "Search" },
-    card: { noun: "card", label: "Card headline", supporting: "Supporting text goes here." },
-    listItem: { noun: "list item", label: "List item", supporting: "Supporting text" },
-    dialog: { noun: "dialog", label: "Confirm", supporting: "Do you want to continue?" },
-    snackbar: { noun: "snackbar", label: "Saved", supporting: "Undo" },
-    textField: { noun: "text field", label: "Label" },
-    switch: { noun: "switch", label: "Notifications" },
+    buttonGroup: { noun: "button group" },
+    menu: { noun: "menu", label: "Menu" },
+    input: { noun: "input", label: "Search…", supporting: "" },
+    textarea: { noun: "textarea", label: "Add the details…", supporting: "" },
+    select: { noun: "select", label: "Choose one" },
     checkbox: { noun: "checkbox", label: "I agree" },
-    slider: { noun: "slider" },
-    text: { noun: "text", label: "Headline" },
-    image: { noun: "image" },
-    divider: { noun: "divider" },
-    loadingIndicator: { noun: "loading indicator" },
-    linearProgress: { noun: "linear progress indicator" },
-    circularProgress: { noun: "circular progress indicator" },
-    splitButton: { noun: "split button", label: "Send" },
-    fabMenu: { noun: "FAB menu" },
-    toolbar: { noun: "toolbar" },
+    radio: { noun: "radio group", label: "Option" },
+    switch: { noun: "switch", label: "Notifications" },
+    slider: { noun: "slider", label: "Volume" },
+    label: { noun: "label", label: "Label" },
+    panel: { noun: "panel" },
+    groupBox: { noun: "group box", label: "Settings" },
     tabs: { noun: "tabs" },
-    radio: { noun: "radio button", label: "Option" },
+    resizable: { noun: "resizable split" },
+    dialog: { noun: "dialog", label: 'Delete "Roadmap"?', supporting: "This cannot be undone." },
+    sheet: { noun: "sheet", label: "Details" },
+    popover: { noun: "popover", label: "Popover", supporting: "Supporting copy goes here." },
+    notification: { noun: "notification", label: "Saved", supporting: "Every change is in place." },
+    list: { noun: "list" },
+    dataTable: { noun: "data table" },
+    tree: { noun: "tree" },
+    text: { noun: "text", label: "Headline" },
+    icon: { noun: "icon" },
+    divider: { noun: "divider" },
     badge: { noun: "badge", label: "3" },
+    tag: { noun: "tag", label: "Tag" },
+    alert: { noun: "alert", label: "Check this first", supporting: "Review the input before continuing." },
+    progress: { noun: "progress indicator" },
+    spinner: { noun: "spinner" },
+    skeleton: { noun: "skeleton" },
   },
   zh: {
-    box: { noun: "容器框" },
+    titleBar: { noun: "标题栏", label: "应用" },
+    sidebar: { noun: "侧边栏", label: "导航" },
+    toolbar: { noun: "工具栏" },
+    statusBar: { noun: "状态栏", label: "就绪", supporting: "3 项" },
+    breadcrumb: { noun: "面包屑" },
     button: { noun: "按钮", label: "按钮" },
     iconButton: { noun: "图标按钮" },
-    fab: { noun: "FAB（悬浮按钮）" },
-    extendedFab: { noun: "扩展 FAB", label: "新建" },
-    chip: { noun: "标签片", label: "标签" },
-    topAppBar: { noun: "顶部应用栏", label: "标题" },
-    bottomNav: { noun: "导航栏" },
-    searchBar: { noun: "搜索栏", label: "搜索" },
-    card: { noun: "卡片", label: "卡片标题", supporting: "这里是辅助说明文字。" },
-    listItem: { noun: "列表项", label: "列表项", supporting: "辅助文本" },
-    dialog: { noun: "对话框", label: "确认", supporting: "要执行此操作吗？" },
-    snackbar: { noun: "消息条", label: "已保存", supporting: "撤销" },
-    textField: { noun: "文本输入框", label: "标签" },
-    switch: { noun: "开关", label: "通知" },
+    buttonGroup: { noun: "按钮组" },
+    menu: { noun: "菜单", label: "菜单" },
+    input: { noun: "输入框", label: "搜索…", supporting: "" },
+    textarea: { noun: "多行输入框", label: "请填写详细内容…", supporting: "" },
+    select: { noun: "下拉选择", label: "请选择" },
     checkbox: { noun: "复选框", label: "我同意" },
-    slider: { noun: "滑块" },
-    text: { noun: "文本", label: "标题" },
-    image: { noun: "图片" },
-    divider: { noun: "分割线" },
-    loadingIndicator: { noun: "加载指示器" },
-    linearProgress: { noun: "线性进度条" },
-    circularProgress: { noun: "圆形进度条" },
-    splitButton: { noun: "拆分按钮", label: "发送" },
-    fabMenu: { noun: "FAB 菜单" },
-    toolbar: { noun: "工具栏" },
+    radio: { noun: "单选组", label: "选项" },
+    switch: { noun: "开关", label: "通知" },
+    slider: { noun: "滑块", label: "音量" },
+    label: { noun: "标签", label: "标签" },
+    panel: { noun: "面板" },
+    groupBox: { noun: "分组框", label: "设置" },
     tabs: { noun: "标签页" },
-    radio: { noun: "单选按钮", label: "选项" },
+    resizable: { noun: "可调分栏" },
+    dialog: { noun: "对话框", label: "删除「Roadmap」？", supporting: "此操作无法撤销。" },
+    sheet: { noun: "抽屉面板", label: "详情" },
+    popover: { noun: "浮层", label: "浮层", supporting: "这里是补充说明。" },
+    notification: { noun: "通知", label: "已保存", supporting: "所有更改都已生效。" },
+    list: { noun: "列表" },
+    dataTable: { noun: "数据表格" },
+    tree: { noun: "树" },
+    text: { noun: "文本", label: "标题" },
+    icon: { noun: "图标" },
+    divider: { noun: "分割线" },
     badge: { noun: "徽标", label: "3" },
+    tag: { noun: "标签块", label: "标签" },
+    alert: { noun: "提示条", label: "请先确认", supporting: "继续之前请检查输入内容。" },
+    progress: { noun: "进度条" },
+    spinner: { noun: "加载指示器" },
+    skeleton: { noun: "骨架屏" },
   },
 };
 
-/** default labels of a tab row */
+/* ---- the rows, columns and entries a freshly dropped part starts with ---- */
+
 export const TAB_LABELS: Record<Lang, string[]> = {
-  ja: ["おすすめ", "フォロー中", "人気", "新着", "保存済み"],
-  en: ["For you", "Following", "Trending", "New", "Saved"],
-  zh: ["推荐", "关注", "热门", "最新", "已保存"],
+  ja: ["概要", "アクティビティ", "設定"],
+  en: ["Overview", "Activity", "Settings"],
+  zh: ["概览", "动态", "设置"],
 };
 
-/** default entries of a FAB menu */
-export const FAB_MENU_TABS: Record<Lang, { icon: string; label: string }[]> = {
+/** sidebar menu entries; icons are gpui-kit's own Lucide names */
+export const SIDEBAR_ITEMS: Record<Lang, { icon: string; label: string }[]> = {
   ja: [
-    { icon: "edit", label: "メモ" },
-    { icon: "photo_camera", label: "写真" },
-    { icon: "mic", label: "音声" },
-    { icon: "attach_file", label: "ファイル" },
-    { icon: "event", label: "予定" },
-  ],
-  en: [
-    { icon: "edit", label: "Note" },
-    { icon: "photo_camera", label: "Photo" },
-    { icon: "mic", label: "Audio" },
-    { icon: "attach_file", label: "File" },
-    { icon: "event", label: "Event" },
-  ],
-  zh: [
-    { icon: "edit", label: "笔记" },
-    { icon: "photo_camera", label: "照片" },
-    { icon: "mic", label: "语音" },
-    { icon: "attach_file", label: "文件" },
-    { icon: "event", label: "日程" },
-  ],
-};
-
-export const NAV_TABS: Record<Lang, { icon: string; label: string }[]> = {
-  ja: [
-    { icon: "home", label: "ホーム" },
-    { icon: "search", label: "検索" },
-    { icon: "favorite", label: "保存" },
+    { icon: "inbox", label: "受信箱" },
+    { icon: "folder", label: "プロジェクト" },
+    { icon: "chart-pie", label: "レポート" },
     { icon: "settings", label: "設定" },
   ],
   en: [
-    { icon: "home", label: "Home" },
-    { icon: "search", label: "Search" },
-    { icon: "favorite", label: "Saved" },
+    { icon: "inbox", label: "Inbox" },
+    { icon: "folder", label: "Projects" },
+    { icon: "chart-pie", label: "Reports" },
     { icon: "settings", label: "Settings" },
   ],
   zh: [
-    { icon: "home", label: "首页" },
-    { icon: "search", label: "搜索" },
-    { icon: "favorite", label: "收藏" },
+    { icon: "inbox", label: "收件箱" },
+    { icon: "folder", label: "项目" },
+    { icon: "chart-pie", label: "报表" },
     { icon: "settings", label: "设置" },
   ],
+};
+
+export const MENU_ITEMS: Record<Lang, { icon: string; label: string }[]> = {
+  ja: [
+    { icon: "file-text", label: "名前を変更" },
+    { icon: "copy", label: "複製" },
+    { icon: "external-link", label: "新しいウィンドウで開く" },
+    { icon: "delete", label: "削除" },
+  ],
+  en: [
+    { icon: "file-text", label: "Rename" },
+    { icon: "copy", label: "Duplicate" },
+    { icon: "external-link", label: "Open in new window" },
+    { icon: "delete", label: "Delete" },
+  ],
+  zh: [
+    { icon: "file-text", label: "重命名" },
+    { icon: "copy", label: "复制" },
+    { icon: "external-link", label: "在新窗口中打开" },
+    { icon: "delete", label: "删除" },
+  ],
+};
+
+export const LIST_ROWS: Record<Lang, { icon: string; label: string }[]> = {
+  ja: [
+    { icon: "file-text", label: "設計メモ" },
+    { icon: "file-text", label: "リリース計画" },
+    { icon: "file-text", label: "議事録" },
+    { icon: "file-text", label: "検証結果" },
+  ],
+  en: [
+    { icon: "file-text", label: "Design notes" },
+    { icon: "file-text", label: "Release plan" },
+    { icon: "file-text", label: "Meeting notes" },
+    { icon: "file-text", label: "Test results" },
+  ],
+  zh: [
+    { icon: "file-text", label: "设计笔记" },
+    { icon: "file-text", label: "发布计划" },
+    { icon: "file-text", label: "会议记录" },
+    { icon: "file-text", label: "测试结果" },
+  ],
+};
+
+export const TREE_NODES: Record<Lang, { icon: string; label: string; depth: number }[]> = {
+  ja: [
+    { icon: "folder-open", label: "src", depth: 0 },
+    { icon: "file", label: "main.rs", depth: 1 },
+    { icon: "folder-closed", label: "ui", depth: 1 },
+    { icon: "file", label: "Cargo.toml", depth: 0 },
+  ],
+  en: [
+    { icon: "folder-open", label: "src", depth: 0 },
+    { icon: "file", label: "main.rs", depth: 1 },
+    { icon: "folder-closed", label: "ui", depth: 1 },
+    { icon: "file", label: "Cargo.toml", depth: 0 },
+  ],
+  zh: [
+    { icon: "folder-open", label: "src", depth: 0 },
+    { icon: "file", label: "main.rs", depth: 1 },
+    { icon: "folder-closed", label: "ui", depth: 1 },
+    { icon: "file", label: "Cargo.toml", depth: 0 },
+  ],
+};
+
+export const TABLE_COLUMNS: Record<Lang, { label: string; numeric?: boolean }[]> = {
+  ja: [{ label: "名前" }, { label: "状態" }, { label: "更新日" }, { label: "件数", numeric: true }],
+  en: [{ label: "Name" }, { label: "Status" }, { label: "Updated" }, { label: "Count", numeric: true }],
+  zh: [{ label: "名称" }, { label: "状态" }, { label: "更新时间" }, { label: "数量", numeric: true }],
+};
+
+/** a data table's sample rows, one cell per column joined by `ROW_SEP` */
+export const TABLE_ROWS: Record<Lang, string[]> = {
+  ja: ["Roadmap\t進行中\t3 日前\t12", "Design\tレビュー\t昨日\t4", "Infra\t完了\t先週\t28"],
+  en: ["Roadmap\tIn progress\t3 days ago\t12", "Design\tIn review\tYesterday\t4", "Infra\tDone\tLast week\t28"],
+  zh: ["Roadmap\t进行中\t3 天前\t12", "Design\t评审中\t昨天\t4", "Infra\t已完成\t上周\t28"],
+};
+
+export const BREADCRUMB_TRAIL: Record<Lang, string[]> = {
+  ja: ["プロジェクト", "Roadmap", "Q3"],
+  en: ["Projects", "Roadmap", "Q3"],
+  zh: ["项目", "Roadmap", "Q3"],
 };
 
 export const TRANSITION_TEXT: Record<Lang, Record<string, string>> = {
@@ -460,8 +599,79 @@ export const TRANSITION_TEXT: Record<Lang, Record<string, string>> = {
   },
 };
 
-export const SWIPE_TEXT: Record<Lang, Record<string, string>> = {
-  ja: { left: "左へスワイプ", right: "右へスワイプ", up: "上へスワイプ", down: "下へスワイプ" },
-  en: { left: "swiping left", right: "swiping right", up: "swiping up", down: "swiping down" },
-  zh: { left: "向左滑动", right: "向右滑动", up: "向上滑动", down: "向下滑动" },
-};
+/* ---- reading starter content back in another language ----
+ *
+ * A document stores the text a part was created with, so a canvas built before
+ * the browser's language was known carries the defaults of whichever language
+ * was current then. These tables let that content be re-read in another
+ * language while anything the author typed is left exactly as it is. */
+
+/** One built-in default, in every language. Only complete tuples are usable. */
+type StringSet = Record<Lang, string>;
+
+function defaultStringSets(): StringSet[] {
+  const sets: StringSet[] = [];
+  const push = (pick: (l: Lang) => string | undefined) => {
+    const set = {} as StringSet;
+    for (const { key } of LANGS) {
+      const value = pick(key);
+      if (!value) return;
+      set[key] = value;
+    }
+    sets.push(set);
+  };
+
+  for (const kind of Object.keys(KIND_TEXT.ja)) {
+    push((l) => KIND_TEXT[l][kind]?.label);
+    push((l) => KIND_TEXT[l][kind]?.supporting);
+  }
+  for (const list of [SIDEBAR_ITEMS, MENU_ITEMS, LIST_ROWS] as Record<Lang, { label: string }[]>[])
+    for (let i = 0; i < list.ja.length; i++) push((l) => list[l][i]?.label);
+  for (let i = 0; i < TABLE_COLUMNS.ja.length; i++) push((l) => TABLE_COLUMNS[l][i]?.label);
+  /* a tree row carries its depth as leading spaces, so both forms are indexed */
+  for (let i = 0; i < TREE_NODES.ja.length; i++) {
+    push((l) => TREE_NODES[l][i]?.label);
+    push((l) => {
+      const node = TREE_NODES[l][i];
+      return node && `${"  ".repeat(node.depth)}${node.label}`;
+    });
+  }
+  for (const rows of [TAB_LABELS, TABLE_ROWS, BREADCRUMB_TRAIL])
+    for (let i = 0; i < rows.ja.length; i++) push((l) => rows[l][i]);
+  /* interface strings that end up stored as document content */
+  for (const key of ["home", "screenN", "deleteVerb", "label"] as UIKey[]) push((l) => t(key, l));
+  return sets;
+}
+
+/** A default in any language mapped to its translations, or null where two
+ *  different defaults share a spelling and picking one would be a guess. */
+const TRANSLATIONS: Map<string, StringSet | null> = (() => {
+  const map = new Map<string, StringSet | null>();
+  for (const set of defaultStringSets())
+    for (const { key } of LANGS) {
+      const from = set[key];
+      const seen = map.get(from);
+      if (seen === undefined) map.set(from, set);
+      else if (seen && LANGS.some(({ key: other }) => seen[other] !== set[other])) map.set(from, null);
+    }
+  return map;
+})();
+
+/** `text` in `to` when it is one of the built-in defaults, and `text` itself
+ *  otherwise — because then the author wrote it. */
+export function translateDefault(text: string, to: Lang): string {
+  const hit = TRANSLATIONS.get(text);
+  return hit ? hit[to] : text;
+}
+
+/** A window's name is either the starter name or "<Window> <n>", so the number
+ *  is kept while the word around it moves. */
+export function translateFrameName(name: string, to: Lang): string {
+  const direct = TRANSLATIONS.get(name);
+  if (direct) return direct[to];
+  for (const { key } of LANGS) {
+    const prefix = t("screenN", key);
+    if (name.startsWith(`${prefix} `)) return `${t("screenN", to)} ${name.slice(prefix.length + 1)}`;
+  }
+  return name;
+}

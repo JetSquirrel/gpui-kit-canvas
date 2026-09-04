@@ -1,25 +1,26 @@
 name: Part request
-description: Ask for a Material 3 component that the parts panel does not have yet
+description: Ask for a gpui-kit component that the parts panel does not have yet
 labels: ["part request"]
 body:
   - type: input
     id: name
     attributes:
       label: Component
-      description: The Material name, with a link to its page on m3.material.io if you have it.
-      placeholder: Date picker — https://m3.material.io/components/date-pickers
+      description: The gpui-kit component, with its import path or a link to its doc page.
+      placeholder: DatePicker — gpui_kit::component::date_picker::{DatePicker, DatePickerState}
     validations:
       required: true
   - type: textarea
     id: why
     attributes:
       label: What you would use it for
-      description: The kind of screen where you miss it. This helps decide which variants matter.
+      description: The kind of window where you miss it. This helps decide which variants matter.
     validations:
       required: true
   - type: checkboxes
-    id: expressive
+    id: exists
     attributes:
-      label: Material 3 Expressive
+      label: Before you file
       options:
-        - label: This part is new or changed in Material 3 Expressive
+        - label: I checked that this component exists in gpui-kit today (source or gpui-kit.com/docs/components)
+          required: true
