@@ -47,7 +47,7 @@ const APART_GAP_X = JOIN_GAP_X + 8;
 const APART_GAP_Y = JOIN_GAP_Y + 8;
 
 /** kinds that read as rows of one list, so they stack on the tighter gap */
-const LIST_KINDS = new Set<Kind>(["input", "select", "checkbox", "radio", "switch", "slider", "label", "divider", "tag"]);
+const LIST_KINDS = new Set<Kind>(["input", "select", "checkbox", "radio", "switch", "slider", "label", "separator", "tag"]);
 
 /** one movable unit: a group plus everything nested inside or overlapping it */
 type Unit = { ids: string[]; bb: Rect; kind: Kind; side?: string; probe: Item };
@@ -198,7 +198,7 @@ function gapBefore(prev: Unit[] | null, row: Unit[]): number {
   const pk = prev.length === 1 ? prev[0].kind : null;
   const k = row.length === 1 ? row[0].kind : null;
   if (pk === "text" || pk === "label") return TIGHT_GAP;
-  if (pk === "divider" || k === "divider") return TIGHT_GAP;
+  if (pk === "separator" || k === "separator") return TIGHT_GAP;
   if (pk && k && pk === k && LIST_KINDS.has(k)) return TIGHT_GAP;
   return ROW_GAP;
 }

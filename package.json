@@ -10,7 +10,8 @@
     "gen:themes": "node script/gen-kit-themes.mjs",
     "gen:icons": "node script/gen-kit-icons.mjs",
     "deploy": "wrangler deploy",
-    "preview": "wrangler dev"
+    "preview": "wrangler dev",
+    "check:api": "node script/check-kit-api.mjs"
   },
   "dependencies": {
     "html-to-image": "^1.11.13",

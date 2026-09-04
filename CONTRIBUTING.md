@@ -38,7 +38,7 @@ is stored in the browser.
 | Radius / type / density / motion panels | `components/ThemePanel.tsx` |
 | The editor itself | `app/page.tsx` |
 | Generated from gpui-kit — do not edit by hand | `lib/kit-themes.gen.ts`, `lib/kit-icons.gen.ts` |
-| The generators | `script/gen-kit-themes.mjs`, `script/gen-kit-icons.mjs` |
+| The generators and the API check | `script/gen-kit-themes.mjs`, `script/gen-kit-icons.mjs`, `script/check-kit-api.mjs` |
 
 The two generated files are the project's only source of gpui-kit facts. Regenerate
 them from a checkout rather than editing them:
@@ -46,6 +46,7 @@ them from a checkout rather than editing them:
 ```bash
 npm run gen:themes -- ../gpui-kit
 npm run gen:icons  -- ../gpui-kit
+npm run check:api  -- ../gpui-kit   # every component path, checked against the source
 ```
 
 ### Adding a part
@@ -60,9 +61,10 @@ A new kind touches all of these; the existing kinds are the reference:
 5. Any special editor in `components/Inspector.tsx`; click targets in `components/Preview.tsx` if it is clickable
 
 A part must name a component that actually exists. Put its import path in
-`KindSpec.api` (that string goes straight into the prompt), and check the
-signature against the gpui-kit source or `https://gpui-kit.com/docs/components/{name}.md`
-before you write it down.
+`KindSpec.api` — that string goes straight into the prompt — and run
+`npm run check:api` before you finish: it reads every path back out of the Rust
+source and fails on anything that is not there. The skill's component table is
+not enough on its own; it lists a couple of types the source does not have.
 
 ## Conventions
 
@@ -79,7 +81,7 @@ before you write it down.
 ## Pull requests
 
 - Branch from `main` in your fork.
-- Run `npm run typecheck` and `npm run build`; CI runs the same two on every PR.
+- Run `npm run typecheck`, `npm run build` and `npm run check:api`; CI runs the same on every PR.
 - Fill in the PR template: what changed, why, and how you checked it. Screenshots
   help for anything visual.
 - By contributing you agree that your changes are licensed under the project's

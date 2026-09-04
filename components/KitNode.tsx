@@ -6,8 +6,12 @@ import {
   Item,
   Kind,
   KIND_SPEC,
+  ACCORDION_ROW_H,
+  DESCRIPTION_ROW_H,
   LIST_ROW_H,
   MENU_ROW_H,
+  SETTING_ROW_H,
+  STEP_DOT,
   MEASURED,
   Palette,
   Radii,
@@ -89,13 +93,21 @@ const NO_BOX: Kind[] = [
   "slider",
   "text",
   "label",
-  "divider",
+  "separator",
   "breadcrumb",
   "toolbar",
   "spinner",
   "progress",
   "icon",
   "buttonGroup",
+  "rating",
+  "link",
+  "shimmer",
+  "stepper",
+  "pagination",
+  "form",
+  "scrollbar",
+  "chart",
 ];
 
 /** the colour a semantic variant carries, for an Alert or a Notification icon */
@@ -318,6 +330,20 @@ export function MeasuredContent({ item, p }: { item: Item; p: Palette }) {
       return <BreadcrumbContent item={item} p={p} />;
     case "buttonGroup":
       return <ButtonGroupContent item={item} p={p} />;
+    case "kbd":
+      return <KbdContent item={item} />;
+    case "link":
+      return <LinkContent item={item} p={p} />;
+    case "marker":
+      return <MarkerContent item={item} p={p} />;
+    case "shimmer":
+      return <ShimmerContent item={item} p={p} />;
+    case "tooltip":
+      return <TooltipContent item={item} />;
+    case "rating":
+      return <RatingBody item={item} p={p} />;
+    case "clipboard":
+      return <ClipboardContent item={item} p={p} />;
     default:
       return null;
   }
@@ -953,6 +979,13 @@ function Body({ item, p }: { item: Item; p: Palette }) {
     case "tag":
     case "breadcrumb":
     case "buttonGroup":
+    case "kbd":
+    case "link":
+    case "marker":
+    case "shimmer":
+    case "tooltip":
+    case "rating":
+    case "clipboard":
       return <MeasuredContent item={item} p={p} />;
     case "titleBar":
       return <TitleBarBody item={item} p={p} />;
@@ -1016,8 +1049,50 @@ function Body({ item, p }: { item: Item; p: Palette }) {
       return <SpinnerBody item={item} p={p} />;
     case "skeleton":
       return <SkeletonBody p={p} />;
+    case "combobox":
+      return <FieldBox item={item} p={p} prefix={item.icon ?? undefined} trailing="chevrons-up-down" />;
+    case "colorPicker":
+      return <FieldBox item={item} p={p} trailing="chevron-down" swatch />;
+    case "datePicker":
+      return <FieldBox item={item} p={p} prefix="calendar" trailing="chevron-down" />;
+    case "calendar":
+      return <CalendarBody item={item} p={p} />;
+    case "form":
+      return <FormBody item={item} p={p} />;
+    case "settings":
+      return <SettingsBody item={item} p={p} />;
+    case "avatar":
+      return <AvatarBody item={item} p={p} />;
+    case "descriptionList":
+      return <DescriptionListBody item={item} p={p} />;
+    case "accordion":
+      return <AccordionBody item={item} p={p} />;
+    case "collapsible":
+      return <CollapsibleBody item={item} p={p} />;
+    case "pagination":
+      return <PaginationBody item={item} p={p} />;
+    case "stepper":
+      return <StepperBody item={item} p={p} />;
+    case "dock":
+      return <DockBody item={item} p={p} />;
+    case "scrollbar":
+      return <ScrollbarBody item={item} p={p} />;
+    case "hoverCard":
+      return <HoverCardBody item={item} p={p} />;
+    case "command":
+      return <CommandBody item={item} p={p} />;
+    case "chart":
+      return <ChartBody item={item} p={p} />;
+    case "message":
+      return <MessageBody item={item} p={p} />;
+    case "bubble":
+      return <BubbleBody item={item} />;
+    case "attachment":
+      return <AttachmentBody item={item} p={p} />;
+    case "messageScroller":
+      return <MessageScrollerBody item={item} p={p} />;
     case "panel":
-    case "divider":
+    case "separator":
       return null;
   }
 }
@@ -1059,12 +1134,42 @@ function boxStyle(item: Item, p: Palette): React.CSSProperties {
       /* the field paints its own frame so its help text can sit outside it */
       return { background: "transparent", border: "none" };
     case "select":
+    case "combobox":
+    case "colorPicker":
+    case "datePicker":
       return {
         background: p.background,
         border: `1px solid ${p.input}`,
         color: p.foreground,
         opacity: item.disabled ? 0.5 : 1,
       };
+    case "calendar":
+    case "hoverCard":
+    case "command":
+      return { background: p.popover, border: `1px solid ${p.border}`, color: p.popoverForeground };
+    case "settings":
+    case "descriptionList":
+    case "accordion":
+    case "collapsible":
+    case "dock":
+    case "attachment":
+    case "messageScroller":
+      return { background: p.background, border: `1px solid ${p.border}`, color: p.foreground };
+    case "avatar":
+      return { background: p.muted, border: "none", color: p.mutedForeground };
+    case "kbd":
+      return { background: p.muted, border: `1px solid ${p.border}`, color: p.foreground };
+    case "clipboard":
+      return { background: p.background, border: `1px solid ${p.border}`, color: p.foreground };
+    case "marker":
+      return { background: p.muted, border: "none", color: p.foreground };
+    case "tooltip":
+      /* a tooltip inverts the surface, the way gpui-kit draws it */
+      return { background: p.foreground, border: "none", color: p.background };
+    case "bubble":
+      return variantStyle(item.variant, p);
+    case "message":
+      return { background: "transparent", border: "none", color: p.foreground };
     case "tabs":
       return { background: p.tabBar, border: "none", color: p.tabForeground };
     case "list":
@@ -1085,7 +1190,7 @@ function boxStyle(item: Item, p: Palette): React.CSSProperties {
       return { background: p.muted, border: `1px solid ${p.border}` };
     case "skeleton":
       return { background: "transparent", border: "none" };
-    case "divider":
+    case "separator":
       return { background: p.border, border: "none" };
     default:
       return { background: p.background, border: `1px solid ${p.border}`, color: p.foreground };
@@ -1106,7 +1211,12 @@ function shadowOf(item: Item, shadow: boolean): string {
     case "menu":
     case "popover":
     case "notification":
+    case "hoverCard":
+    case "tooltip":
       return "0 4px 16px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.08)";
+    case "command":
+    case "calendar":
+      return "0 10px 32px rgba(0,0,0,0.16), 0 2px 8px rgba(0,0,0,0.08)";
     default:
       return "none";
   }
@@ -1225,6 +1335,570 @@ export function KitStatic({
       }}
     >
       <Body item={item} p={palette} />
+    </div>
+  );
+}
+
+/* ---------- inputs, continued ---------- */
+
+/** the boxed single-line controls: a value, an optional prefix, a trailing glyph */
+function FieldBox({
+  item,
+  p,
+  prefix,
+  trailing,
+  swatch,
+}: {
+  item: Item;
+  p: Palette;
+  prefix?: string;
+  trailing?: string;
+  swatch?: boolean;
+}) {
+  return (
+    <div style={{ ...row(6), height: "100%", padding: "0 8px", fontSize: 14, color: p.foreground, opacity: item.disabled ? 0.5 : 1 }}>
+      {swatch && (
+        <span
+          style={{
+            width: 16,
+            height: 16,
+            borderRadius: 4,
+            flex: "0 0 auto",
+            background: /^#[0-9a-f]{3,8}$/i.test(item.label.trim()) ? item.label.trim() : p.primary,
+            boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.14)",
+          }}
+        />
+      )}
+      {prefix && <Icon name={prefix} size={14} color={p.mutedForeground} />}
+      <span style={{ ...ellipsis, flex: 1 }}>{item.label}</span>
+      {trailing && <Icon name={trailing} size={14} color={p.mutedForeground} />}
+    </div>
+  );
+}
+
+/** A month grid. `value` is the day of the month that reads as selected. */
+function CalendarBody({ item, p }: { item: Item; p: Palette }) {
+  const selected = item.value ?? 0;
+  const days = Array.from({ length: 35 }, (_, i) => i - 2);
+  return (
+    <div style={{ ...col(6), height: "100%", padding: 10 }}>
+      <div style={{ ...row(8) }}>
+        <Icon name="chevron-left" size={14} color={p.mutedForeground} />
+        <span style={{ flex: 1, textAlign: "center", fontSize: 13, fontWeight: 600, color: p.foreground, ...ellipsis }}>
+          {item.label}
+        </span>
+        <Icon name="chevron-right" size={14} color={p.mutedForeground} />
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
+        {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+          <span key={i} style={{ textAlign: "center", fontSize: 10, color: p.mutedForeground }}>
+            {d}
+          </span>
+        ))}
+        {days.map((d) => {
+          const inMonth = d >= 1 && d <= 30;
+          const on = d === selected;
+          return (
+            <span
+              key={d}
+              style={{
+                height: 26,
+                display: "grid",
+                placeItems: "center",
+                fontSize: 12,
+                borderRadius: 4,
+                background: on ? p.primary : "transparent",
+                color: on ? p.primaryForeground : inMonth ? p.foreground : p.mutedForeground,
+                opacity: inMonth ? 1 : 0.45,
+              }}
+            >
+              {inMonth ? d : d < 1 ? 30 + d : d - 30}
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** A stack of labelled fields, which is what v_form + field compose. */
+function FormBody({ item, p }: { item: Item; p: Palette }) {
+  return (
+    <div style={{ ...col(12), width: "100%" }}>
+      {(item.tabs ?? []).map((field, i) => (
+        <div key={i} style={{ ...col(4) }}>
+          <span style={{ fontSize: 12, fontWeight: 500, color: p.foreground, ...ellipsis }}>{field.label}</span>
+          <span
+            style={{
+              height: H,
+              borderRadius: 6,
+              border: `1px solid ${p.input}`,
+              background: p.background,
+              boxSizing: "border-box",
+            }}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RatingBody({ item, p }: { item: Item; p: Palette }) {
+  const filled = Math.round(item.value ?? 0);
+  return (
+    <span style={{ ...row(2), height: 20, opacity: item.disabled ? 0.5 : 1 }}>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <Icon key={i} name={i < filled ? "star-fill" : "star"} size={16} color={i < filled ? p.warning : p.mutedForeground} />
+      ))}
+    </span>
+  );
+}
+
+/** A settings page: a group title, then one row per setting with its control. */
+function SettingsBody({ item, p }: { item: Item; p: Palette }) {
+  return (
+    <div style={{ ...col(0), height: "100%", padding: "8px 12px" }}>
+      <span style={{ fontSize: 12, fontWeight: 600, color: p.mutedForeground, height: 20, ...ellipsis }}>{item.label}</span>
+      {(item.tabs ?? []).map((setting, i) => (
+        <div key={i} style={{ ...row(8), height: SETTING_ROW_H, borderTop: i === 0 ? "none" : `1px solid ${p.border}` }}>
+          <span style={{ flex: 1, fontSize: 14, color: p.foreground, ...ellipsis }}>{setting.label}</span>
+          <span style={{ width: 36, height: 20, borderRadius: 10, background: i === 0 ? p.primary : p.switchBg, position: "relative", flex: "0 0 auto" }}>
+            <span
+              style={{
+                position: "absolute",
+                top: 2,
+                left: i === 0 ? 18 : 2,
+                width: 16,
+                height: 16,
+                borderRadius: 8,
+                background: p.switchThumb,
+              }}
+            />
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ---------- content, continued ---------- */
+
+function AvatarBody({ item, p }: { item: Item; p: Palette }) {
+  const initials = item.label.trim().slice(0, 2).toUpperCase();
+  return (
+    <div style={{ display: "grid", placeItems: "center", height: "100%", fontSize: Math.round((item.size ?? 32) * 0.4), fontWeight: 600 }}>
+      {initials || <Icon name="circle-user" size={Math.round((item.size ?? 32) * 0.6)} color={p.mutedForeground} />}
+    </div>
+  );
+}
+
+function KbdContent({ item }: { item: Item }) {
+  return (
+    <span style={{ padding: "0 6px", fontSize: 11, fontFamily: "ui-monospace, monospace", lineHeight: 1, whiteSpace: "nowrap" }}>
+      {item.label}
+    </span>
+  );
+}
+
+function LinkContent({ item, p }: { item: Item; p: Palette }) {
+  return (
+    <span style={{ ...row(4), height: 20, fontSize: 14, color: p.link, textDecoration: "underline", whiteSpace: "nowrap" }}>
+      {item.label}
+      <Icon name="external-link" size={12} />
+    </span>
+  );
+}
+
+function MarkerContent({ item, p }: { item: Item; p: Palette }) {
+  const tint = statusColor(item, p);
+  return (
+    <span style={{ ...row(6), height: 20, padding: "0 8px", fontSize: 12, whiteSpace: "nowrap", color: p.foreground }}>
+      <span style={{ width: 6, height: 6, borderRadius: 3, background: tint, flex: "0 0 auto" }} />
+      {item.label}
+    </span>
+  );
+}
+
+function ClipboardContent({ item, p }: { item: Item; p: Palette }) {
+  return (
+    <span style={{ ...row(8), height: "100%", padding: "0 8px", fontSize: 13, fontFamily: "ui-monospace, monospace", whiteSpace: "nowrap" }}>
+      <span>{item.label}</span>
+      <Icon name="copy" size={14} color={p.mutedForeground} />
+    </span>
+  );
+}
+
+function ShimmerContent({ item, p }: { item: Item; p: Palette }) {
+  return (
+    <span className="kit-shimmer" style={{ fontSize: 14, color: p.mutedForeground, whiteSpace: "nowrap", lineHeight: 1.4 }}>
+      {item.label}
+    </span>
+  );
+}
+
+/** Key / value rows; each entry carries both, joined by ROW_SEP. */
+function DescriptionListBody({ item, p }: { item: Item; p: Palette }) {
+  return (
+    <div style={{ ...col(0), padding: 4 }}>
+      {(item.tabs ?? []).map((entry, i) => {
+        const [key, value = ""] = entry.label.split(ROW_SEP);
+        return (
+          <div key={i} style={{ ...row(8), height: DESCRIPTION_ROW_H, padding: "0 8px", fontSize: 14 }}>
+            <span style={{ width: "40%", color: p.mutedForeground, ...ellipsis }}>{key}</span>
+            <span style={{ flex: 1, color: p.foreground, ...ellipsis }}>{value}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ---------- containment and navigation, continued ---------- */
+
+function AccordionBody({ item, p }: { item: Item; p: Palette }) {
+  const open = item.value ?? -1;
+  return (
+    <div style={{ ...col(0), width: "100%" }}>
+      {(item.tabs ?? []).map((section, i) => (
+        <div key={i} style={{ ...col(0) }}>
+          <div
+            style={{
+              ...row(8),
+              height: ACCORDION_ROW_H,
+              padding: "0 12px",
+              borderTop: i === 0 ? "none" : `1px solid ${p.border}`,
+              fontSize: 14,
+              fontWeight: 500,
+              color: p.foreground,
+            }}
+          >
+            <span style={{ flex: 1, ...ellipsis }}>{section.label}</span>
+            <Icon name={i === open ? "chevron-down" : "chevron-right"} size={14} color={p.mutedForeground} />
+          </div>
+          {i === open && (
+            <div style={{ height: 44, padding: "0 12px", borderTop: `1px solid ${p.border}`, background: p.muted }} />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CollapsibleBody({ item, p }: { item: Item; p: Palette }) {
+  const open = !!item.checked;
+  return (
+    <div style={{ ...col(0), width: "100%" }}>
+      <div style={{ ...row(8), height: H, padding: "0 12px", fontSize: 14, fontWeight: 500, color: p.foreground }}>
+        <Icon name={open ? "chevron-down" : "chevron-right"} size={14} color={p.mutedForeground} />
+        <span style={{ flex: 1, ...ellipsis }}>{item.label}</span>
+      </div>
+      {open && item.supporting?.trim() && (
+        <div style={{ padding: "0 12px 8px 30px", fontSize: 12, color: p.mutedForeground, ...ellipsis }}>{item.supporting}</div>
+      )}
+    </div>
+  );
+}
+
+function PaginationBody({ item, p }: { item: Item; p: Palette }) {
+  const page = item.value ?? 1;
+  const pages = [1, 2, 3, 4, 5];
+  const cell = (content: React.ReactNode, on = false) => (
+    <span
+      style={{
+        minWidth: H,
+        height: H,
+        padding: "0 8px",
+        display: "grid",
+        placeItems: "center",
+        borderRadius: 6,
+        border: `1px solid ${on ? p.primary : p.border}`,
+        background: on ? p.primary : p.background,
+        color: on ? p.primaryForeground : p.foreground,
+        fontSize: 13,
+        boxSizing: "border-box",
+      }}
+    >
+      {content}
+    </span>
+  );
+  return (
+    <div style={{ ...row(4), height: "100%" }}>
+      {cell(<Icon name="chevron-left" size={14} />)}
+      {pages.map((n) => (
+        <span key={n}>{cell(n, n === page)}</span>
+      ))}
+      {cell(<Icon name="chevron-right" size={14} />)}
+    </div>
+  );
+}
+
+/** Dots joined by a track; everything before `value` reads as done. */
+function StepperBody({ item, p }: { item: Item; p: Palette }) {
+  const steps = item.tabs ?? [];
+  const at = item.value ?? 0;
+  return (
+    <div style={{ ...row(0), height: "100%", width: "100%" }}>
+      {steps.map((step, i) => {
+        const done = i < at;
+        const current = i === at;
+        return (
+          <div key={i} style={{ ...row(0), flex: i === steps.length - 1 ? "0 0 auto" : 1, minWidth: 0 }}>
+            <span style={{ ...col(4), alignItems: "center", flex: "0 0 auto" }}>
+              <span
+                style={{
+                  width: STEP_DOT,
+                  height: STEP_DOT,
+                  borderRadius: STEP_DOT / 2,
+                  display: "grid",
+                  placeItems: "center",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  background: done || current ? p.primary : p.secondary,
+                  color: done || current ? p.primaryForeground : p.mutedForeground,
+                }}
+              >
+                {done ? <Icon name="check" size={12} strokeWidth={3} /> : i + 1}
+              </span>
+              <span style={{ fontSize: 11, color: current ? p.foreground : p.mutedForeground, whiteSpace: "nowrap" }}>
+                {step.label}
+              </span>
+            </span>
+            {i < steps.length - 1 && (
+              <span style={{ flex: 1, height: 2, margin: "0 6px", marginBottom: 18, background: done ? p.primary : p.border }} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** A dock area: a tab strip over one panel body. */
+function DockBody({ item, p }: { item: Item; p: Palette }) {
+  const panels = item.tabs ?? [];
+  const active = item.value ?? 0;
+  return (
+    <div style={{ ...col(0), height: "100%" }}>
+      <div style={{ ...row(0), height: H, flex: "0 0 auto", background: p.tabBar, borderBottom: `1px solid ${p.border}` }}>
+        {panels.map((panel, i) => (
+          <span
+            key={i}
+            style={{
+              ...row(6),
+              height: "100%",
+              padding: "0 12px",
+              fontSize: 13,
+              background: i === active ? p.tabActive : "transparent",
+              color: i === active ? p.tabActiveForeground : p.tabForeground,
+              boxShadow: i === active ? `inset 0 -2px 0 0 ${p.primary}` : "none",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {panel.label}
+            <Icon name="close" size={11} color={p.mutedForeground} />
+          </span>
+        ))}
+      </div>
+      <div style={{ flex: 1, background: p.background }} />
+    </div>
+  );
+}
+
+/** A scroll track with its thumb; `value` is where the thumb sits. */
+function ScrollbarBody({ item, p }: { item: Item; p: Palette }) {
+  const at = Math.min(100, Math.max(0, item.value ?? 0));
+  return (
+    <div style={{ position: "relative", width: 8, height: "100%", borderRadius: 4, background: p.muted }}>
+      <span
+        style={{
+          position: "absolute",
+          left: 1,
+          width: 6,
+          height: "35%",
+          top: `${at * 0.65}%`,
+          borderRadius: 3,
+          background: p.scrollbarThumb,
+        }}
+      />
+    </div>
+  );
+}
+
+/* ---------- overlays, continued ---------- */
+
+function TooltipContent({ item }: { item: Item }) {
+  return (
+    <span style={{ padding: "0 8px", height: 24, display: "inline-flex", alignItems: "center", fontSize: 12, whiteSpace: "nowrap" }}>
+      {item.label}
+    </span>
+  );
+}
+
+function HoverCardBody({ item, p }: { item: Item; p: Palette }) {
+  return (
+    <div style={{ ...row(12), height: "100%", padding: "0 12px" }}>
+      {item.icon && <Icon name={item.icon} size={28} color={p.mutedForeground} />}
+      <div style={{ ...col(4), flex: 1 }}>
+        <span style={{ fontSize: 14, fontWeight: 600, color: p.popoverForeground, ...ellipsis }}>{item.label}</span>
+        {item.supporting?.trim() && (
+          <span style={{ fontSize: 12, color: p.mutedForeground, ...ellipsis }}>{item.supporting}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** A command palette: its own search row, then the matching entries. */
+function CommandBody({ item, p }: { item: Item; p: Palette }) {
+  const selected = item.value ?? 0;
+  return (
+    <div style={{ ...col(0), height: "100%" }}>
+      <div style={{ ...row(8), height: 40, flex: "0 0 auto", padding: "0 12px", borderBottom: `1px solid ${p.border}` }}>
+        <Icon name="search" size={14} color={p.mutedForeground} />
+        <span style={{ flex: 1, fontSize: 14, color: p.mutedForeground, ...ellipsis }}>{item.label}</span>
+      </div>
+      <div style={{ ...col(0), padding: 4 }}>
+        {(item.tabs ?? []).map((entry, i) => (
+          <div
+            key={i}
+            style={{
+              ...row(8),
+              height: MENU_ROW_H,
+              padding: "0 8px",
+              borderRadius: 4,
+              fontSize: 14,
+              background: i === selected ? p.accent : "transparent",
+              color: i === selected ? p.accentForeground : p.popoverForeground,
+            }}
+          >
+            {entry.icon && <Icon name={entry.icon} size={14} color={p.mutedForeground} />}
+            <span style={{ flex: 1, ...ellipsis }}>{entry.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- data, continued ---------- */
+
+/** Bars, or a pie when the part is set to a circle. Series take chart.1 upward. */
+function ChartBody({ item, p }: { item: Item; p: Palette }) {
+  const series = item.tabs ?? [];
+  const tints = [p.chart1, p.chart2, p.chart3, p.chart4, p.chart5];
+  const values = series.map((_, i) => 0.35 + ((i * 37) % 60) / 100);
+  const caption = item.label.trim();
+  if (item.circle) {
+    const total = values.reduce((sum, v) => sum + v, 0) || 1;
+    let start = -90;
+    const size = Math.min(item.size ?? 360, item.size2 ?? 220) - 32;
+    return (
+      <div style={{ ...col(8), height: "100%", padding: 12, alignItems: "center" }}>
+        {caption && <span style={{ fontSize: 12, color: p.mutedForeground, alignSelf: "flex-start", ...ellipsis }}>{caption}</span>}
+        <svg width={size} height={size} viewBox="0 0 100 100" style={{ display: "block" }}>
+          {values.map((v, i) => {
+            const sweep = (v / total) * 360;
+            const end = start + sweep;
+            const point = (angle: number) => [50 + 46 * Math.cos((angle * Math.PI) / 180), 50 + 46 * Math.sin((angle * Math.PI) / 180)];
+            const [x1, y1] = point(start);
+            const [x2, y2] = point(end);
+            const d = `M50 50 L${x1} ${y1} A46 46 0 ${sweep > 180 ? 1 : 0} 1 ${x2} ${y2} Z`;
+            start = end;
+            return <path key={i} d={d} fill={tints[i % tints.length]} />;
+          })}
+        </svg>
+      </div>
+    );
+  }
+  return (
+    <div style={{ ...col(8), height: "100%", padding: 12 }}>
+      {caption && <span style={{ fontSize: 12, color: p.mutedForeground, ...ellipsis }}>{caption}</span>}
+      <div style={{ ...row(8), flex: 1, minHeight: 0, alignItems: "stretch", borderBottom: `1px solid ${p.border}` }}>
+        {series.map((s, i) => (
+          /* the column is full height so the bar's percentage has something to
+           * resolve against, and the bar itself sits on the axis */
+          <span key={i} style={{ display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "center", flex: 1, minWidth: 0, height: "100%" }}>
+            <span style={{ width: "70%", height: `${values[i] * 100}%`, background: tints[i % tints.length], borderRadius: "3px 3px 0 0" }} />
+          </span>
+        ))}
+      </div>
+      <div style={{ ...row(8) }}>
+        {series.map((s, i) => (
+          <span key={i} style={{ flex: 1, textAlign: "center", fontSize: 10, color: p.mutedForeground, ...ellipsis }}>
+            {s.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- chat ---------- */
+
+function MessageBody({ item, p }: { item: Item; p: Palette }) {
+  const trailing = item.side === "right";
+  return (
+    <div style={{ ...row(12), height: "100%", padding: 12, flexDirection: trailing ? "row-reverse" : "row" }}>
+      {item.icon && (
+        <span style={{ width: 28, height: 28, borderRadius: 14, background: p.muted, display: "grid", placeItems: "center", flex: "0 0 auto" }}>
+          <Icon name={item.icon} size={16} color={p.mutedForeground} />
+        </span>
+      )}
+      <div style={{ ...col(4), flex: 1, alignItems: trailing ? "flex-end" : "flex-start" }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: p.foreground, ...ellipsis }}>{item.label}</span>
+        {item.supporting?.trim() && (
+          <span style={{ fontSize: 14, color: p.foreground, ...ellipsis, maxWidth: "100%" }}>{item.supporting}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function BubbleBody({ item }: { item: Item }) {
+  return (
+    <div style={{ ...row(0), height: "100%", padding: "0 12px", fontSize: 14 }}>
+      <span style={{ ...ellipsis }}>{item.label}</span>
+    </div>
+  );
+}
+
+function AttachmentBody({ item, p }: { item: Item; p: Palette }) {
+  return (
+    <div style={{ ...row(12), height: "100%", padding: "0 12px" }}>
+      {item.icon && <Icon name={item.icon} size={20} color={p.mutedForeground} />}
+      <div style={{ ...col(2), flex: 1 }}>
+        <span style={{ fontSize: 13, fontWeight: 500, color: p.foreground, ...ellipsis }}>{item.label}</span>
+        {item.supporting?.trim() && <span style={{ fontSize: 11, color: p.mutedForeground, ...ellipsis }}>{item.supporting}</span>}
+      </div>
+      <Icon name="arrow-down" size={14} color={p.mutedForeground} />
+    </div>
+  );
+}
+
+/** An auto-scrolling message list: rows alternating sides. */
+function MessageScrollerBody({ item, p }: { item: Item; p: Palette }) {
+  return (
+    <div style={{ ...col(8), height: "100%", padding: 12, overflow: "hidden" }}>
+      {(item.tabs ?? []).map((line, i) => {
+        const mine = i % 2 === 1;
+        return (
+          <span
+            key={i}
+            style={{
+              alignSelf: mine ? "flex-end" : "flex-start",
+              maxWidth: "76%",
+              padding: "6px 10px",
+              borderRadius: 8,
+              fontSize: 13,
+              background: mine ? p.primary : p.muted,
+              color: mine ? p.primaryForeground : p.foreground,
+              ...ellipsis,
+            }}
+          >
+            {line.label}
+          </span>
+        );
+      })}
     </div>
   );
 }

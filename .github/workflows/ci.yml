@@ -28,3 +28,24 @@ jobs:
       - run: npm run build
         env:
           NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
+
+  conformance:
+    name: components exist in gpui-kit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: longbridge/gpui-kit
+          path: gpui-kit
+          # only the current tree is needed, and only the crates the check reads
+          fetch-depth: 1
+          sparse-checkout: crates
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # A red build here means gpui-kit renamed or removed something the parts
+      # palette still claims, which would put an invented API into the prompt.
+      - run: npm run check:api -- ./gpui-kit

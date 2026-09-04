@@ -1,6 +1,9 @@
 import type { CSSProperties } from "react";
 import {
   BREADCRUMB_TRAIL,
+  CHART_SERIES,
+  DESCRIPTION_ITEMS,
+  FORM_FIELDS,
   KIND_TEXT,
   LIST_ROWS,
   MENU_ITEMS,
@@ -479,13 +482,41 @@ export type Kind =
   | "text"
   | "icon"
   | "image"
-  | "divider"
+  | "separator"
   | "badge"
   | "tag"
   | "alert"
   | "progress"
   | "spinner"
-  | "skeleton";
+  | "skeleton"
+  | "combobox"
+  | "colorPicker"
+  | "datePicker"
+  | "calendar"
+  | "form"
+  | "rating"
+  | "settings"
+  | "avatar"
+  | "kbd"
+  | "link"
+  | "marker"
+  | "clipboard"
+  | "shimmer"
+  | "descriptionList"
+  | "accordion"
+  | "collapsible"
+  | "pagination"
+  | "stepper"
+  | "dock"
+  | "scrollbar"
+  | "tooltip"
+  | "hoverCard"
+  | "command"
+  | "chart"
+  | "message"
+  | "bubble"
+  | "attachment"
+  | "messageScroller";
 
 export type Axis = "x" | "y";
 /** kinds that fuse into a run: buttons side by side inside one ButtonGroup */
@@ -494,7 +525,7 @@ export type ConnectSpec = { axis: Axis; outer: number; inner: number; family: st
 /** `presets` are quick picks shown as chips; values outside min..max are hidden */
 export type SizeSpec = { min: number; max: number; step: number; icon: string; presets?: number[] };
 
-export type Category = "shell" | "actions" | "inputs" | "containment" | "overlays" | "data" | "content" | "feedback";
+export type Category = "shell" | "actions" | "inputs" | "containment" | "overlays" | "data" | "content" | "feedback" | "chat";
 
 export const CATEGORIES: { key: Category; label: string; icon: string }[] = [
   { key: "shell", label: "Shell", icon: "layout-dashboard" },
@@ -505,6 +536,7 @@ export const CATEGORIES: { key: Category; label: string; icon: string }[] = [
   { key: "data", label: "Data", icon: "chart-pie" },
   { key: "content", label: "Content", icon: "file-text" },
   { key: "feedback", label: "Feedback", icon: "info" },
+  { key: "chat", label: "Chat", icon: "bot" },
 ];
 
 export type KindSpec = {
@@ -530,6 +562,8 @@ export type KindSpec = {
   size2?: SizeSpec;
   hasFill?: boolean;
   hasValue?: boolean;
+  /** the value is a count in this range, not the default 0..100 percentage */
+  valueSpec?: { min: number; max: number };
   hasCircle?: boolean;
   hasDisabled?: boolean;
   hasCollapsed?: boolean;
@@ -596,7 +630,7 @@ export const KIND_SPEC: Record<Kind, KindSpec> = {
   },
   toolbar: {
     label: "Toolbar",
-    api: "h_flex of ghost Buttons",
+    api: "h_flex() of ghost button::Button",
     category: "shell",
     paletteIcon: "settings-2",
     w: 0,
@@ -665,7 +699,7 @@ export const KIND_SPEC: Record<Kind, KindSpec> = {
   },
   iconButton: {
     label: "Icon Button",
-    api: "button::Button (icon only)",
+    api: "button::Button, icon only",
     category: "actions",
     paletteIcon: "ellipsis",
     w: H,
@@ -866,7 +900,7 @@ export const KIND_SPEC: Record<Kind, KindSpec> = {
   /* ---- containment ---- */
   panel: {
     label: "Panel",
-    api: "div() with a theme background",
+    api: "div() with a cx.theme() background",
     category: "containment",
     paletteIcon: "frame",
     w: CONTENT_W,
@@ -944,7 +978,7 @@ export const KIND_SPEC: Record<Kind, KindSpec> = {
   /* ---- overlays ---- */
   dialog: {
     label: "Dialog",
-    api: "dialog::Dialog via window.open_dialog",
+    api: "dialog::Dialog via window.open_dialog()",
     category: "overlays",
     paletteIcon: "square-terminal",
     w: 420,
@@ -963,7 +997,7 @@ export const KIND_SPEC: Record<Kind, KindSpec> = {
   },
   sheet: {
     label: "Sheet",
-    api: "sheet::Sheet via window.open_sheet",
+    api: "sheet::Sheet via window.open_sheet()",
     category: "overlays",
     paletteIcon: "panel-right-open",
     w: 380,
@@ -1001,7 +1035,7 @@ export const KIND_SPEC: Record<Kind, KindSpec> = {
   },
   notification: {
     label: "Notification",
-    api: "notification::Notification via window.push_notification",
+    api: "notification::Notification via window.push_notification()",
     category: "overlays",
     paletteIcon: "bell",
     w: 360,
@@ -1084,7 +1118,7 @@ export const KIND_SPEC: Record<Kind, KindSpec> = {
   /* ---- content ---- */
   text: {
     label: "Text",
-    api: "text::TextView / a styled div",
+    api: "text::TextView, or a styled div()",
     category: "content",
     paletteIcon: "a-large-small",
     w: 0,
@@ -1134,9 +1168,9 @@ export const KIND_SPEC: Record<Kind, KindSpec> = {
     defIcon: null,
     defSize: 200,
   },
-  divider: {
-    label: "Divider",
-    api: "divider::Divider",
+  separator: {
+    label: "Separator",
+    api: "separator::Separator",
     category: "content",
     paletteIcon: "dash",
     w: CONTENT_W,
@@ -1259,6 +1293,516 @@ export const KIND_SPEC: Record<Kind, KindSpec> = {
     defIcon: null,
     defSize: 200,
   },
+
+  /* ---- inputs, continued ---- */
+  combobox: {
+    label: "Combobox",
+    api: "combobox::{Combobox, ComboboxState}",
+    category: "inputs",
+    paletteIcon: "search",
+    w: 220,
+    h: H,
+    radius: R,
+    hasVariant: false,
+    hasLabel: true,
+    hasSupporting: false,
+    hasIcon: true,
+    hasTabs: true,
+    hasDisabled: true,
+    size: { min: 120, max: WINDOW_W, step: 4, icon: "maximize", presets: [180, 220, 280, HALF_W] },
+    defLabel: "Search or pick",
+    defIcon: "search",
+  },
+  colorPicker: {
+    label: "Color Picker",
+    api: "color_picker::ColorPicker",
+    category: "inputs",
+    paletteIcon: "palette",
+    w: 180,
+    h: H,
+    radius: R,
+    hasVariant: false,
+    hasLabel: true,
+    hasSupporting: false,
+    hasIcon: false,
+    hasDisabled: true,
+    size: { min: 120, max: 360, step: 4, icon: "maximize", presets: [140, 180, 240] },
+    defLabel: "#3b82f6",
+    defIcon: null,
+  },
+  datePicker: {
+    label: "Date Picker",
+    api: "date_picker::{DatePicker, DatePickerState}",
+    category: "inputs",
+    paletteIcon: "calendar",
+    w: 200,
+    h: H,
+    radius: R,
+    hasVariant: false,
+    hasLabel: true,
+    hasSupporting: false,
+    hasIcon: false,
+    hasDisabled: true,
+    size: { min: 140, max: 360, step: 4, icon: "maximize", presets: [180, 200, 260] },
+    defLabel: "2026-09-04",
+    defIcon: null,
+  },
+  calendar: {
+    label: "Calendar",
+    api: "calendar::Calendar",
+    category: "inputs",
+    paletteIcon: "calendar",
+    w: 280,
+    h: 260,
+    radius: R_LG,
+    hasVariant: false,
+    hasLabel: true,
+    hasSupporting: false,
+    hasIcon: false,
+    hasValue: true,
+    valueSpec: { min: 1, max: 30 },
+    size: { min: 240, max: 420, step: 4, icon: "maximize", presets: [260, 280, 320] },
+    defLabel: "September 2026",
+    defIcon: null,
+    defSize: 280,
+  },
+  form: {
+    label: "Form",
+    api: "form::{v_form, field}",
+    category: "inputs",
+    paletteIcon: "case-sensitive",
+    w: 360,
+    h: 0,
+    radius: R,
+    hasVariant: false,
+    hasLabel: false,
+    hasSupporting: false,
+    hasIcon: false,
+    hasTabs: true,
+    size: { min: 240, max: WINDOW_W, step: 4, icon: "maximize", presets: [320, 360, HALF_W, CONTENT_W] },
+    defLabel: "",
+    defIcon: null,
+    defSize: 360,
+  },
+  rating: {
+    label: "Rating",
+    api: "rating::Rating",
+    category: "inputs",
+    paletteIcon: "star",
+    w: 108,
+    h: 20,
+    radius: 0,
+    hasVariant: false,
+    hasLabel: false,
+    hasSupporting: false,
+    hasIcon: false,
+    hasValue: true,
+    hasDisabled: true,
+    valueSpec: { min: 0, max: 5 },
+    defLabel: "",
+    defIcon: null,
+  },
+  settings: {
+    label: "Settings",
+    api: "setting::{Settings, SettingGroup, SettingItem}",
+    category: "inputs",
+    paletteIcon: "settings",
+    w: 420,
+    h: 0,
+    radius: R,
+    hasVariant: false,
+    hasLabel: true,
+    hasSupporting: false,
+    hasIcon: false,
+    hasTabs: true,
+    size: { min: 280, max: WINDOW_W, step: 4, icon: "maximize", presets: [360, 420, CONTENT_W] },
+    defLabel: "General",
+    defIcon: null,
+    defSize: 420,
+  },
+
+  /* ---- content, continued ---- */
+  avatar: {
+    label: "Avatar",
+    api: "avatar::{Avatar, AvatarGroup}",
+    category: "content",
+    paletteIcon: "circle-user",
+    w: 32,
+    h: 32,
+    radius: R_FULL,
+    hasVariant: false,
+    hasLabel: true,
+    hasSupporting: false,
+    hasIcon: false,
+    size: { min: 20, max: 96, step: 2, icon: "maximize", presets: [24, 32, 40, 64] },
+    defLabel: "AB",
+    defIcon: null,
+    defSize: 32,
+  },
+  kbd: {
+    label: "Kbd",
+    api: "kbd::Kbd",
+    category: "content",
+    paletteIcon: "square-terminal",
+    w: 0,
+    h: 20,
+    radius: 4,
+    hasVariant: false,
+    hasLabel: true,
+    hasSupporting: false,
+    hasIcon: false,
+    defLabel: "cmd-s",
+    defIcon: null,
+  },
+  link: {
+    label: "Link",
+    api: "link::Link",
+    category: "content",
+    paletteIcon: "external-link",
+    w: 0,
+    h: 20,
+    radius: 0,
+    hasVariant: false,
+    hasLabel: true,
+    hasSupporting: true,
+    hasIcon: false,
+    defLabel: "gpui-kit.com",
+    defIcon: null,
+    defSupporting: "https://gpui-kit.com",
+  },
+  marker: {
+    label: "Marker",
+    api: "marker::{Marker, MarkerVariant}",
+    category: "content",
+    paletteIcon: "info",
+    w: 0,
+    h: 20,
+    radius: R_FULL,
+    hasVariant: true,
+    hasLabel: true,
+    hasSupporting: false,
+    hasIcon: false,
+    defLabel: "Running",
+    defIcon: null,
+    defVariant: "info",
+  },
+  clipboard: {
+    label: "Clipboard",
+    api: "clipboard::Clipboard",
+    category: "content",
+    paletteIcon: "copy",
+    w: 0,
+    h: H,
+    radius: R,
+    hasVariant: false,
+    hasLabel: true,
+    hasSupporting: false,
+    hasIcon: false,
+    defLabel: "npm run deploy",
+    defIcon: null,
+  },
+  shimmer: {
+    label: "Shimmer",
+    api: "shimmer::{ShimmerText, ShimmerStyle}",
+    category: "content",
+    paletteIcon: "a-large-small",
+    w: 0,
+    h: 20,
+    radius: 0,
+    hasVariant: false,
+    hasLabel: true,
+    hasSupporting: false,
+    hasIcon: false,
+    defLabel: "Thinking…",
+    defIcon: null,
+  },
+  descriptionList: {
+    label: "Description List",
+    api: "description_list::{DescriptionList, DescriptionItem}",
+    category: "content",
+    paletteIcon: "file-text",
+    w: 320,
+    h: 0,
+    radius: R,
+    hasVariant: false,
+    hasLabel: false,
+    hasSupporting: false,
+    hasIcon: false,
+    hasTabs: true,
+    size: { min: 200, max: WINDOW_W, step: 4, icon: "maximize", presets: [280, 320, HALF_W] },
+    defLabel: "",
+    defIcon: null,
+    defSize: 320,
+  },
+
+  /* ---- containment, continued ---- */
+  accordion: {
+    label: "Accordion",
+    api: "accordion::{Accordion, AccordionItem}",
+    category: "containment",
+    paletteIcon: "chevron-down",
+    w: 360,
+    h: 0,
+    radius: R,
+    hasVariant: false,
+    hasLabel: false,
+    hasSupporting: false,
+    hasIcon: false,
+    hasTabs: true,
+    hasValue: true,
+    size: { min: 240, max: WINDOW_W, step: 4, icon: "maximize", presets: [320, 360, HALF_W, CONTENT_W] },
+    defLabel: "",
+    defIcon: null,
+    defSize: 360,
+  },
+  collapsible: {
+    label: "Collapsible",
+    api: "collapsible::Collapsible",
+    category: "containment",
+    paletteIcon: "chevron-right",
+    w: 320,
+    h: 0,
+    radius: R,
+    hasVariant: false,
+    hasLabel: true,
+    hasSupporting: true,
+    hasIcon: false,
+    hasChecked: true,
+    size: { min: 200, max: WINDOW_W, step: 4, icon: "maximize", presets: [280, 320, HALF_W] },
+    defLabel: "Advanced",
+    defIcon: null,
+    defSupporting: "Two more options live in here.",
+    defSize: 320,
+  },
+  pagination: {
+    label: "Pagination",
+    api: "pagination::Pagination",
+    category: "containment",
+    paletteIcon: "ellipsis",
+    w: 240,
+    h: H,
+    radius: R,
+    hasVariant: false,
+    hasLabel: false,
+    hasSupporting: false,
+    hasIcon: false,
+    hasValue: true,
+    valueSpec: { min: 1, max: 9 },
+    size: { min: 160, max: 480, step: 4, icon: "maximize", presets: [200, 240, 320] },
+    defLabel: "",
+    defIcon: null,
+    defSize: 240,
+  },
+  stepper: {
+    label: "Stepper",
+    api: "stepper::{Stepper, StepperItem}",
+    category: "containment",
+    paletteIcon: "sort-ascending",
+    w: 420,
+    h: 40,
+    radius: 0,
+    hasVariant: false,
+    hasLabel: false,
+    hasSupporting: false,
+    hasIcon: false,
+    hasTabs: true,
+    hasValue: true,
+    size: { min: 240, max: WINDOW_W, step: 4, icon: "maximize", presets: [360, 420, CONTENT_W] },
+    defLabel: "",
+    defIcon: null,
+    defSize: 420,
+  },
+  dock: {
+    label: "Dock Area",
+    api: "dock::{DockArea, DockAreaState}",
+    category: "containment",
+    paletteIcon: "layout-dashboard",
+    w: CONTENT_W,
+    h: 280,
+    radius: R,
+    hasVariant: false,
+    hasLabel: false,
+    hasSupporting: false,
+    hasIcon: false,
+    hasTabs: true,
+    hasValue: true,
+    size: { min: 240, max: WINDOW_W, step: 4, icon: "maximize", presets: WIDTH_PRESETS },
+    size2: { min: 120, max: WINDOW_H, step: 4, icon: "panel-bottom", presets: HEIGHT_PRESETS },
+    defLabel: "",
+    defIcon: null,
+    defSize: CONTENT_W,
+  },
+  scrollbar: {
+    label: "Scrollbar",
+    api: "scroll::{Scrollbar, ScrollbarHandle}",
+    category: "containment",
+    paletteIcon: "panel-right",
+    w: 8,
+    h: 200,
+    radius: R_FULL,
+    hasVariant: false,
+    hasLabel: false,
+    hasSupporting: false,
+    hasIcon: false,
+    hasValue: true,
+    hasSide: true,
+    size2: { min: 60, max: WINDOW_H, step: 4, icon: "panel-bottom", presets: [160, 200, 320] },
+    defLabel: "",
+    defIcon: null,
+  },
+
+  /* ---- overlays, continued ---- */
+  tooltip: {
+    label: "Tooltip",
+    api: "tooltip::Tooltip",
+    category: "overlays",
+    paletteIcon: "info",
+    w: 0,
+    h: 24,
+    radius: R,
+    hasVariant: false,
+    hasLabel: true,
+    hasSupporting: false,
+    hasIcon: false,
+    defLabel: "Save the project",
+    defIcon: null,
+  },
+  hoverCard: {
+    label: "Hover Card",
+    api: "hover_card::HoverCard",
+    category: "overlays",
+    paletteIcon: "gallery-vertical-end",
+    w: 280,
+    h: 0,
+    radius: R_LG,
+    hasVariant: false,
+    hasLabel: true,
+    hasSupporting: true,
+    hasIcon: true,
+    size: { min: 200, max: 420, step: 4, icon: "maximize", presets: [240, 280, 320] },
+    defLabel: "Ada Lovelace",
+    defIcon: "circle-user",
+    defSupporting: "Joined in 1843 · 12 projects",
+    defSize: 280,
+  },
+  command: {
+    label: "Command",
+    api: "command::{Command, CommandState, CommandGroup}",
+    category: "overlays",
+    paletteIcon: "search",
+    w: 420,
+    h: 0,
+    radius: R_LG,
+    hasVariant: false,
+    hasLabel: true,
+    hasSupporting: false,
+    hasIcon: false,
+    hasTabs: true,
+    hasValue: true,
+    size: { min: 280, max: 640, step: 4, icon: "maximize", presets: [360, 420, 520] },
+    defLabel: "Type a command…",
+    defIcon: null,
+    defSize: 420,
+  },
+
+  /* ---- data, continued ---- */
+  chart: {
+    label: "Chart",
+    api: "chart::{BarChart, LineChart, AreaChart, PieChart}",
+    category: "data",
+    paletteIcon: "chart-pie",
+    w: 360,
+    h: 220,
+    radius: R,
+    hasVariant: false,
+    hasLabel: true,
+    hasSupporting: false,
+    hasIcon: false,
+    hasTabs: true,
+    hasCircle: true,
+    size: { min: 200, max: WINDOW_W, step: 4, icon: "maximize", presets: [320, 360, HALF_W, CONTENT_W] },
+    size2: { min: 120, max: 640, step: 4, icon: "panel-bottom", presets: [180, 220, 320] },
+    defLabel: "Builds per day",
+    defIcon: null,
+    defSize: 360,
+  },
+
+  /* ---- chat ---- */
+  message: {
+    label: "Message",
+    api: "message::{Message, MessageContent, MessageAlignment}",
+    category: "chat",
+    paletteIcon: "bot",
+    w: 420,
+    h: 0,
+    radius: R,
+    hasVariant: false,
+    hasLabel: true,
+    hasSupporting: true,
+    hasIcon: true,
+    hasSide: true,
+    size: { min: 240, max: WINDOW_W, step: 4, icon: "maximize", presets: [360, 420, HALF_W, CONTENT_W] },
+    defLabel: "Ada",
+    defIcon: "circle-user",
+    defSupporting: "The build finished in 42 seconds.",
+    defSize: 420,
+  },
+  bubble: {
+    label: "Bubble",
+    api: "bubble::{Bubble, BubbleContent, BubbleVariant}",
+    category: "chat",
+    paletteIcon: "inbox",
+    w: 0,
+    h: 0,
+    radius: R_LG,
+    hasVariant: true,
+    hasLabel: true,
+    hasSupporting: false,
+    hasIcon: false,
+    hasSide: true,
+    size: { min: 120, max: 520, step: 4, icon: "maximize", presets: [220, 300, 380] },
+    defLabel: "Can you rerun it on main?",
+    defIcon: null,
+    defSize: 300,
+    defVariant: "primary",
+  },
+  attachment: {
+    label: "Attachment",
+    api: "attachment::{Attachment, AttachmentContent}",
+    category: "chat",
+    paletteIcon: "file",
+    w: 280,
+    h: 56,
+    radius: R,
+    hasVariant: false,
+    hasLabel: true,
+    hasSupporting: true,
+    hasIcon: true,
+    size: { min: 200, max: 480, step: 4, icon: "maximize", presets: [240, 280, 360] },
+    defLabel: "build-log.txt",
+    defIcon: "file-text",
+    defSupporting: "18 KB",
+    defSize: 280,
+  },
+  messageScroller: {
+    label: "Message Scroller",
+    api: "message_scroller::{MessageScroller, MessageScrollerState}",
+    category: "chat",
+    paletteIcon: "gallery-vertical-end",
+    w: 420,
+    h: 240,
+    radius: R,
+    hasVariant: false,
+    hasLabel: false,
+    hasSupporting: false,
+    hasIcon: false,
+    hasTabs: true,
+    size: { min: 240, max: WINDOW_W, step: 4, icon: "maximize", presets: [360, 420, HALF_W] },
+    size2: { min: 120, max: WINDOW_H, step: 4, icon: "panel-bottom", presets: [200, 240, 360] },
+    defLabel: "",
+    defIcon: null,
+    defSize: 420,
+  },
 };
 
 export const KIND_ORDER: Kind[] = [
@@ -1293,13 +1837,41 @@ export const KIND_ORDER: Kind[] = [
   "text",
   "icon",
   "image",
-  "divider",
+  "separator",
   "badge",
   "tag",
   "alert",
   "progress",
   "spinner",
   "skeleton",
+  "combobox",
+  "colorPicker",
+  "datePicker",
+  "calendar",
+  "form",
+  "rating",
+  "settings",
+  "avatar",
+  "kbd",
+  "link",
+  "marker",
+  "clipboard",
+  "shimmer",
+  "descriptionList",
+  "accordion",
+  "collapsible",
+  "pagination",
+  "stepper",
+  "dock",
+  "scrollbar",
+  "tooltip",
+  "hoverCard",
+  "command",
+  "chart",
+  "message",
+  "bubble",
+  "attachment",
+  "messageScroller",
 ];
 
 /* ---------- window data ---------- */
@@ -1645,6 +2217,12 @@ export const defaultTabs = (): NavTab[] => SIDEBAR_ITEMS[getLang()].map((x) => (
 
 const TOOLBAR_ICONS = ["undo", "redo", "copy", "search", "settings-2", "ellipsis"];
 const BUTTON_GROUP_LABELS = ["Day", "Week", "Month"];
+/** a settings page's rows reuse the sidebar's own wording */
+const SETTING_ROWS: Record<string, string[]> = {
+  ja: ["通知", "自動保存", "テーマ"],
+  en: ["Notifications", "Autosave", "Theme"],
+  zh: ["通知", "自动保存", "主题"],
+};
 const SELECT_OPTIONS = ["Small", "Medium", "Large"];
 
 /** the entries a kind starts with, also used to fill in rows the author adds */
@@ -1667,6 +2245,24 @@ export function defaultTabsFor(kind: Kind): NavTab[] {
       return TABLE_ROWS[lang].map((label) => ({ icon: "", label }));
     case "buttonGroup":
       return BUTTON_GROUP_LABELS.map((label) => ({ icon: "", label }));
+    case "combobox":
+      return SELECT_OPTIONS.map((label) => ({ icon: "", label }));
+    case "form":
+      return FORM_FIELDS[lang].map((label) => ({ icon: "", label }));
+    case "settings":
+      return SETTING_ROWS[lang].map((label) => ({ icon: "", label }));
+    case "descriptionList":
+      return DESCRIPTION_ITEMS[lang].map((label) => ({ icon: "", label }));
+    case "accordion":
+    case "stepper":
+    case "dock":
+      return TAB_LABELS[lang].map((label) => ({ icon: "", label }));
+    case "command":
+      return MENU_ITEMS[lang].map((x) => ({ ...x }));
+    case "chart":
+      return CHART_SERIES[lang].map((label) => ({ icon: "", label }));
+    case "messageScroller":
+      return LIST_ROWS[lang].map((x) => ({ icon: "", label: x.label }));
     case "select":
       return SELECT_OPTIONS.map((label) => ({ icon: "", label }));
     case "radio":
@@ -1703,7 +2299,8 @@ export function makeItem(kind: Kind): Item {
   if (s.hasColumns) it.columns = defaultColumnsFor(kind);
   if (s.hasControls) it.controls = "mac";
   if (kind === "dialog") it.confirm = t("deleteVerb");
-  if (s.hasSide) it.side = kind === "sheet" ? "right" : "left";
+  if (s.hasSide)
+    it.side = kind === "sheet" || kind === "scrollbar" || kind === "bubble" ? "right" : "left";
   switch (kind) {
     case "panel":
       it.size2 = 200;
@@ -1738,7 +2335,29 @@ export function makeItem(kind: Kind): Item {
       break;
     case "tabs":
     case "radio":
+    case "accordion":
+    case "stepper":
+    case "dock":
+    case "command":
       it.value = 0;
+      break;
+    case "rating":
+    case "calendar":
+      it.value = 4;
+      break;
+    case "pagination":
+      it.value = 1;
+      break;
+    case "scrollbar":
+      it.value = 20;
+      it.size2 = 200;
+      break;
+    case "chart":
+      it.value = 0;
+      it.size2 = 220;
+      break;
+    case "messageScroller":
+      it.size2 = 240;
       break;
     case "list":
       it.value = 0;
@@ -1762,7 +2381,30 @@ export function makeItem(kind: Kind): Item {
 }
 
 /** Content-sized kinds are measured in the DOM; the rest derive from spec + size. */
-export const MEASURED: Kind[] = ["button", "checkbox", "switch", "text", "label", "badge", "tag", "breadcrumb", "buttonGroup"];
+export const MEASURED: Kind[] = [
+  "button",
+  "checkbox",
+  "switch",
+  "text",
+  "label",
+  "badge",
+  "tag",
+  "breadcrumb",
+  "buttonGroup",
+  "kbd",
+  "link",
+  "marker",
+  "shimmer",
+  "tooltip",
+  "rating",
+  "clipboard",
+];
+
+/** the row heights the added data views resolve to */
+export const SETTING_ROW_H = 40;
+export const ACCORDION_ROW_H = 36;
+export const DESCRIPTION_ROW_H = 28;
+export const STEP_DOT = 20;
 
 /** the rows a data table draws, split into cells */
 export const tableRowsOf = (it: Item): string[][] => (it.tabs ?? []).map((r) => r.label.split(ROW_SEP));
@@ -1772,6 +2414,9 @@ export const toolbarWidth = (it: Item) => {
   const n = Math.max(1, it.tabs?.length ?? 0);
   return 8 + n * H + (n - 1) * 4;
 };
+
+/** the row a part has selected, or null when it has none */
+const selectedIndexOf = (it: Item) => (typeof it.value === "number" && it.value >= 0 ? it.value : null);
 
 export function sizeOf(it: Item, widths: Record<string, number>) {
   const s = KIND_SPEC[it.kind];
@@ -1786,6 +2431,13 @@ export function sizeOf(it: Item, widths: Record<string, number>) {
     case "tag":
     case "breadcrumb":
     case "buttonGroup":
+    case "kbd":
+    case "link":
+    case "marker":
+    case "shimmer":
+    case "tooltip":
+    case "clipboard":
+    case "rating":
       return { w: widths[it.id] ?? 96, h: s.h };
     case "badge":
       return { w: widths[it.id] ?? 16, h: it.label.trim() ? s.h : 8 };
@@ -1819,7 +2471,45 @@ export function sizeOf(it: Item, widths: Record<string, number>) {
       return { w: n, h: 16 + 22 + (hasSupporting ? 8 + 20 : 0) + 12 + H + 16 };
     case "popover":
     case "notification":
+    case "hoverCard":
       return { w: n, h: 12 + 20 + (hasSupporting ? 4 + 18 : 0) + 12 };
+    case "form":
+      /* a label above each field, on the md step between rows */
+      return { w: n, h: rows * (18 + 4 + H) + Math.max(0, rows - 1) * 12 };
+    case "settings":
+      return { w: n, h: 8 + 20 + rows * SETTING_ROW_H + 8 };
+    case "descriptionList":
+      return { w: n, h: rows * DESCRIPTION_ROW_H + 8 };
+    case "accordion":
+      /* the open section shows a body; the rest are just their headers */
+      return { w: n, h: rows * ACCORDION_ROW_H + (selectedIndexOf(it) === null ? 0 : 44) };
+    case "collapsible":
+      return { w: n, h: H + (it.checked && hasSupporting ? 8 + 20 : 0) };
+    case "command":
+      return { w: n, h: 40 + 1 + rows * MENU_ROW_H + 8 };
+    case "message":
+      return { w: n, h: 12 + 18 + 4 + 20 + 12 };
+    case "bubble":
+      return { w: n, h: 8 + 20 + 8 };
+    case "chart":
+      return { w: n, h: it.size2 ?? s.h };
+    case "dock":
+      return { w: n, h: it.size2 ?? s.h };
+    case "scrollbar":
+      return { w: 8, h: it.size2 ?? s.h };
+    case "calendar":
+      return { w: n, h: s.h };
+    case "attachment":
+      return { w: n, h: s.h };
+    case "avatar":
+      return { w: n, h: n };
+    case "combobox":
+    case "colorPicker":
+    case "datePicker":
+    case "pagination":
+      return { w: n, h: s.h };
+    case "stepper":
+      return { w: n, h: s.h };
     case "alert":
       return { w: n, h: 12 + 20 + (hasSupporting ? 4 + 18 : 0) + 12 };
     case "progress":
@@ -1830,7 +2520,7 @@ export function sizeOf(it: Item, widths: Record<string, number>) {
       return { w: n, h: (it.size2 ?? s.h) + (hasSupporting ? 18 : 0) };
     case "select":
     case "slider":
-    case "divider":
+    case "separator":
     case "tabs":
       return { w: n, h: s.h };
     case "panel":
@@ -1867,6 +2557,9 @@ export function baseRadii(it: Item): Radii {
     case "switch":
     case "slider":
     case "radio":
+    case "avatar":
+    case "scrollbar":
+    case "marker":
       return uniformRadii(s.radius);
     default:
       return uniformRadii(scaleR(s.radius));

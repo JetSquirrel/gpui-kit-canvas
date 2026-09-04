@@ -1,4 +1,4 @@
-import { Doc, KIND_ORDER, Kind, VARIANTS, isShell } from "./tokens";
+import { Doc, Group, KIND_ORDER, Kind, VARIANTS, isShell } from "./tokens";
 import { isLang } from "./i18n";
 
 /* A project file is the Doc as JSON, nothing more. Reading one back only checks
@@ -9,13 +9,16 @@ const isRecord = (value: unknown): value is Record<string, unknown> => typeof va
 
 const KINDS = new Set<string>(KIND_ORDER);
 
+/** kinds that have been renamed since a document could have been saved with them */
+export const KIND_ALIASES: Record<string, Kind> = { divider: "separator" };
+
 const validTabs = (tabs: unknown) => tabs === undefined || (Array.isArray(tabs) && tabs.every((tab) => isRecord(tab) && typeof tab.label === "string" && typeof tab.icon === "string"));
 
 const validItem = (item: unknown) =>
   isRecord(item) &&
   typeof item.id === "string" &&
   typeof item.kind === "string" &&
-  KINDS.has(item.kind as Kind) &&
+  (KINDS.has(item.kind as Kind) || item.kind in KIND_ALIASES) &&
   typeof item.label === "string" &&
   (typeof item.icon === "string" || item.icon === null) &&
   VARIANTS.some((variant) => variant.key === item.variant) &&
@@ -82,3 +85,9 @@ export async function readProject(file: File): Promise<Doc | null> {
     return null;
   }
 }
+
+/** A group whose parts use a kind's old name, read with its current one. */
+export const migrateKinds = (group: Group): Group => ({
+  ...group,
+  items: group.items.map((item) => (item.kind in KIND_ALIASES ? { ...item, kind: KIND_ALIASES[item.kind] } : item)),
+});

@@ -14,8 +14,9 @@ A component that does not exist, a token spelled differently, an icon it does no
 ship — each of those turns the generated prompt into a lie the AI tool will act on.
 
 - Component names and import paths live in `KindSpec.api` (`lib/tokens.ts`) and go
-  straight into the prompt. Check each one against the gpui-kit source or
-  `https://gpui-kit.com/docs/components/{name}.md`.
+  straight into the prompt. `npm run check:api` reads every one back out of the
+  Rust source and fails on anything that is not there — run it, and do not trust
+  the skill's component table alone (it lists types the source does not have).
 - Sizes, paddings and radii come from `crates/component/src/sizing.rs`,
   `title_bar.rs` and `sidebar/mod.rs`. Cite the file when you change one.
 - Colours and icons are **generated**, never hand-edited:

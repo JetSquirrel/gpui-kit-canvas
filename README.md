@@ -29,12 +29,20 @@ Expressive phone screens to gpui-kit desktop windows.
 
 ## What it does
 
-- **Drag-and-drop parts** – the window shell (title bar, sidebar, toolbar, status bar, breadcrumb),
-  actions (button, icon button, button group, menu), inputs (input, textarea, select, checkbox, radio
-  group, switch, slider, label), containment (panel, group box, tabs, resizable split), overlays
-  (dialog, sheet, popover, notification), data views (list, data table, tree), content (text, icon,
-  image, divider, badge, tag) and feedback (alert, progress, spinner, skeleton) — 38 parts, each one
-  a real `gpui_kit::component`.
+- **Drag-and-drop parts** – 66 of them, grouped the way you reach for them: the window shell (title
+  bar, sidebar, toolbar, status bar, breadcrumb), actions (button, icon button, button group, menu),
+  inputs (input, textarea, select, combobox, checkbox, radio group, switch, slider, label, form,
+  rating, colour picker, date picker, calendar, settings page), containment (panel, group box, tabs,
+  resizable split, accordion, collapsible, pagination, stepper, dock area, scrollbar), overlays
+  (dialog, sheet, popover, notification, tooltip, hover card, command palette), data (list, data
+  table, tree, chart), content (text, icon, image, separator, badge, tag, avatar, kbd, link, marker,
+  clipboard, shimmer, description list), feedback (alert, progress, spinner, skeleton) and chat
+  (message, bubble, attachment, message scroller).
+- **Every part is a real component** – each one names an actual `gpui_kit::component` path, and
+  `npm run check:api` reads all of them back out of a gpui-kit checkout and fails if one does not
+  exist. The palette reaches 58 of gpui-kit's 63 component modules; the five it leaves out
+  (`measure`, `native_menu`, `plot`, `searchable_list`, `window_border`) are infrastructure rather
+  than parts you place.
 - **Real gpui-kit geometry** – control heights, paddings, radii and row heights come from gpui-kit's
   own source (`sizing.rs`, `title_bar.rs`, `sidebar/mod.rs`), so a medium Button is 32px and a table
   row is 32px on the canvas too.
@@ -147,9 +155,12 @@ The palettes and icons are generated from a gpui-kit checkout, so they never dri
 ```bash
 npm run gen:themes -- ../gpui-kit   # lib/kit-themes.gen.ts  (33 palettes)
 npm run gen:icons  -- ../gpui-kit   # lib/kit-icons.gen.ts   (101 icons)
+npm run check:api  -- ../gpui-kit   # verify every component path, list the gaps
 ```
 
-Both default to `../gpui-kit`, and `GPUI_KIT` overrides the path.
+All three default to `../gpui-kit`, and `GPUI_KIT` overrides the path. `check:api` is the one that
+keeps the palette honest: it parses every component path out of `lib/tokens.ts` and looks each one
+up in the Rust source, so a part can never quietly claim an API that is not there.
 `script/gen-kit-themes.mjs` resolves a theme's missing tokens with the same fallback chain as
 `ColorsConfig::apply_config` in `crates/component/src/theme/schema.rs`, so a theme that only sets
 `background` still gets a coherent sidebar, list and table.
@@ -226,7 +237,8 @@ Claude Code、Codex、Gemini CLI、Cursor など、プロンプトを受け取�
 
 ### できること
 
-- **ドラッグ＆ドロップ** – ウィンドウの骨格（タイトルバー、サイドバー、ツールバー、ステータスバー、パンくず）、アクション（ボタン、アイコンボタン、ボタングループ、メニュー）、入力（入力欄、複数行入力、セレクト、チェックボックス、ラジオグループ、スイッチ、スライダー、ラベル）、コンテナ（パネル、グループボックス、タブ、リサイズ分割）、オーバーレイ（ダイアログ、シート、ポップオーバー、通知）、データ（リスト、データテーブル、ツリー）、コンテンツ（テキスト、アイコン、画像、区切り線、バッジ、タグ）、フィードバック（アラート、プログレス、スピナー、スケルトン）の 38 部品。すべて実在する `gpui_kit::component` です。
+- **ドラッグ＆ドロップ** – 66 部品。ウィンドウの骨格、アクション、入力（フォーム、レーティング、カラー／日付ピッカー、カレンダー、設定ページを含む）、コンテナ（アコーディオン、折りたたみ、ページネーション、ステッパー、ドックエリア、スクロールバーを含む）、オーバーレイ（ツールチップ、ホバーカード、コマンドパレットを含む）、データ（チャートを含む）、コンテンツ（アバター、Kbd、リンク、マーカー、コピーボタン、シマー、定義リストを含む）、フィードバック、チャット（メッセージ、吹き出し、添付、メッセージスクローラー）。
+- **すべて実在するコンポーネント** – 各部品が実際の `gpui_kit::component` のパスを名指しし、`npm run check:api` が gpui-kit のチェックアウトから全パスを読み直して、存在しないものがあれば失敗します。gpui-kit の 63 コンポーネントモジュールのうち 58 をカバーし、残る 5 つ（`measure`、`native_menu`、`plot`、`searchable_list`、`window_border`）は配置する部品ではなく基盤です。
 - **本物の寸法** – 部品の高さ・余白・角丸・行の高さは gpui-kit のソース（`sizing.rs`、`title_bar.rs`、`sidebar/mod.rs`）から取っています。medium のボタンは 32px、テーブルの行も 32px です。
 - **本物のテーマ** – gpui-kit のチェックアウトから解決した 33 パレット（組み込みの Default Light / Dark と同梱の 21 テーマ）。キャンバスの色はすべて gpui-kit のセマンティックトークンで、プロンプトには実際のキー（`primary.background` など）で書き出されます。
 - **本物のアイコン** – `gpui-kit-assets` が同梱する Lucide アイコン 101 個だけを選べます。プロンプトには `IconName::` の形で書き出されるので、描けないアイコンを指定してしまうことがありません。
@@ -270,7 +282,8 @@ MIT
 
 ### 功能
 
-- **拖放组件** – 窗口骨架（标题栏、侧边栏、工具栏、状态栏、面包屑）、操作（按钮、图标按钮、按钮组、菜单）、输入（输入框、多行输入、下拉选择、复选框、单选组、开关、滑块、标签）、容器（面板、分组框、标签页、可调分栏）、浮层（对话框、抽屉面板、浮层、通知）、数据（列表、数据表格、树）、内容（文本、图标、图片、分割线、徽标、标签块）与反馈（提示条、进度条、加载指示器、骨架屏）共 38 个组件，每一个都对应真实存在的 `gpui_kit::component`。
+- **拖放组件** – 共 66 个：窗口骨架、操作、输入（含表单、评分、颜色／日期选择器、日历、设置页）、容器（含手风琴、折叠区、分页、步骤条、停靠区、滚动条）、浮层（含工具提示、悬浮卡片、命令面板）、数据（含图表）、内容（含头像、Kbd、链接、状态标记、复制按钮、微光文本、描述列表）、反馈，以及聊天（消息、气泡、附件、消息滚动区）。
+- **每个组件都真实存在** – 每个部件都点名一个真实的 `gpui_kit::component` 路径，`npm run check:api` 会从 gpui-kit 仓库把所有路径逐个读回核对，不存在就报错退出。调色板覆盖 gpui-kit 63 个组件模块中的 58 个，余下 5 个（`measure`、`native_menu`、`plot`、`searchable_list`、`window_border`）属于基础设施而非可放置的部件。
 - **真实的尺寸** – 组件高度、内边距、圆角和行高均取自 gpui-kit 源码（`sizing.rs`、`title_bar.rs`、`sidebar/mod.rs`）：medium 按钮为 32px，表格行同样是 32px。
 - **真实的主题** – 从 gpui-kit 仓库解析出的 33 套配色（内置 Default Light / Dark 加上自带的 21 套主题）。画布上的所有颜色都是 gpui-kit 的语义 token，提示词中会用真实的键名写出（如 `primary.background`）。
 - **真实的图标** – 图标选择器只提供 `gpui-kit-assets` 自带的 101 个 Lucide 图标，提示词中写成 `IconName::` 变体，因此草图不会指定生成的应用画不出来的图标。

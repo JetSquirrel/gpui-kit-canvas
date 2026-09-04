@@ -83,7 +83,7 @@ import { AiActionKey, AiPanel, aiErrorText } from "@/components/AiPanel";
 import { TidyState } from "@/components/ui";
 import { AiSettings, DEFAULT_AI, hasKey, isSecureUrl, loadAiSettings, proposeBehavior, proposeDescription, pushHistory, saveAiSettings } from "@/lib/ai";
 import { tidyFrame } from "@/lib/tidy";
-import { readProject, saveProject } from "@/lib/project";
+import { migrateKinds, readProject, saveProject } from "@/lib/project";
 import { ColorPanel } from "@/components/ColorPanel";
 import { MotionPanel, ShapePanel, TypePanel } from "@/components/ThemePanel";
 import { ThemeContext, ensureFontLoaded } from "@/lib/theme";
@@ -160,6 +160,19 @@ type Gesture =
       moved: boolean;
     }
   | { kind: "group"; id: string; sx: number; sy: number; gx: number; gy: number; moved: boolean; overBin: boolean };
+
+type ResizeEdge = "e" | "s" | "se";
+
+/** a canvas resize gesture on one part: which edge, where the pointer started
+ *  (world coords) and the sizes it started from */
+type PartResize = {
+  id: string;
+  edge: ResizeEdge;
+  sx: number;
+  sy: number;
+  size0: number;
+  size20: number;
+};
 
 type Snapshot = { groups: Group[]; frames: Frame[] };
 
@@ -302,6 +315,7 @@ export default function Page() {
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [pressedId, setPressedId] = useState<string | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
+  const [partResize, setPartResize] = useState<{ id: string; edge: ResizeEdge } | null>(null);
   const [gesture, setGesture] = useState<Gesture | null>(null);
   const [widths, setWidths] = useState<Record<string, number>>({});
   const [resizing, setResizing] = useState<"left" | "right" | null>(null);
@@ -327,6 +341,7 @@ export default function Page() {
   const canvasRef = useRef<HTMLDivElement>(null);
   const measureEls = useRef<Map<string, HTMLElement>>(new Map());
   const dragRef = useRef<DragState | null>(null);
+  const partResizeRef = useRef<PartResize | null>(null);
   const gestureRef = useRef<Gesture | null>(null);
   const pendingRef = useRef<{ timer: number; commit: () => void } | null>(null);
   const groupsRef = useRef(groups);
@@ -431,6 +446,8 @@ export default function Page() {
 
   const applyDoc = (doc: Partial<Doc>, reset: boolean) => {
     docLangRef.current = isLang(doc.lang) ? doc.lang : DEFAULT_LANG;
+    /* a kind renamed to match gpui-kit's own name still opens */
+    if (Array.isArray(doc.groups)) doc = { ...doc, groups: doc.groups.map(migrateKinds) };
     if (Array.isArray(doc.groups)) setGroups(doc.groups);
     if (Array.isArray(doc.frames)) setFrames(doc.frames);
     if (typeof doc.paletteKey === "string" && doc.paletteKey) setPaletteKey(doc.paletteKey);
@@ -1468,10 +1485,7 @@ export default function Page() {
     };
   };
 
-  const patchSelected = (patch: Partial<Item>) => {
-    if (!primaryId) return;
-    const id = primaryId;
-    snapshotFor(id + ":" + Object.keys(patch).join(","));
+  const applyPatch = (id: string, patch: Partial<Item>) => {
     const resizes = "size" in patch || "size2" in patch;
     setGroups((prev) =>
       prev.map((g) => {
@@ -1492,6 +1506,89 @@ export default function Page() {
       dragRef.current.item = { ...dragRef.current.item, ...patch };
     }
   };
+
+  const patchSelected = (patch: Partial<Item>) => {
+    if (!primaryId) return;
+    const id = primaryId;
+    snapshotFor(id + ":" + Object.keys(patch).join(","));
+    applyPatch(id, patch);
+  };
+
+  /* ---------- canvas resize handles ---------- */
+  /** kinds whose `size` sets both edges at once (square parts) */
+  const SQUARE_KINDS: Kind[] = ["iconButton", "icon", "spinner"];
+
+  const resizeEdgesOf = (item: Item): ResizeEdge[] => {
+    const spec = KIND_SPEC[item.kind];
+    if (item.kind === "text") return [];
+    if (SQUARE_KINDS.includes(item.kind)) return spec.size ? ["se"] : [];
+    const edges: ResizeEdge[] = [];
+    if (spec.size) edges.push("e");
+    if (spec.size2) edges.push("s");
+    if (spec.size && spec.size2) edges.push("se");
+    return edges;
+  };
+
+  const onResizeHandleDown = (e: React.PointerEvent, edge: ResizeEdge) => {
+    if (e.button !== 0 || modeRef.current === "hand" || spaceRef.current) return;
+    const target = resizeTargetRef.current;
+    if (!target) return;
+    e.preventDefault();
+    e.stopPropagation();
+    flushPending();
+    const item = target.item;
+    const spec = KIND_SPEC[item.kind];
+    const pt = toWorld(e.clientX, e.clientY);
+    snapshot();
+    const r: PartResize = {
+      id: item.id,
+      edge,
+      sx: pt.x,
+      sy: pt.y,
+      size0: item.size ?? spec.defSize ?? spec.w,
+      size20: item.size2 ?? sizeOf(item, widthsRef.current).h,
+    };
+    partResizeRef.current = r;
+    setPartResize({ id: r.id, edge });
+  };
+
+  useEffect(() => {
+    if (!partResize) return;
+    const move = (e: PointerEvent) => {
+      const r = partResizeRef.current;
+      if (!r) return;
+      const g = groupsRef.current.find((gg) => gg.items.some((it) => it.id === r.id));
+      const item = g?.items.find((it) => it.id === r.id);
+      if (!item) return;
+      const spec = KIND_SPEC[item.kind];
+      const snap = (v: number, s: { min: number; max: number; step: number }) =>
+        clamp(Math.round(v / s.step) * s.step, s.min, s.max);
+      const pt = toWorld(e.clientX, e.clientY);
+      const dx = pt.x - r.sx;
+      const dy = pt.y - r.sy;
+      const patch: Partial<Item> = {};
+      if (SQUARE_KINDS.includes(item.kind)) {
+        if (spec.size) patch.size = snap(r.size0 + Math.max(dx, dy), spec.size);
+      } else {
+        if ((r.edge === "e" || r.edge === "se") && spec.size) patch.size = snap(r.size0 + dx, spec.size);
+        if ((r.edge === "s" || r.edge === "se") && spec.size2) patch.size2 = snap(r.size20 + dy, spec.size2);
+      }
+      if (Object.keys(patch).length) applyPatch(r.id, patch);
+    };
+    const up = () => {
+      partResizeRef.current = null;
+      setPartResize(null);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [partResize]);
 
   const deleteSelected = useCallback(() => {
     if (selectedIds.length === 0) return;
@@ -2471,6 +2568,36 @@ export default function Page() {
   };
 
   const handMode = !isMobile && (mode === "hand" || spaceHeld);
+  /** the single selected part, with its world rect, that the canvas resize handles stick to */
+  const resizeTarget = useMemo(() => {
+    if (isMobile || handMode || drag?.active) return null;
+    if (selectedIds.length !== 1) return null;
+    const id = selectedIds[0];
+    for (const g of groups) {
+      const idx = g.items.findIndex((it) => it.id === id);
+      if (idx < 0) continue;
+      const item = g.items[idx];
+      if (!resizeEdgesOf(item).length) return null;
+      let x: number;
+      let y: number;
+      if (g.free) {
+        const pl = layoutOf(g, widths).find((q) => q.item.id === id);
+        if (!pl) return null;
+        x = pl.x;
+        y = pl.y;
+      } else {
+        const off = prefixOf(g, idx);
+        x = g.axis === "x" ? g.x + off : g.x;
+        y = g.axis === "x" ? g.y : g.y + off;
+      }
+      const sz = sizeOf(item, widths);
+      return { item, x, y, w: sz.w, h: sz.h };
+    }
+    return null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groups, widths, selectedIds, isMobile, handMode, drag]);
+  const resizeTargetRef = useRef(resizeTarget);
+  resizeTargetRef.current = resizeTarget;
   const panning = gesture?.kind === "pan";
   const marquee = gesture?.kind === "marquee" && gesture.moved ? gesture : null;
   const canvasBg = frame === "window" ? p.muted : "#ffffff";
@@ -2505,8 +2632,16 @@ export default function Page() {
           display: "flex",
           overflow: "hidden",
           background: p.muted,
-          cursor: resizing ? "col-resize" : undefined,
-          userSelect: resizing ? "none" : undefined,
+          cursor: partResize
+            ? partResize.edge === "e"
+              ? "ew-resize"
+              : partResize.edge === "s"
+                ? "ns-resize"
+                : "nwse-resize"
+            : resizing
+              ? "col-resize"
+              : undefined,
+          userSelect: resizing || partResize ? "none" : undefined,
           ["--sb" as string]: p.border,
         }}
       >
@@ -2817,6 +2952,52 @@ export default function Page() {
               {groups
                 .filter((g) => !frameOf.has(g.id))
                 .map((g) => renderGroup(g, 0, 0))}
+
+              {/* resize handles on the single selected part */}
+              {resizeTarget && (
+                <div
+                  style={{
+                    position: "absolute",
+                    left: resizeTarget.x,
+                    top: resizeTarget.y,
+                    width: resizeTarget.w,
+                    height: resizeTarget.h,
+                    pointerEvents: "none",
+                    zIndex: 40,
+                  }}
+                >
+                  {resizeEdgesOf(resizeTarget.item).map((edge) => {
+                    const hs = 10 / view.z;
+                    const pos: React.CSSProperties =
+                      edge === "e"
+                        ? { left: resizeTarget.w, top: resizeTarget.h / 2 }
+                        : edge === "s"
+                          ? { left: resizeTarget.w / 2, top: resizeTarget.h }
+                          : { left: resizeTarget.w, top: resizeTarget.h };
+                    return (
+                      <div
+                        key={edge}
+                        onPointerDown={(e) => onResizeHandleDown(e, edge)}
+                        style={{
+                          position: "absolute",
+                          ...pos,
+                          transform: "translate(-50%, -50%)",
+                          width: hs,
+                          height: hs,
+                          boxSizing: "border-box",
+                          borderRadius: 2 / view.z,
+                          background: p.primary,
+                          border: `${1.5 / view.z}px solid ${p.background}`,
+                          boxShadow: `0 0 0 ${1 / view.z}px rgba(0,0,0,0.08)`,
+                          cursor: edge === "e" ? "ew-resize" : edge === "s" ? "ns-resize" : "nwse-resize",
+                          pointerEvents: "auto",
+                          touchAction: "none",
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              )}
 
               {/* the part in flight */}
               {drag?.active && (

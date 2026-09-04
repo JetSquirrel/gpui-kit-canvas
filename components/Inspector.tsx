@@ -1036,7 +1036,20 @@ export function Inspector({
                 grow
               />
             )}
-            {spec.hasValue && (item.kind === "slider" || item.kind === "resizable" || (item.kind === "progress" && item.value !== undefined)) && (
+            {/* a count, not a percentage: stars, a day of the month, a page */}
+            {spec.valueSpec && (
+              <Slider
+                icon="asterisk"
+                title={t("value", lang)}
+                value={item.value ?? spec.valueSpec.min}
+                min={spec.valueSpec.min}
+                max={spec.valueSpec.max}
+                step={1}
+                onChange={(value) => onChange({ value })}
+                p={p}
+              />
+            )}
+            {spec.hasValue && !spec.valueSpec && (item.kind === "slider" || item.kind === "resizable" || item.kind === "scrollbar" || (item.kind === "progress" && item.value !== undefined)) && (
               <Slider
                 icon="asterisk"
                 value={item.value ?? 40}
@@ -1049,13 +1062,14 @@ export function Inspector({
               />
             )}
             {/* a tab bar, list, tree, menu or radio group selects one of its rows */}
-            {spec.hasValue && spec.hasTabs && item.kind !== "resizable" && (
+            {spec.hasValue && spec.hasTabs && !spec.valueSpec && item.kind !== "resizable" && (
               <Segmented
                 options={(item.tabs ?? []).map((tab, i) => ({ key: String(i), label: tab.label.trim() || String(i + 1) }))}
                 value={String(item.value ?? 0)}
                 onChange={(k) => onChange({ value: Number(k) })}
                 p={p}
                 height={32}
+                wrap
               />
             )}
           </div>

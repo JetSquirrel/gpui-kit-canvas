@@ -2,6 +2,7 @@ import { KIND_TEXT, Lang, TRANSITION_TEXT, getLang } from "./i18n";
 import {
   Action,
   BACK_TARGET,
+  ROW_SEP,
   Column,
   Density,
   Doc,
@@ -176,7 +177,7 @@ function itemJa(it: Item): string {
       return `${ico(it.icon) ?? "空"} のアイコン（${it.size ?? 16}px）`;
     case "image":
       return `${it.size ?? 200}×${it.size2 ?? 200}px の画像${it.src ? "（指定の画像を表示）" : "プレースホルダー"}`;
-    case "divider":
+    case "separator":
       return "区切り線（ヘアライン）";
     case "badge":
       return hasText(it.label) ? `${q(it.label)}と表示する${v}バッジ` : `小さな点の${v}バッジ`;
@@ -190,6 +191,62 @@ function itemJa(it: Item): string {
       return `スピナー（${it.size ?? 20}px）`;
     case "skeleton":
       return `${it.size ?? 200}×${it.size2 ?? 16}px のスケルトン`;
+    case "combobox":
+      return `現在値${q(it.label)}の検索できるコンボボックス。候補は ${labelsOf(it, "ja")}${off}`;
+    case "colorPicker":
+      return `現在値 ${it.label} のカラーピッカー${off}`;
+    case "datePicker":
+      return `現在値 ${it.label} の日付ピッカー${off}`;
+    case "calendar":
+      return `${q(it.label)}のカレンダー（${it.value ?? 1} 日が選択状態）`;
+    case "form":
+      return `${labelsOf(it, "ja")}の ${it.tabs?.length ?? 0} 項目のフォーム`;
+    case "rating":
+      return `5 段階のレーティング（${it.value ?? 0} 個が点灯）${off}`;
+    case "settings":
+      return `見出し${q(it.label)}の設定ページ。項目は ${labelsOf(it, "ja")}（各行にスイッチ）`;
+    case "avatar":
+      return `${q(it.label)}のアバター（${it.size ?? 32}px）`;
+    case "kbd":
+      return `${q(it.label)}のキー表示（Kbd）`;
+    case "link":
+      return `${q(it.label)}のリンク${hasText(it.supporting) ? `（リンク先 ${it.supporting}）` : ""}`;
+    case "marker":
+      return `${q(it.label)}の${v}マーカー`;
+    case "clipboard":
+      return `${q(it.label)}をコピーするコピーボタン`;
+    case "shimmer":
+      return `${q(it.label)}のシマーテキスト（ストリーミング中の表示）`;
+    case "descriptionList":
+      return `定義リスト（${(it.tabs ?? []).map((r) => r.label.split(ROW_SEP).map((c) => q(c)).join(": ")).join("、")}）`;
+    case "accordion":
+      return `${labelsOf(it, "ja")}の ${it.tabs?.length ?? 0} セクションのアコーディオン${sel ? `（${sel}が開いた状態）` : ""}`;
+    case "collapsible":
+      return `見出し${q(it.label)}の折りたたみ（初期状態は${it.checked ? "開" : "閉"}${hasText(it.supporting) ? `、中身は${q(it.supporting!)}` : ""}）`;
+    case "pagination":
+      return `ページネーション（${it.value ?? 1} ページ目が現在）`;
+    case "stepper":
+      return `${labelsOf(it, "ja")}の ${it.tabs?.length ?? 0} 段のステッパー（${(it.value ?? 0) + 1} 段目が現在）`;
+    case "dock":
+      return `${labelsOf(it, "ja")}のパネルを持つドックエリア${sel ? `（${sel}が前面）` : ""}`;
+    case "scrollbar":
+      return `${it.side} 端のスクロールバー（つまみは ${it.value ?? 0}% の位置）`;
+    case "tooltip":
+      return `${q(it.label)}のツールチップ`;
+    case "hoverCard":
+      return `見出し${q(it.label)}のホバーカード${hasText(it.supporting) ? `、本文${q(it.supporting!)}` : ""}`;
+    case "command":
+      return `プレースホルダー${q(it.label)}のコマンドパレット。項目は ${labelsOf(it, "ja")}`;
+    case "chart":
+      return `${q(it.label)}の${it.circle ? "円グラフ" : "棒グラフ"}（系列は ${labelsOf(it, "ja")}、色は chart.1 から順に使う）`;
+    case "message":
+      return `${q(it.label)}からのメッセージ${hasText(it.supporting) ? `（本文${q(it.supporting!)}）` : ""}（${it.side === "right" ? "末尾" : "先頭"}寄せ）`;
+    case "bubble":
+      return `${q(it.label)}の${v}吹き出し（${it.side === "right" ? "末尾" : "先頭"}寄せ）`;
+    case "attachment":
+      return `${q(it.label)}の添付ファイルカード${hasText(it.supporting) ? `（${it.supporting}）` : ""}`;
+    case "messageScroller":
+      return `${it.tabs?.length ?? 0} 件のメッセージを自動スクロールで表示する領域（${labelsOf(it, "ja")}）`;
     default:
       return noun;
   }
@@ -264,8 +321,8 @@ function itemEn(it: Item): string {
       return `a ${ico(it.icon) ?? "blank"} icon at ${it.size ?? 16}px`;
     case "image":
       return `a ${it.size ?? 200}×${it.size2 ?? 200}px image${it.src ? " showing the supplied picture" : " placeholder"}`;
-    case "divider":
-      return "a hairline divider";
+    case "separator":
+      return "a hairline Separator";
     case "badge":
       return hasText(it.label) ? `a ${v} badge reading ${q(it.label)}` : `a small ${v} dot badge`;
     case "tag":
@@ -278,6 +335,62 @@ function itemEn(it: Item): string {
       return `a ${it.size ?? 20}px spinner`;
     case "skeleton":
       return `a ${it.size ?? 200}×${it.size2 ?? 16}px skeleton`;
+    case "combobox":
+      return `a searchable combobox reading ${q(it.label)}, offering ${labelsOf(it, "en")}${off}`;
+    case "colorPicker":
+      return `a colour picker set to ${it.label}${off}`;
+    case "datePicker":
+      return `a date picker set to ${it.label}${off}`;
+    case "calendar":
+      return `a calendar for ${q(it.label)} with day ${it.value ?? 1} selected`;
+    case "form":
+      return `a ${it.tabs?.length ?? 0}-field form (${labelsOf(it, "en")})`;
+    case "rating":
+      return `a five-point rating showing ${it.value ?? 0}${off}`;
+    case "settings":
+      return `a settings page headed ${q(it.label)} with the rows ${labelsOf(it, "en")}, each carrying a switch`;
+    case "avatar":
+      return `a ${it.size ?? 32}px avatar reading ${q(it.label)}`;
+    case "kbd":
+      return `a Kbd showing ${q(it.label)}`;
+    case "link":
+      return `a link reading ${q(it.label)}${hasText(it.supporting) ? ` and pointing at ${it.supporting}` : ""}`;
+    case "marker":
+      return `a ${v} marker reading ${q(it.label)}`;
+    case "clipboard":
+      return `a copy button for ${q(it.label)}`;
+    case "shimmer":
+      return `shimmer text reading ${q(it.label)}, for streaming output`;
+    case "descriptionList":
+      return `a description list: ${(it.tabs ?? []).map((r) => r.label.split(ROW_SEP).map((c) => q(c)).join(" — ")).join("; ")}`;
+    case "accordion":
+      return `an accordion of ${it.tabs?.length ?? 0} sections (${labelsOf(it, "en")})${sel ? `, with ${sel} open` : ""}`;
+    case "collapsible":
+      return `a collapsible headed ${q(it.label)}, initially ${it.checked ? "open" : "closed"}${hasText(it.supporting) ? `, holding ${q(it.supporting!)}` : ""}`;
+    case "pagination":
+      return `a pagination control on page ${it.value ?? 1}`;
+    case "stepper":
+      return `a ${it.tabs?.length ?? 0}-step stepper (${labelsOf(it, "en")}) at step ${(it.value ?? 0) + 1}`;
+    case "dock":
+      return `a dock area holding the panels ${labelsOf(it, "en")}${sel ? `, with ${sel} in front` : ""}`;
+    case "scrollbar":
+      return `a scrollbar on the ${it.side} edge with its thumb at ${it.value ?? 0}%`;
+    case "tooltip":
+      return `a tooltip reading ${q(it.label)}`;
+    case "hoverCard":
+      return `a hover card headed ${q(it.label)}${hasText(it.supporting) ? `, body ${q(it.supporting!)}` : ""}`;
+    case "command":
+      return `a command palette placeholdered ${q(it.label)}, listing ${labelsOf(it, "en")}`;
+    case "chart":
+      return `a ${it.circle ? "pie" : "bar"} chart titled ${q(it.label)} over the series ${labelsOf(it, "en")}, coloured from chart.1 upward`;
+    case "message":
+      return `a message from ${q(it.label)}${hasText(it.supporting) ? ` reading ${q(it.supporting!)}` : ""}, aligned to the ${it.side === "right" ? "trailing" : "leading"} edge`;
+    case "bubble":
+      return `a ${v} bubble reading ${q(it.label)}, aligned to the ${it.side === "right" ? "trailing" : "leading"} edge`;
+    case "attachment":
+      return `an attachment card for ${q(it.label)}${hasText(it.supporting) ? ` (${it.supporting})` : ""}`;
+    case "messageScroller":
+      return `an auto-scrolling message list of ${it.tabs?.length ?? 0} messages (${labelsOf(it, "en")})`;
     default:
       return noun;
   }
@@ -352,7 +465,7 @@ function itemZh(it: Item): string {
       return `${ico(it.icon) ?? "空"} 图标（${it.size ?? 16}px）`;
     case "image":
       return `${it.size ?? 200}×${it.size2 ?? 200}px 的图片${it.src ? "（显示指定图片）" : "占位图"}`;
-    case "divider":
+    case "separator":
       return "分割线（发丝线）";
     case "badge":
       return hasText(it.label) ? `显示${q(it.label)}的${v}徽标` : `小圆点${v}徽标`;
@@ -366,6 +479,62 @@ function itemZh(it: Item): string {
       return `加载指示器（${it.size ?? 20}px）`;
     case "skeleton":
       return `${it.size ?? 200}×${it.size2 ?? 16}px 的骨架屏`;
+    case "combobox":
+      return `当前值为${q(it.label)}的可搜索下拉框，候选为 ${labelsOf(it, "zh")}${off}`;
+    case "colorPicker":
+      return `当前值为 ${it.label} 的颜色选择器${off}`;
+    case "datePicker":
+      return `当前值为 ${it.label} 的日期选择器${off}`;
+    case "calendar":
+      return `${q(it.label)}的日历（选中 ${it.value ?? 1} 日）`;
+    case "form":
+      return `${it.tabs?.length ?? 0} 个字段的表单（${labelsOf(it, "zh")}）`;
+    case "rating":
+      return `五级评分（点亮 ${it.value ?? 0} 个）${off}`;
+    case "settings":
+      return `标题为${q(it.label)}的设置页，行为 ${labelsOf(it, "zh")}，每行带一个开关`;
+    case "avatar":
+      return `显示${q(it.label)}的头像（${it.size ?? 32}px）`;
+    case "kbd":
+      return `显示${q(it.label)}的按键（Kbd）`;
+    case "link":
+      return `文字为${q(it.label)}的链接${hasText(it.supporting) ? `（指向 ${it.supporting}）` : ""}`;
+    case "marker":
+      return `文字为${q(it.label)}的${v}状态标记`;
+    case "clipboard":
+      return `复制${q(it.label)}的复制按钮`;
+    case "shimmer":
+      return `文字为${q(it.label)}的微光文本（用于流式输出）`;
+    case "descriptionList":
+      return `描述列表（${(it.tabs ?? []).map((r) => r.label.split(ROW_SEP).map((c) => q(c)).join("：")).join("；")}）`;
+    case "accordion":
+      return `${it.tabs?.length ?? 0} 个分区的手风琴（${labelsOf(it, "zh")}）${sel ? `，${sel}为展开状态` : ""}`;
+    case "collapsible":
+      return `标题为${q(it.label)}的折叠区（初始${it.checked ? "展开" : "收起"}${hasText(it.supporting) ? `，内容为${q(it.supporting!)}` : ""}）`;
+    case "pagination":
+      return `分页控件（当前第 ${it.value ?? 1} 页）`;
+    case "stepper":
+      return `${it.tabs?.length ?? 0} 步的步骤条（${labelsOf(it, "zh")}），当前为第 ${(it.value ?? 0) + 1} 步`;
+    case "dock":
+      return `包含面板 ${labelsOf(it, "zh")} 的停靠区${sel ? `，${sel}位于前台` : ""}`;
+    case "scrollbar":
+      return `位于${it.side}侧的滚动条（滑块在 ${it.value ?? 0}% 处）`;
+    case "tooltip":
+      return `内容为${q(it.label)}的工具提示`;
+    case "hoverCard":
+      return `标题为${q(it.label)}的悬浮卡片${hasText(it.supporting) ? `，正文${q(it.supporting!)}` : ""}`;
+    case "command":
+      return `占位文本为${q(it.label)}的命令面板，条目为 ${labelsOf(it, "zh")}`;
+    case "chart":
+      return `标题为${q(it.label)}的${it.circle ? "饼图" : "柱状图"}，系列为 ${labelsOf(it, "zh")}，配色从 chart.1 依次取用`;
+    case "message":
+      return `来自${q(it.label)}的消息${hasText(it.supporting) ? `（正文${q(it.supporting!)}）` : ""}，对齐到${it.side === "right" ? "后置" : "前置"}边`;
+    case "bubble":
+      return `文字为${q(it.label)}的${v}气泡，对齐到${it.side === "right" ? "后置" : "前置"}边`;
+    case "attachment":
+      return `${q(it.label)}的附件卡片${hasText(it.supporting) ? `（${it.supporting}）` : ""}`;
+    case "messageScroller":
+      return `自动滚动显示 ${it.tabs?.length ?? 0} 条消息的区域（${labelsOf(it, "zh")}）`;
     default:
       return noun;
   }
@@ -755,6 +924,13 @@ function themeJson(p: Palette, th: Theme): string[] {
   ];
 }
 
+/** The colours of a theme gpui-kit already ships, as a reference list rather
+ *  than a drop-in file: the file exists, so quoting it as one invites a
+ *  duplicate that then drifts from the original. */
+function themeReference(p: Palette): string[] {
+  return STATED_TOKENS.map((field) => `- \`${TOKEN_NAMES[field] ?? field}\` ${p[field]}`);
+}
+
 const THEME_NOTES: Record<
   Lang,
   {
@@ -845,6 +1021,19 @@ const API_HEAD: Record<Lang, string> = {
 /** semantics a kind carries that its type name alone does not say */
 const KIND_NOTES: Record<Lang, Partial<Record<Kind, string>>> = {
   ja: {
+    combobox: "Combobox は絞り込みができる Select です。候補が少なくて全部見せられるなら Select を使います。",
+    form: "各フィールドに見えるラベルを付け、ヘルプと検証はそのフィールドの隣に置きます。関連するフィールドは揃えますが、長いラベルを狭い固定幅に押し込まないでください。",
+    settings: "即座に効く設定は Switch、独立した選択は Checkbox、少数の選択肢は RadioGroup、多いときは Select を使います。",
+    link: "Link は外部 URL とメールアドレスだけです。アプリ内のコマンドはすべて Button です。",
+    marker: "Marker は行内で状態を示します。ほとんどはニュートラルにし、成功・警告・危険の意味を本当に持つ状態にだけセマンティックな variant を使います。",
+    tooltip: "ツールチップは補足であり、ユーザーに必要な情報の唯一の置き場にはしません。Esc で最前面の面を閉じます。",
+    command: "コマンドパレットはメニューやセレクトとは別物で、検索・フォーカス・閉じ方の契約を自分で持ちます。",
+    dock: "ペインの分割・ドラッグ・永続化は DockArea に任せます。ユーザーが動かした分割は保存し、復元時は現在のウィンドウにクランプします。",
+    scrollbar: "スクロールバーはスクロールする領域自身のもので、その領域の末尾側の端に置きます。内容の余白でバーを面の内側に引き込まないでください。",
+    chart: "系列の色は chart トークンを順に使い、色だけで意味を伝えないこと。データに必要な軸ラベルは付けます。",
+    accordion: "本当に副次的なものだけを畳み、操作を隠すときは別の到達経路を必ず残します。",
+    stepper: "ステッパーは順序の決まった道筋を約束します。段数は安定させ、戻れるようにします。",
+    messageScroller: "自動スクロールは MessageScroller に任せ、スクロールする div で作り直さないでください。",
     button: "アプリ内のコマンドはすべて Button です。Link は外部 URL とメールアドレスだけに使います。プライマリは決定領域の既定コミット（Enter で実行される操作）だけに与えます。",
     menu: "メニュー、ドロップダウン、ポップオーバー、セレクト、コマンドパレットは互換の箱ではありません。選択・フォーカス・キーボード・閉じ方の契約がそれぞれ違うので、役割に合う標準コンポーネントを使います。",
     dialog: "ダイアログは短く焦点の絞られた決定だけに使います。探索や多数のフィールドが必要ならページかシートにします。ボタンは対象と動詞を名指しします。",
@@ -862,6 +1051,19 @@ const KIND_NOTES: Record<Lang, Partial<Record<Kind, string>>> = {
     sidebar: "サイドバーはラベルが安定して入る幅を持ちつつ、作業領域より明確に従属させます。最小幅・既定幅・最大幅を決めてください。",
   },
   en: {
+    combobox: "A Combobox is a Select that filters; use Select when the set is short and visible.",
+    form: "Use a visible label for each field and put help or validation next to the field it describes. Align related fields, but do not force long labels into a narrow fixed column.",
+    settings: "Use Switch for a setting that takes effect immediately, Checkbox for an independent choice, RadioGroup for a small visible set and Select for a longer one.",
+    link: "Link is only for external URLs and email addresses. Every in-app command is a Button.",
+    marker: "A Marker carries a state inline. Keep most of them neutral and reserve the semantic variants for states that truly mean success, warning or danger.",
+    tooltip: "A tooltip explains; it never carries the only copy of something the user needs. Escape dismisses the topmost surface.",
+    command: "A command palette is not a menu or a select: it owns its own search, focus and dismissal contract.",
+    dock: "Let DockArea own splitting, dragging and persistence. Persist user-moved splits and clamp restored values against the current window.",
+    scrollbar: "A scrollbar belongs to the region that scrolls and sits against that panel's trailing edge. Content padding must not pull it into the middle of the surface.",
+    chart: "Colour the series from the chart tokens in order, never encode meaning by colour alone, and label the axes the data needs.",
+    accordion: "Collapse only what is genuinely secondary, and never hide an action without another path to it.",
+    stepper: "A stepper promises a fixed, ordered path. Keep the step count stable and let the user go back.",
+    messageScroller: "MessageScroller owns the auto-scroll; do not rebuild it from a scrolled div.",
     button: "Every in-app command is a Button; Link is only for external URLs and email addresses. Primary is reserved for the default commit in a decision area, normally the action invoked by Enter.",
     menu: "A menu, dropdown menu, popover, select and command palette are not interchangeable boxes: each owns different selection, focus, keyboard, dismissal and layout contracts. Use the one whose role matches.",
     dialog: "Reserve dialogs for short, focused decisions; use a page or a sheet for work that needs exploration or many fields. Name the object and the verb on the buttons.",
@@ -879,6 +1081,19 @@ const KIND_NOTES: Record<Lang, Partial<Record<Kind, string>>> = {
     sidebar: "Give the sidebar a width that holds its labels while staying visibly subordinate to the work area, with a minimum, preferred and maximum width.",
   },
   zh: {
+    combobox: "Combobox 是可筛选的 Select；候选很少且能全部展示时用 Select。",
+    form: "每个字段都要有可见标签，帮助与校验信息紧邻其所描述的字段。相关字段要对齐，但不要把长标签硬塞进狭窄的固定列。",
+    settings: "立即生效的设置用 Switch，独立选择用 Checkbox，少量可见选项用 RadioGroup，选项较多时用 Select。",
+    link: "Link 只用于外部 URL 和邮箱地址；应用内的所有命令都用 Button。",
+    marker: "Marker 用于行内表示状态。多数保持中性，语义色只留给真正含成功、警告或危险含义的状态。",
+    tooltip: "工具提示是补充说明，绝不能成为用户所需信息的唯一载体。Esc 关闭最上层浮层。",
+    command: "命令面板不是菜单也不是下拉选择，它自带搜索、焦点与关闭契约。",
+    dock: "分栏、拖拽与持久化都交给 DockArea。用户拖动过的分栏要保存，恢复时按当前窗口尺寸做钳制。",
+    scrollbar: "滚动条属于真正滚动的那个区域，并贴在该面板的后置边缘。内容内边距不得把它拉进界面中间。",
+    chart: "系列配色按 chart token 顺序取用，不能仅靠颜色传递含义；按数据需要标注坐标轴。",
+    accordion: "只折叠真正次要的内容，隐藏操作时必须保留另一条到达路径。",
+    stepper: "步骤条承诺的是固定且有序的路径。步骤数要稳定，并允许用户回退。",
+    messageScroller: "自动滚动交给 MessageScroller，不要用带滚动的 div 重新实现。",
     button: "应用内的所有命令都用 Button；Link 只用于外部 URL 和邮箱地址。primary 只留给决策区域的默认提交动作（通常是按 Enter 触发的那个）。",
     menu: "菜单、下拉菜单、浮层、下拉选择和命令面板不是可互换的容器，各自的选择、焦点、键盘和关闭契约都不同，请按角色选用对应组件。",
     dialog: "对话框只用于简短、聚焦的决策；需要探索或字段较多时改用页面或抽屉面板。按钮文字要点明对象和动作。",
@@ -961,6 +1176,8 @@ const PH = {
         ? `テーマは gpui-kit 同梱の ${label}（${file}）です。ThemeRegistry から読み込んで適用し、UI の色はすべて cx.theme() のロール経由で参照してください。参考として主要なトークンの値を挙げます。`
         : `テーマは ${label} です。次の ThemeConfig をテーマファイルとして追加し、UI の色はすべて cx.theme() のロール経由で参照してください。`,
     schemeHead: (dark: boolean) => (dark ? "ダークテーマ:" : "ライトテーマ:"),
+    axesNote:
+      "このテーマファイルには radius、radius.lg、font.family、shadow が入っていません。読み込んだあと `Theme` 側で次節の値に設定してください。色はファイルのものをそのまま使い、上書きしないでください。",
     hTheme: "## 角丸・文字・密度・動き",
     hLayout: "## ウィンドウ構成",
     empty: "ウィンドウにはまだ部品が置かれていません。",
@@ -989,6 +1206,8 @@ const PH = {
         ? `The theme is ${label}, which gpui-kit ships as ${file}. Load it through the ThemeRegistry and read every UI colour through its role on cx.theme(). Its main tokens, for reference:`
         : `The theme is ${label}. Add the ThemeConfig below as a theme file and read every UI colour through its role on cx.theme().`,
     schemeHead: (dark: boolean) => (dark ? "Dark theme:" : "Light theme:"),
+    axesNote:
+      "The theme file does not carry radius, radius.lg, font.family or shadow. Set those on the `Theme` after loading it, to the values in the next section. Take the colours from the file; do not restate or override them.",
     hTheme: "## Radius, type, density and motion",
     hLayout: "## Layout",
     empty: "Nothing has been placed in the window yet.",
@@ -1017,6 +1236,8 @@ const PH = {
         ? `主题为 gpui-kit 自带的 ${label}（${file}）。请通过 ThemeRegistry 加载并应用，UI 的所有颜色都通过 cx.theme() 的语义角色引用。以下列出主要 token 供参考：`
         : `主题为 ${label}。请把下面的 ThemeConfig 添加为主题文件，UI 的所有颜色都通过 cx.theme() 的语义角色引用。`,
     schemeHead: (dark: boolean) => (dark ? "深色主题：" : "浅色主题："),
+    axesNote:
+      "这个主题文件里没有 radius、radius.lg、font.family 和 shadow。加载之后请在 `Theme` 上按下一节的值设置。颜色直接用文件里的，不要另行复述或覆盖。",
     hTheme: "## 圆角、字体、密度与动效",
     hLayout: "## 窗口结构",
     empty: "窗口中还没有放置任何组件。",
@@ -1085,18 +1306,23 @@ export function buildPrompt(doc: Doc, widths: Record<string, number>, onlyFrameI
   lines.push(ph.hColor);
   const file = themeFileOf(pal);
   lines.push(ph.colorIntro(pal.label, file));
+  /* A theme gpui-kit ships is loaded, not restated: its colours go in as a
+   * reference list and the axes the file omits are named separately. A
+   * hand-tuned palette has no file, so it is written out as a ThemeConfig. */
+  const body = (palette: Palette, theme: Theme) => (file ? themeReference(palette) : themeJson(palette, theme));
   if (th.bothModes) {
     const light = paletteOf(doc.paletteKey, doc.customPalette, { ...th, dark: false });
     const dark = paletteOf(doc.paletteKey, doc.customPalette, { ...th, dark: true });
     lines.push(ph.schemeHead(false));
-    lines.push(...themeJson(light, { ...th, dark: false }));
+    lines.push(...body(light, { ...th, dark: false }));
     if (dark.key !== light.key) {
       lines.push(ph.schemeHead(true));
-      lines.push(...themeJson(dark, { ...th, dark: true }));
+      lines.push(...body(dark, { ...th, dark: true }));
     }
   } else {
-    lines.push(...themeJson(pal, th));
+    lines.push(...body(pal, th));
   }
+  if (file) lines.push(ph.axesNote);
 
   lines.push("");
   lines.push(ph.hTheme);

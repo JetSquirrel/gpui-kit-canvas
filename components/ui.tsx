@@ -66,6 +66,7 @@ export function Segmented<K extends string>({
   p,
   height = 40,
   grow = true,
+  wrap = false,
 }: {
   options: SegOption<K>[];
   value: K;
@@ -73,9 +74,11 @@ export function Segmented<K extends string>({
   p: Palette;
   height?: number;
   grow?: boolean;
+  /** let options flow onto extra lines instead of squeezing them into one row */
+  wrap?: boolean;
 }) {
   return (
-    <div style={{ display: "flex", gap: 3 }}>
+    <div style={{ display: "flex", flexWrap: wrap ? "wrap" : "nowrap", gap: 3 }}>
       {options.map((o, i) => {
         const on = o.key === value;
         const first = i === 0;
@@ -89,8 +92,9 @@ export function Segmented<K extends string>({
             aria-label={o.title ?? o.label}
             className="kit-press"
             style={{
-              flex: (o.grow ?? grow) ? 1 : "0 0 auto",
+              flex: (o.grow ?? grow) ? (wrap ? "1 1 auto" : 1) : "0 0 auto",
               minWidth: o.wide ? height * 1.4 : height,
+              maxWidth: wrap ? "100%" : undefined,
               height,
               padding: o.label ? "0 14px" : 0,
               border: "none",
@@ -112,7 +116,7 @@ export function Segmented<K extends string>({
             }}
           >
             {o.icon && <Icon name={o.icon} size={Math.round(height * 0.5)} />}
-            {o.label && <span>{o.label}</span>}
+            {o.label && <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.label}</span>}
             {o.dot && (
               <span
                 aria-hidden
