@@ -1,0 +1,14 @@
+# Cloudflare Workers static assets honors this file (Pages format).
+# Next.js chunk filenames carry a content hash, so they can be cached forever.
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Provider logos, the og image and the icons change only between deploys.
+/logos/*
+  Cache-Control: public, max-age=86400
+/og.png
+  Cache-Control: public, max-age=86400
+/icon.svg
+  Cache-Control: public, max-age=86400
+/favicon.ico
+  Cache-Control: public, max-age=86400

@@ -585,7 +585,7 @@ export function Preview({
             >
               <Icon name="window-restore" size={20} />
               <span style={{ ...label, flex: wide ? 1 : undefined, textAlign: "left" }}>{current.name || t("screen", lang)}</span>
-              <Icon name={wide ? (picker ? "chevron_right" : "chevron_left") : picker ? "expand_more" : "expand_less"} size={18} />
+              <Icon name={wide ? (picker ? "chevron-right" : "chevron-left") : picker ? "chevron-down" : "chevron-up"} size={18} />
             </button>
             <AnimatePresence>
               {picker && (

@@ -37,6 +37,7 @@ export function IconPicker({
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder={t("searchIcons", lang)}
+          className="kit-field"
           style={{
             width: "100%",
             height: 32,
@@ -47,7 +48,6 @@ export function IconPicker({
             background: palette.background,
             color: palette.foreground,
             fontSize: 14,
-            outline: "none",
           }}
         />
       </div>
@@ -95,8 +95,20 @@ export function IconPicker({
           );
         })}
         {visible.length === 0 && (
-          <div style={{ gridColumn: "1 / -1", padding: 16, color: palette.mutedForeground, display: "grid", placeItems: "center" }}>
+          <div
+            style={{
+              gridColumn: "1 / -1",
+              padding: 16,
+              color: palette.mutedForeground,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 8,
+              fontSize: 12,
+            }}
+          >
             <Icon name="eye-off" size={20} />
+            <span>{t("noMatch", lang)}</span>
           </div>
         )}
       </div>

@@ -34,10 +34,30 @@ body {
 
 /* press feedback shared by toolbar and inspector buttons */
 .kit-press {
-  transition: transform 120ms cubic-bezier(0.2, 0, 0, 1), background 120ms, color 120ms;
+  transition: transform 120ms cubic-bezier(0.2, 0, 0, 1), background 120ms, color 120ms, box-shadow 120ms;
 }
 .kit-press:active:not(:disabled) {
   transform: scale(0.96);
+}
+/* hover veil: an inset shadow tints with the button's own text color, so it
+   works over every inline background (including the active state) */
+.kit-press:hover:not(:disabled) {
+  box-shadow: inset 0 0 0 999px color-mix(in srgb, currentColor 8%, transparent);
+}
+
+/* keyboard focus: the ring follows the active palette via --ring (app root) */
+:where(button, input, textarea, select, [role="button"]):focus-visible {
+  outline: 2px solid var(--ring, #171717);
+  outline-offset: 1px;
+}
+/* text inputs carry outline:none inline historically; the class keeps the
+   quiet default in CSS so :focus-visible above can still win */
+.kit-field {
+  outline: none;
+}
+.kit-field:focus-visible {
+  outline: 2px solid var(--ring, #171717);
+  outline-offset: 1px;
 }
 
 /* parts palette tiles: the star only shows on hover */

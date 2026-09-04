@@ -83,7 +83,7 @@ export function PromptPanel({
       <p style={{ margin: 0, fontSize: 12, lineHeight: 1.6, color: p.mutedForeground }}>{t("promptTargetHint", lang)}</p>
       <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex" }}>
         <textarea
-          className="no-scrollbar"
+          className="no-scrollbar kit-field"
           value={text}
           onChange={(e) => onDoc({ promptEdit: e.target.value })}
           spellCheck={false}
@@ -101,7 +101,6 @@ export function PromptPanel({
             color: p.foreground,
             fontFamily: "inherit",
             resize: "none",
-            outline: "none",
             boxSizing: "border-box",
           }}
         />

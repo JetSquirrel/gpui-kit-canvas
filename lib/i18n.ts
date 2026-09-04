@@ -34,6 +34,8 @@ const UI = {
   prompt: { ja: "プロンプト", en: "Prompt", zh: "提示词" },
   closePanel: { ja: "パネルを閉じる", en: "Close panel", zh: "关闭面板" },
   search: { ja: "検索", en: "Search", zh: "搜索" },
+  noMatch: { ja: "一致するものがありません", en: "No matches", zh: "没有匹配的结果" },
+  clearSearch: { ja: "検索をクリア", en: "Clear search", zh: "清除搜索" },
   favorites: { ja: "お気に入り", en: "Favorites", zh: "收藏" },
   addFavorite: { ja: "お気に入りに追加", en: "Add to favorites", zh: "添加到收藏" },
   removeFavorite: { ja: "お気に入りから外す", en: "Remove from favorites", zh: "取消收藏" },

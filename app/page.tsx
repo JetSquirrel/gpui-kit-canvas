@@ -273,6 +273,7 @@ const LEFT_TABS: { key: LeftTab; icon: string; title: "parts" | "layers" | "colo
 ];
 
 export default function Page() {
+  const still = useReducedMotion();
   /* ---------- document ---------- */
   const [groups, setGroups] = useState<Group[]>(seed);
   const [frames, setFrames] = useState<Frame[]>(seedFrames);
@@ -2653,6 +2654,7 @@ export default function Page() {
               : undefined,
           userSelect: resizing || partResize ? "none" : undefined,
           ["--sb" as string]: p.border,
+          ["--ring" as string]: p.primary,
         }}
       >
         {/* hidden measuring layer for text-sized kinds */}
@@ -2776,6 +2778,15 @@ export default function Page() {
                 />
               </div>
               <div style={{ flex: 1, minHeight: 0 }}>
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.div
+                    key={leftTab}
+                    initial={still ? { opacity: 0 } : { opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={still ? { opacity: 0 } : { opacity: 0, x: 8 }}
+                    transition={{ duration: 0.12 }}
+                    style={{ height: "100%" }}
+                  >
                 {leftTab === "parts" ? (
                   <PartsPalette
                     palette={p}
@@ -2827,6 +2838,8 @@ export default function Page() {
                     onReorder={reorderLayers}
                   />
                 )}
+                  </motion.div>
+                </AnimatePresence>
               </div>
             </div>
             )}
@@ -3416,6 +3429,15 @@ export default function Page() {
               />
             </div>
             <div style={{ flex: 1, minHeight: 0 }}>
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={rightTab}
+                  initial={still ? { opacity: 0 } : { opacity: 0, x: 8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={still ? { opacity: 0 } : { opacity: 0, x: -8 }}
+                  transition={{ duration: 0.12 }}
+                  style={{ height: "100%", display: "flex", flexDirection: "column" }}
+                >
               {rightTab === "edit" && selectedFrame && !selected ? (
                 <FrameInspector
                   frame={selectedFrame}
@@ -3465,6 +3487,8 @@ export default function Page() {
                   }}
                 />
               )}
+                </motion.div>
+              </AnimatePresence>
             </div>
           </aside>
         )}

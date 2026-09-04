@@ -68,8 +68,37 @@ export function PartsPalette({
           <div style={{ ...grid, padding: "4px 4px 12px" }}>
             {filtered.map(tile)}
             {filtered.length === 0 && (
-              <div style={{ gridColumn: "1 / -1", color: p.border, fontSize: 13, padding: 12, textAlign: "center" }}>
-                <Icon name="eye-off" size={28} />
+              <div
+                style={{
+                  gridColumn: "1 / -1",
+                  color: p.mutedForeground,
+                  fontSize: 13,
+                  padding: "24px 12px",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 10,
+                }}
+              >
+                <Icon name="eye-off" size={28} color={p.border} />
+                <span>{t("noMatch", lang)}</span>
+                <button
+                  onClick={() => setQ("")}
+                  className="kit-press"
+                  style={{
+                    height: 30,
+                    padding: "0 14px",
+                    borderRadius: 15,
+                    border: "none",
+                    background: p.secondary,
+                    color: p.secondaryForeground,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  {t("clearSearch", lang)}
+                </button>
               </div>
             )}
           </div>

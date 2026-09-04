@@ -49,7 +49,7 @@ export function AiWriteBtn({ p, busy, disabled, onClick, onCancel, label, title 
       }}
     >
       <span className={busy ? "kit-spin" : undefined} style={{ display: "inline-flex" }}>
-        <Icon name={busy ? "progress_activity" : "auto_awesome"} size={20} />
+        <Icon name={busy ? "loader-circle" : "bot"} size={20} />
       </span>
       {/* both labels are laid out so the button keeps one width while it flips */}
       <span style={{ display: "grid" }}>
@@ -72,12 +72,11 @@ const field = (p: Palette): React.CSSProperties => ({
   color: p.foreground,
   fontSize: 13,
   fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-  outline: "none",
   boxSizing: "border-box",
 });
 
 function Input({ value, onChange, placeholder, p, type = "text", label }: { value: string; onChange: (v: string) => void; placeholder?: string; p: Palette; type?: string; label: string }) {
-  return <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} aria-label={label} spellCheck={false} autoComplete="off" style={field(p)} />;
+  return <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} aria-label={label} spellCheck={false} autoComplete="off" className="kit-field" style={field(p)} />;
 }
 
 const Label = ({ children, p, right }: { children: React.ReactNode; p: Palette; right?: React.ReactNode }) => (

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { COLOR_TOKENS, ColorToken, Palette, R_INNER, clamp } from "@/lib/tokens";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { t, useLang } from "@/lib/i18n";
 import { Icon } from "./KitNode";
 
@@ -168,7 +168,6 @@ export function Field({
     color: p.foreground,
     fontSize: 14,
     lineHeight: multiline ? 1.55 : undefined,
-    outline: "none",
     boxSizing: "border-box",
     fontFamily: "inherit",
     resize: "none",
@@ -195,6 +194,7 @@ export function Field({
           rows={rows}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
+          className="kit-field"
           style={base}
         />
       ) : (
@@ -202,6 +202,7 @@ export function Field({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
+          className="kit-field"
           style={{ ...base, height }}
         />
       )}
@@ -507,6 +508,7 @@ export function Section({
   defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const still = useReducedMotion();
   useEffect(() => {
     try {
       const v = localStorage.getItem(`gpui-kit-canvas:sec:${id}`);
@@ -521,6 +523,7 @@ export function Section({
       return !o;
     });
   };
+  const dur = still ? 0 : 0.16;
   return (
     <div style={{ marginBottom: 10 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, height: 36 }}>
@@ -547,11 +550,25 @@ export function Section({
         >
           <Icon name={icon} size={18} />
           <span style={{ flex: 1 }}>{title}</span>
-          <Icon name={open ? "expand_less" : "expand_more"} size={18} />
+          <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ duration: dur }} style={{ display: "inline-flex", lineHeight: 1 }}>
+            <Icon name="chevron-down" size={18} />
+          </motion.span>
         </button>
         {right}
       </div>
-      {open && <div style={{ padding: "6px 4px 14px" }}>{children}</div>}
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: dur, ease: [0.2, 0, 0, 1] }}
+            style={{ overflow: "hidden" }}
+          >
+            <div style={{ padding: "6px 4px 14px" }}>{children}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
