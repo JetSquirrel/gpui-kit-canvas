@@ -1692,7 +1692,7 @@ export default function Page() {
       setFrame(nextFrame);
       frameRef.current = nextFrame;
     }
-    localizeDoc(langRef.current);
+    localizeDoc(lang);
     setSelectedIds([]);
     setSelectedFrameId(null);
     setSelectedLinkId(null);
