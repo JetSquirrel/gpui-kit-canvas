@@ -165,11 +165,11 @@ function itemJa(it: Item): string {
     case "notification":
       return `${q(it.label)}の通知${hasText(it.supporting) ? `（本文${q(it.supporting!)}）` : ""}${it.icon ? `。${ico(it.icon)} アイコンは${v}色` : ""}`;
     case "list":
-      return `${labelsOf(it, "ja")}の ${it.tabs?.length ?? 0} 行のリスト${sel ? `（${sel}が選択状態）` : ""}`;
+      return `${labelsOf(it, "ja")}の ${it.tabs?.length ?? 0} 行のリスト${sel ? `（${sel}が選択状態）` : ""}${it.size2 ? `（高さ ${it.size2}px、はみ出す行はスクロール）` : ""}`;
     case "dataTable":
-      return `列が ${columnsText(it.columns ?? [], "ja")} のデータテーブル（${tableRowsOf(it).length} 行のサンプル: ${tableRowsOf(it).map((r) => r.join(" / ")).join("、")}）`;
+      return `列が ${columnsText(it.columns ?? [], "ja")} のデータテーブル（${tableRowsOf(it).length} 行のサンプル: ${tableRowsOf(it).map((r) => r.join(" / ")).join("、")}）${it.size2 ? `。高さ ${it.size2}px、はみ出す行はスクロール` : ""}`;
     case "tree":
-      return `${(it.tabs ?? []).map((n) => q(n.label.trim())).join("、")}のツリー（先頭の空白 2 つで 1 段のネスト）`;
+      return `${(it.tabs ?? []).map((n) => q(n.label.trim())).join("、")}のツリー（先頭の空白 2 つで 1 段のネスト）${it.size2 ? `。高さ ${it.size2}px、はみ出す行はスクロール` : ""}`;
     case "text":
       return `${it.bold ? "太字の" : ""}テキスト${q(it.label)}（${it.size ?? 20}px）`;
     case "icon":
@@ -253,11 +253,11 @@ function itemEn(it: Item): string {
     case "notification":
       return `a notification reading ${q(it.label)}${hasText(it.supporting) ? ` with the body ${q(it.supporting!)}` : ""}${it.icon ? `, its ${ico(it.icon)} icon in the ${v} colour` : ""}`;
     case "list":
-      return `a list of ${it.tabs?.length ?? 0} rows: ${labelsOf(it, "en")}${sel ? `, with ${sel} selected` : ""}`;
+      return `a list of ${it.tabs?.length ?? 0} rows: ${labelsOf(it, "en")}${sel ? `, with ${sel} selected` : ""}${it.size2 ? `, ${it.size2}px tall with overflowing rows scrolling` : ""}`;
     case "dataTable":
-      return `a data table with the columns ${columnsText(it.columns ?? [], "en")} and ${tableRowsOf(it).length} sample rows: ${tableRowsOf(it).map((r) => r.join(" / ")).join("; ")}`;
+      return `a data table with the columns ${columnsText(it.columns ?? [], "en")} and ${tableRowsOf(it).length} sample rows: ${tableRowsOf(it).map((r) => r.join(" / ")).join("; ")}${it.size2 ? `, ${it.size2}px tall with overflowing rows scrolling` : ""}`;
     case "tree":
-      return `a tree of ${(it.tabs ?? []).map((n) => q(n.label.trim())).join(", ")} (two leading spaces is one level of nesting)`;
+      return `a tree of ${(it.tabs ?? []).map((n) => q(n.label.trim())).join(", ")} (two leading spaces is one level of nesting)${it.size2 ? `, ${it.size2}px tall with overflowing rows scrolling` : ""}`;
     case "text":
       return `${it.bold ? "bold " : ""}text reading ${q(it.label)} at ${it.size ?? 20}px`;
     case "icon":
@@ -341,11 +341,11 @@ function itemZh(it: Item): string {
     case "notification":
       return `内容为${q(it.label)}的通知${hasText(it.supporting) ? `（正文${q(it.supporting!)}）` : ""}${it.icon ? `，${ico(it.icon)} 图标使用${v}色` : ""}`;
     case "list":
-      return `${it.tabs?.length ?? 0} 行的列表：${labelsOf(it, "zh")}${sel ? `（${sel}为选中行）` : ""}`;
+      return `${it.tabs?.length ?? 0} 行的列表：${labelsOf(it, "zh")}${sel ? `（${sel}为选中行）` : ""}${it.size2 ? `（高 ${it.size2}px，超出的行滚动显示）` : ""}`;
     case "dataTable":
-      return `列为 ${columnsText(it.columns ?? [], "zh")} 的数据表格（${tableRowsOf(it).length} 行示例：${tableRowsOf(it).map((r) => r.join(" / ")).join("；")}）`;
+      return `列为 ${columnsText(it.columns ?? [], "zh")} 的数据表格（${tableRowsOf(it).length} 行示例：${tableRowsOf(it).map((r) => r.join(" / ")).join("；")}）${it.size2 ? `，高 ${it.size2}px，超出的行滚动显示` : ""}`;
     case "tree":
-      return `包含 ${(it.tabs ?? []).map((n) => q(n.label.trim())).join("、")} 的树（标签前每 2 个空格代表一级缩进）`;
+      return `包含 ${(it.tabs ?? []).map((n) => q(n.label.trim())).join("、")} 的树（标签前每 2 个空格代表一级缩进）${it.size2 ? `，高 ${it.size2}px，超出的行滚动显示` : ""}`;
     case "text":
       return `${it.bold ? "粗体" : ""}文本${q(it.label)}（${it.size ?? 20}px）`;
     case "icon":

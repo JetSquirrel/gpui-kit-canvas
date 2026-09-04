@@ -35,6 +35,7 @@ import {
   toggleIcon,
   iconSlotsOf,
   setIconSlot,
+  sizeOf,
   variantStyle,
 } from "@/lib/tokens";
 import { IconPicker } from "./IconPicker";
@@ -1101,7 +1102,7 @@ export function Inspector({
                 <Slider
                   icon={spec.size2.icon}
                   title={t("height", lang)}
-                  value={item.size2 ?? spec.h}
+                  value={item.size2 ?? sizeOf(item, {}).h}
                   min={spec.size2.min}
                   max={spec.size2.max}
                   step={spec.size2.step}
@@ -1111,7 +1112,7 @@ export function Inspector({
                 {spec.size2.presets && (
                   <SizePresets
                     values={spec.size2.presets}
-                    value={item.size2 ?? spec.h}
+                    value={item.size2 ?? sizeOf(item, {}).h}
                     min={spec.size2.min}
                     max={spec.size2.max}
                     onChange={(size2) => onChange({ size2 })}

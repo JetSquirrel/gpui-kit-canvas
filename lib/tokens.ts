@@ -1034,6 +1034,7 @@ export const KIND_SPEC: Record<Kind, KindSpec> = {
     hasTabs: true,
     hasValue: true,
     size: { min: 160, max: WINDOW_W, step: 4, icon: "maximize", presets: [240, 280, HALF_W, CONTENT_W] },
+    size2: { min: 60, max: WINDOW_H, step: 4, icon: "panel-bottom", presets: [120, 200, 320] },
     defLabel: "",
     defIcon: null,
     defSize: 280,
@@ -1053,6 +1054,7 @@ export const KIND_SPEC: Record<Kind, KindSpec> = {
     hasTabs: true,
     hasColumns: true,
     size: { min: 240, max: WINDOW_W, step: 4, icon: "maximize", presets: [480, 640, CONTENT_W, WINDOW_W] },
+    size2: { min: 80, max: WINDOW_H, step: 4, icon: "panel-bottom", presets: [160, 240, 400] },
     defLabel: "",
     defIcon: null,
     defSize: 640,
@@ -1072,6 +1074,7 @@ export const KIND_SPEC: Record<Kind, KindSpec> = {
     hasTabs: true,
     hasValue: true,
     size: { min: 160, max: 480, step: 4, icon: "maximize", presets: [220, 260, 320] },
+    size2: { min: 60, max: WINDOW_H, step: 4, icon: "panel-bottom", presets: [120, 200, 320] },
     defLabel: "",
     defIcon: null,
     defSize: 260,
@@ -1729,10 +1732,19 @@ export function makeItem(kind: Kind): Item {
       it.value = 60;
       break;
     case "tabs":
-    case "list":
-    case "tree":
     case "radio":
       it.value = 0;
+      break;
+    case "list":
+      it.value = 0;
+      it.size2 = 8 + (it.tabs?.length ?? 0) * LIST_ROW_H;
+      break;
+    case "tree":
+      it.value = 0;
+      it.size2 = 8 + (it.tabs?.length ?? 0) * TREE_ROW_H;
+      break;
+    case "dataTable":
+      it.size2 = TABLE_ROW_H * ((it.tabs?.length ?? 0) + 1) + 1;
       break;
     case "toolbar":
       it.tabs = defaultTabsFor(kind).slice(0, 4);
@@ -1791,11 +1803,11 @@ export function sizeOf(it: Item, widths: Record<string, number>) {
     case "menu":
       return { w: n, h: 8 + rows * MENU_ROW_H };
     case "list":
-      return { w: n, h: 8 + rows * LIST_ROW_H };
+      return { w: n, h: it.size2 ?? 8 + rows * LIST_ROW_H };
     case "tree":
-      return { w: n, h: 8 + rows * TREE_ROW_H };
+      return { w: n, h: it.size2 ?? 8 + rows * TREE_ROW_H };
     case "dataTable":
-      return { w: n, h: TABLE_ROW_H * (rows + 1) + 1 };
+      return { w: n, h: it.size2 ?? TABLE_ROW_H * (rows + 1) + 1 };
     case "radio":
       return { w: n, h: rows * 24 + Math.max(0, rows - 1) * 4 };
     case "dialog":
