@@ -11,8 +11,8 @@ import {
   frameOfGroup,
   frameRect,
   frameW,
-  groupBounds,
   regionOf,
+  subtreeBounds,
 } from "./tokens";
 
 /* Rule-based layout for one desktop window. Nothing here is guessed by a model.
@@ -62,9 +62,10 @@ const share = (a0: number, a1: number, b0: number, b1: number) => Math.max(0, Ma
 
 /* ---------- 1. join runs ---------- */
 
-/** whether the whole run is one connectable family, so a neighbour can join it */
+/** whether the whole run is one connectable family, so a neighbour can join it.
+ *  A group holding nested children never joins: fusing would drop them. */
 const runFamily = (g: Group): { axis: "x" | "y"; probe: Item } | null => {
-  if (g.free) return null;
+  if (g.free || g.children?.length) return null;
   const spec = connectSpecOf(g.items[0]);
   if (!spec) return null;
   if (!g.items.every((it) => canJoin(g.items[0], it))) return null;
@@ -76,7 +77,7 @@ function joinRuns(groups: Group[], widths: Record<string, number>): Group[] {
   const out = [...groups];
   for (;;) {
     let joined = false;
-    const bounds = new Map(out.map((g) => [g.id, groupBounds(g, widths)]));
+    const bounds = new Map(out.map((g) => [g.id, subtreeBounds(g, widths)]));
     outer: for (let i = 0; i < out.length; i++) {
       const a = out[i];
       const fa = runFamily(a);
@@ -132,7 +133,7 @@ const isAnchored = (u: Unit) =>
 function clusters(groups: Group[], widths: Record<string, number>): Unit[] {
   const units: Unit[] = groups.map((g) => ({
     ids: [g.id],
-    bb: groupBounds(g, widths),
+    bb: subtreeBounds(g, widths),
     kind: g.items[0].kind,
     side: g.items[0].side,
     probe: g.items[0],
@@ -211,7 +212,7 @@ function gapBefore(prev: Unit[] | null, row: Unit[]): number {
  *  returned as is. */
 export function pullInto(g: Group, frame: Frame, widths: Record<string, number>): Group {
   const fr = frameRect(frame);
-  const bb = groupBounds(g, widths);
+  const bb = subtreeBounds(g, widths);
   let dx = bb.r > fr.r ? Math.max(fr.l - bb.l, fr.r - bb.r) : bb.l < fr.l ? fr.l - bb.l : 0;
   const dy = bb.b > fr.b ? Math.max(fr.t - bb.t, fr.b - bb.b) : bb.t < fr.t ? fr.t - bb.t : 0;
   if (g.items.length === 1) {

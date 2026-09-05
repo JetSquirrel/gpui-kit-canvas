@@ -1,22 +1,28 @@
 "use client";
 
-import { useMemo } from "react";
+import { Fragment, useMemo } from "react";
+import type { CSSProperties, PointerEvent } from "react";
 import { Reorder, useDragControls } from "motion/react";
 import { Frame, Group, KIND_SPEC, Palette } from "@/lib/tokens";
 import { Icon } from "./KitNode";
 import { IconBtn } from "./ui";
 import { t, useLang } from "@/lib/i18n";
 
-function Row({
-  g,
-  p,
-  on,
-  onSelect,
-  onUp,
-  onDown,
-  canUp,
-  canDown,
-}: {
+const rowStyle = (p: Palette, on: boolean): CSSProperties => ({
+  listStyle: "none",
+  display: "flex",
+  alignItems: "center",
+  gap: 6,
+  height: 40,
+  padding: "0 4px 0 2px",
+  borderRadius: 14,
+  background: on ? p.secondary : p.muted,
+  color: on ? p.secondaryForeground : p.foreground,
+  position: "relative",
+  userSelect: "none",
+});
+
+type RowBodyProps = {
   g: Group;
   p: Palette;
   on: boolean;
@@ -25,9 +31,12 @@ function Row({
   onDown: () => void;
   canUp: boolean;
   canDown: boolean;
-}) {
+  /** when set, the drag handle is shown and this starts a Reorder drag */
+  onHandleDown?: (e: PointerEvent<HTMLSpanElement>) => void;
+};
+
+function RowBody({ g, p, on, onSelect, onUp, onDown, canUp, canDown, onHandleDown }: RowBodyProps) {
   const lang = useLang();
-  const controls = useDragControls();
   const first = g.items[0];
   const spec = KIND_SPEC[first.kind];
   const label =
@@ -37,33 +46,15 @@ function Row({
       ? `${spec.label} × ${g.items.length}`
       : first.label.trim() || (first.kind === "iconButton" || first.kind === "icon" ? (first.icon ?? spec.label) : spec.label);
   return (
-    <Reorder.Item
-      value={g.id}
-      dragListener={false}
-      dragControls={controls}
-      style={{
-        listStyle: "none",
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-        height: 40,
-        padding: "0 4px 0 2px",
-        borderRadius: 14,
-        background: on ? p.secondary : p.muted,
-        color: on ? p.secondaryForeground : p.foreground,
-        position: "relative",
-        userSelect: "none",
-      }}
-    >
-      <span
-        onPointerDown={(e) => {
-          e.preventDefault();
-          controls.start(e);
-        }}
-        style={{ cursor: "grab", color: p.border, display: "grid", placeItems: "center", width: 24, height: 40, touchAction: "none" }}
-      >
-        <Icon name="ellipsis-vertical" size={18} />
-      </span>
+    <>
+      {onHandleDown && (
+        <span
+          onPointerDown={onHandleDown}
+          style={{ cursor: "grab", color: p.border, display: "grid", placeItems: "center", width: 24, height: 40, touchAction: "none" }}
+        >
+          <Icon name="ellipsis-vertical" size={18} />
+        </span>
+      )}
       <button
         onClick={(e) => onSelect(e.shiftKey)}
         style={{
@@ -88,7 +79,115 @@ function Row({
       </button>
       <IconBtn icon="chevron-up" p={p} size={28} onClick={onUp} disabled={!canUp} title={t("layerUp", lang)} />
       <IconBtn icon="chevron-down" p={p} size={28} onClick={onDown} disabled={!canDown} title={t("layerDown", lang)} />
+    </>
+  );
+}
+
+function Row(props: Omit<RowBodyProps, "onHandleDown">) {
+  const controls = useDragControls();
+  return (
+    <Reorder.Item
+      value={props.g.id}
+      dragListener={false}
+      dragControls={controls}
+      style={rowStyle(props.p, props.on)}
+    >
+      <RowBody
+        {...props}
+        onHandleDown={(e) => {
+          e.preventDefault();
+          controls.start(e);
+        }}
+      />
     </Reorder.Item>
+  );
+}
+
+/** nested rows read as a tree: a rail runs down the parent's leading edge and
+ *  each child row hangs off it with a tick, one indent per depth */
+const CHILD_INDENT = 12;
+const CHILD_PAD = 14;
+const CHILD_ROW_H = 36;
+
+/** a nested group: same row as a top layer, hung on the parent's rail */
+function ChildRow(props: RowBodyProps) {
+  return (
+    <li style={{ ...rowStyle(props.p, props.on), height: CHILD_ROW_H, borderRadius: 12 }}>
+      <span
+        aria-hidden
+        style={{
+          position: "absolute",
+          left: -CHILD_PAD,
+          top: "50%",
+          width: CHILD_PAD - 4,
+          height: 1,
+          background: props.p.mutedForeground,
+          opacity: 0.45,
+          pointerEvents: "none",
+        }}
+      />
+      <RowBody {...props} />
+    </li>
+  );
+}
+
+/** the nested groups of one container group, top layer first, each followed by its own children */
+function ChildRows({
+  g,
+  p,
+  sel,
+  onSelect,
+  onReorderChildren,
+}: {
+  g: Group;
+  p: Palette;
+  sel: Set<string>;
+  onSelect: (itemIds: string[], add: boolean) => void;
+  onReorderChildren?: (parentId: string, orderedChildIds: string[]) => void;
+}) {
+  const children = g.children;
+  if (!children?.length) return null;
+  const topFirst = [...children].reverse();
+  const move = (i: number, d: number) => {
+    if (!onReorderChildren) return;
+    const ids = topFirst.map((c) => c.id);
+    const j = i + d;
+    if (j < 0 || j >= ids.length) return;
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    onReorderChildren(g.id, ids.reverse());
+  };
+  return (
+    <div style={{ position: "relative", marginLeft: CHILD_INDENT, paddingLeft: CHILD_PAD, display: "flex", flexDirection: "column", gap: 4 }}>
+      {/* the rail stops at the last row's middle, the way a tree outline does */}
+      <span
+        aria-hidden
+        style={{
+          position: "absolute",
+          left: 0,
+          top: -2,
+          bottom: CHILD_ROW_H / 2 + 2,
+          width: 1,
+          background: p.mutedForeground,
+          opacity: 0.45,
+          pointerEvents: "none",
+        }}
+      />
+      {topFirst.map((c, i) => (
+        <Fragment key={c.id}>
+          <ChildRow
+            g={c}
+            p={p}
+            on={c.items.some((it) => sel.has(it.id))}
+            onSelect={(add) => onSelect(c.items.map((it) => it.id), add)}
+            onUp={() => move(i, -1)}
+            onDown={() => move(i, 1)}
+            canUp={!!onReorderChildren && i > 0}
+            canDown={!!onReorderChildren && i < topFirst.length - 1}
+          />
+          <ChildRows g={c} p={p} sel={sel} onSelect={onSelect} onReorderChildren={onReorderChildren} />
+        </Fragment>
+      ))}
+    </div>
   );
 }
 
@@ -102,6 +201,7 @@ export function LayersPanel({
   selectedIds,
   onSelect,
   onReorder,
+  onReorderChildren,
 }: {
   p: Palette;
   frames: Frame[];
@@ -114,6 +214,8 @@ export function LayersPanel({
   onSelect: (itemIds: string[], add: boolean) => void;
   /** new order, top layer first */
   onReorder: (topFirst: string[]) => void;
+  /** new order of one container group's children, in canvas order (bottom first) */
+  onReorderChildren?: (parentId: string, orderedChildIds: string[]) => void;
 }) {
   const lang = useLang();
   const topFirst = useMemo(() => [...groups].reverse(), [groups]);
@@ -170,17 +272,19 @@ export function LayersPanel({
         ) : (
           <Reorder.Group axis="y" values={ids} onReorder={onReorder} style={{ display: "flex", flexDirection: "column", gap: 4, padding: 0, margin: 0 }}>
             {topFirst.map((g, i) => (
-              <Row
-                key={g.id}
-                g={g}
-                p={p}
-                on={g.items.some((it) => sel.has(it.id))}
-                onSelect={(add) => onSelect(g.items.map((it) => it.id), add)}
-                onUp={() => move(i, -1)}
-                onDown={() => move(i, 1)}
-                canUp={i > 0}
-                canDown={i < topFirst.length - 1}
-              />
+              <Fragment key={g.id}>
+                <Row
+                  g={g}
+                  p={p}
+                  on={g.items.some((it) => sel.has(it.id))}
+                  onSelect={(add) => onSelect(g.items.map((it) => it.id), add)}
+                  onUp={() => move(i, -1)}
+                  onDown={() => move(i, 1)}
+                  canUp={i > 0}
+                  canDown={i < topFirst.length - 1}
+                />
+                <ChildRows g={g} p={p} sel={sel} onSelect={onSelect} onReorderChildren={onReorderChildren} />
+              </Fragment>
             ))}
           </Reorder.Group>
         )}

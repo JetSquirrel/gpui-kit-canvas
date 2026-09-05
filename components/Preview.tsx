@@ -275,80 +275,84 @@ function Screen({
   values: Record<string, number>;
   onValue: (id: string, v: number) => void;
 }) {
+  /* one group, placed relative to (ox, oy); children carry their own
+   * container-relative coordinates, so they render at a zero offset */
+  const renderGroup = (g: Group, ox: number, oy: number): React.ReactNode => (
+    <div
+      key={g.id}
+      style={
+        g.free
+          ? { position: "absolute", left: g.x - ox, top: g.y - oy }
+          : {
+              position: "absolute",
+              left: g.x - ox,
+              top: g.y - oy,
+              display: "flex",
+              flexDirection: g.axis === "x" ? "row" : "column",
+              alignItems: g.axis === "x" ? "center" : "stretch",
+              gap: GAP,
+            }
+      }
+    >
+      {((corners) => g.items.map((it, i) => {
+        const conn = connectSpecOf(it);
+        const n = g.free ? 1 : g.items.length;
+        const radii = g.free
+          ? (corners?.get(it.id) ?? baseRadii(it))
+          : conn && n > 1
+            ? g.axis === "x"
+              ? {
+                  tl: i === 0 ? conn.outer : conn.inner,
+                  bl: i === 0 ? conn.outer : conn.inner,
+                  tr: i === n - 1 ? conn.outer : conn.inner,
+                  br: i === n - 1 ? conn.outer : conn.inner,
+                }
+              : {
+                  tl: i === 0 ? conn.outer : conn.inner,
+                  tr: i === 0 ? conn.outer : conn.inner,
+                  bl: i === n - 1 ? conn.outer : conn.inner,
+                  br: i === n - 1 ? conn.outer : conn.inner,
+                }
+            : conn
+              ? uniformRadii(conn.outer)
+              : baseRadii(it);
+        const act = it.action;
+        let shown = flipped.has(it.id) ? flippedLook(it) : it;
+        if (it.kind === "slider" && values[it.id] !== undefined) shown = { ...shown, value: values[it.id] };
+        const tap =
+          act || flips(it)
+            ? () => {
+                if (flips(it)) onFlip(it.id);
+                if (act) onAction(act);
+              }
+            : undefined;
+        const slotActions = it.actions;
+        const node = (
+          <Tappable
+            key={it.id}
+            item={shown}
+            p={p}
+            radii={radii}
+            widths={widths}
+            onTap={tap}
+            onSlot={slotActions ? (slot) => slotActions[slot] && onAction(slotActions[slot]) : undefined}
+            onValue={it.kind === "slider" ? (v) => onValue(it.id, v) : undefined}
+          />
+        );
+        if (!g.free) return node;
+        const o = g.pos?.[it.id] ?? { x: 0, y: 0 };
+        return (
+          <div key={it.id} style={{ position: "absolute", left: o.x, top: o.y }}>
+            {node}
+          </div>
+        );
+      }))(g.free ? freeRadii(g, widths) : null)}
+      {g.children?.map((c) => renderGroup(c, 0, 0))}
+    </div>
+  );
   return (
     <div style={{ position: "absolute", inset: 0, background: p[frame.bg ?? "background"], overflow: "hidden" }}>
-      {groups.map((g) => (
-        <div
-          key={g.id}
-          style={
-            g.free
-              ? { position: "absolute", left: g.x - frame.x, top: g.y - frame.y }
-              : {
-                  position: "absolute",
-                  left: g.x - frame.x,
-                  top: g.y - frame.y,
-                  display: "flex",
-                  flexDirection: g.axis === "x" ? "row" : "column",
-                  alignItems: g.axis === "x" ? "center" : "stretch",
-                  gap: GAP,
-                }
-          }
-        >
-          {((corners) => g.items.map((it, i) => {
-            const conn = connectSpecOf(it);
-            const n = g.free ? 1 : g.items.length;
-            const radii = g.free
-              ? (corners?.get(it.id) ?? baseRadii(it))
-              : conn && n > 1
-                ? g.axis === "x"
-                  ? {
-                      tl: i === 0 ? conn.outer : conn.inner,
-                      bl: i === 0 ? conn.outer : conn.inner,
-                      tr: i === n - 1 ? conn.outer : conn.inner,
-                      br: i === n - 1 ? conn.outer : conn.inner,
-                    }
-                  : {
-                      tl: i === 0 ? conn.outer : conn.inner,
-                      tr: i === 0 ? conn.outer : conn.inner,
-                      bl: i === n - 1 ? conn.outer : conn.inner,
-                      br: i === n - 1 ? conn.outer : conn.inner,
-                    }
-                : conn
-                  ? uniformRadii(conn.outer)
-                  : baseRadii(it);
-            const act = it.action;
-            let shown = flipped.has(it.id) ? flippedLook(it) : it;
-            if (it.kind === "slider" && values[it.id] !== undefined) shown = { ...shown, value: values[it.id] };
-            const tap =
-              act || flips(it)
-                ? () => {
-                    if (flips(it)) onFlip(it.id);
-                    if (act) onAction(act);
-                  }
-                : undefined;
-            const slotActions = it.actions;
-            const node = (
-              <Tappable
-                key={it.id}
-                item={shown}
-                p={p}
-                radii={radii}
-                widths={widths}
-                onTap={tap}
-                onSlot={slotActions ? (slot) => slotActions[slot] && onAction(slotActions[slot]) : undefined}
-                onValue={it.kind === "slider" ? (v) => onValue(it.id, v) : undefined}
-              />
-            );
-            if (!g.free) return node;
-            const o = g.pos?.[it.id] ?? { x: 0, y: 0 };
-            return (
-              <div key={it.id} style={{ position: "absolute", left: o.x, top: o.y }}>
-                {node}
-              </div>
-            );
-          }))(g.free ? freeRadii(g, widths) : null)}
-        </div>
-      ))}
+      {groups.map((g) => renderGroup(g, frame.x, frame.y))}
     </div>
   );
 }

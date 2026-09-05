@@ -18,9 +18,12 @@ import {
   BACK_TARGET,
   baseRadii,
   explodeGroup,
+  findGroup,
+  flattenGroups,
   freeRadii,
   canJoin,
   clamp,
+  cloneGroup,
   connectSpecOf,
   Doc,
   Frame,
@@ -32,6 +35,7 @@ import {
   GAP,
   Group,
   groupBounds,
+  isContainerGroup,
   Item,
   Kind,
   KIND_ORDER,
@@ -40,6 +44,9 @@ import {
   layoutOf,
   lerp,
   makeItem,
+  mapGroups,
+  replaceGroup,
+  subtreeBounds,
   DEFAULT_THEME,
   Theme,
   fontFamilyOf,
@@ -136,6 +143,8 @@ type DragState = {
   fromPalette: boolean;
   overBin: boolean;
   snap: Snap | null;
+  /** the container group the dragged part would nest into on drop */
+  nest: string | null;
   settling: boolean;
 };
 
@@ -650,7 +659,7 @@ export default function Page() {
   /* ---------- measurement (text-sized kinds) ---------- */
   const allItems = useMemo(() => {
     const map = new Map<string, Item>();
-    for (const g of groups) for (const it of g.items) map.set(it.id, it);
+    for (const v of flattenGroups(groups)) for (const it of v.group.items) map.set(it.id, it);
     if (drag) map.set(drag.item.id, drag.item);
     return [...map.values()];
   }, [groups, drag]);
@@ -849,10 +858,10 @@ export default function Page() {
 
   /* ---------- rest positions and the magnet ---------- */
   const restPos = useCallback(
-    (g: Group, k: number, sz: { w: number; h: number }) =>
+    (g: Group, wx: number, wy: number, k: number, sz: { w: number; h: number }) =>
       g.axis === "x"
-        ? { left: k === 0 ? g.x - sz.w - GAP : g.x + prefixOf(g, k), top: g.y }
-        : { left: g.x, top: k === 0 ? g.y - sz.h - GAP : g.y + prefixOf(g, k) },
+        ? { left: k === 0 ? wx - sz.w - GAP : wx + prefixOf(g, k), top: wy }
+        : { left: wx, top: k === 0 ? wy - sz.h - GAP : wy + prefixOf(g, k) },
     [prefixOf],
   );
 
@@ -865,11 +874,12 @@ export default function Page() {
       const sz = sizeRef(item);
       let best: Snap | null = null;
       let bestD = 1;
-      for (const g of groupsRef.current) {
+      for (const v of flattenGroups(groupsRef.current)) {
+        const g = v.group;
         if (g.free || g.axis !== spec.axis || !g.items[0] || !canJoin(g.items[0], item))
           continue;
         for (let k = 0; k <= g.items.length; k++) {
-          const r = restPos(g, k, sz);
+          const r = restPos(g, v.wx, v.wy, k, sz);
           const dx = left - r.left;
           const dy = top - r.top;
           const nMain = (spec.axis === "x" ? dx : dy) / SNAP_MAIN;
@@ -898,8 +908,8 @@ export default function Page() {
       const tol = GUIDE_PX / viewRef.current.z;
       const xs: number[] = [];
       const ys: number[] = [];
-      for (const g of groupsRef.current) {
-        for (const pl of layoutOf(g, widthsRef.current)) {
+      for (const v of flattenGroups(groupsRef.current)) {
+        for (const pl of layoutOf({ ...v.group, x: v.wx, y: v.wy }, widthsRef.current)) {
           if (pl.item.id === item.id) continue;
           xs.push(pl.x, pl.x + pl.w / 2, pl.x + pl.w);
           ys.push(pl.y, pl.y + pl.h / 2, pl.y + pl.h);
@@ -952,6 +962,27 @@ export default function Page() {
     [sizeRef],
   );
 
+  /** the container group whose surface the dragged part's centre is over: the
+   *  smallest one wins, so a panel inside a sidebar catches the drop first */
+  const findNest = useCallback(
+    (item: Item, left: number, top: number): string | null => {
+      const sz = sizeRef(item);
+      const cx = left + sz.w / 2;
+      const cy = top + sz.h / 2;
+      let best: { id: string; area: number } | null = null;
+      for (const v of flattenGroups(groupsRef.current)) {
+        const g = v.group;
+        if (!isContainerGroup(g) || g.items.some((it) => it.id === item.id)) continue;
+        const bb = groupBounds({ ...g, x: v.wx, y: v.wy }, widthsRef.current);
+        if (cx < bb.l || cx > bb.r || cy < bb.t || cy > bb.b) continue;
+        const a = (bb.r - bb.l) * (bb.b - bb.t);
+        if (!best || a < best.area) best = { id: g.id, area: a };
+      }
+      return best?.id ?? null;
+    },
+    [sizeRef],
+  );
+
   /* ---------- pointer: parts ---------- */
   const flushPending = useCallback(() => {
     const pend = pendingRef.current;
@@ -1000,10 +1031,30 @@ export default function Page() {
       setGesture(gg);
       return;
     }
+    /* dragging a container's own part carries everything nested inside it */
+    if (g.children?.length && index === 0 && isContainerGroup(g)) {
+      const ids: string[] = [];
+      const collect = (gr: Group) => {
+        for (const it of gr.items) ids.push(it.id);
+        gr.children?.forEach(collect);
+      };
+      collect(g);
+      setSelectedIds((cur) => (e.shiftKey ? [...cur.filter((x) => !ids.includes(x)), ...ids] : ids));
+      setSelectedFrameId(null);
+      setSelectedLinkId(null);
+      setRightTab("edit");
+      const gg: Gesture = { kind: "group", id: g.id, sx: e.clientX, sy: e.clientY, gx: g.x, gy: g.y, moved: false, overBin: false };
+      gestureRef.current = gg;
+      setGesture(gg);
+      return;
+    }
     const pt = toWorld(e.clientX, e.clientY);
+    const origin = findGroup(groupsRef.current, g.id);
+    const wx = origin?.wx ?? g.x;
+    const wy = origin?.wy ?? g.y;
     const off = prefixOf(g, index);
-    const left = g.axis === "x" ? g.x + off : g.x;
-    const top = g.axis === "x" ? g.y : g.y + off;
+    const left = g.axis === "x" ? wx + off : wx;
+    const top = g.axis === "x" ? wy : wy + off;
     sx.jump(left);
     sy.jump(top);
     setSelectedIds((cur) =>
@@ -1025,6 +1076,7 @@ export default function Page() {
       fromPalette: false,
       overBin: false,
       snap: null,
+      nest: null,
       settling: false,
       guide: null,
     };
@@ -1058,6 +1110,7 @@ export default function Page() {
       fromPalette: true,
       overBin: false,
       snap: null,
+      nest: null,
       settling: false,
       guide: null,
     };
@@ -1089,30 +1142,25 @@ export default function Page() {
         d.snap = null;
         const id = d.item.id;
         snapshot();
-        setGroups((prev) => {
-          const out: Group[] = [];
-          for (const g of prev) {
+        setGroups((prev) =>
+          mapGroups(prev, (g) => {
             const idx = g.items.findIndex((it) => it.id === id);
-            if (idx < 0) {
-              out.push(g);
-              continue;
-            }
+            if (idx < 0) return g;
             const rest = g.items.filter((it) => it.id !== id);
-            if (rest.length === 0) continue;
+            if (rest.length === 0) return null;
             const sz = sizeOf(g.items[idx], widthsRef.current);
             const back = idx === 0;
             // The anchor moves to the new first item; that jump must not animate,
             // otherwise the remaining run springs sideways for a frame.
             if (back) instantRef.current.add(g.id);
-            out.push({
+            return {
               ...g,
               x: back && g.axis === "x" ? g.x + sz.w + GAP : g.x,
               y: back && g.axis === "y" ? g.y + sz.h + GAP : g.y,
               items: rest,
-            });
-          }
-          return out;
-        });
+            };
+          }),
+        );
         setPressedId(null);
         setDrag({ ...d });
         return;
@@ -1122,8 +1170,12 @@ export default function Page() {
       d.snap = d.overBin
         ? null
         : findSnap(d.item, pt.x - d.offX, pt.y - d.offY);
-      d.guide =
+      d.nest =
         d.overBin || d.snap
+          ? null
+          : findNest(d.item, pt.x - d.offX, pt.y - d.offY);
+      d.guide =
+        d.overBin || d.snap || d.nest
           ? null
           : findGuide(d.item, pt.x - d.offX, pt.y - d.offY);
       setDrag({ ...d });
@@ -1153,9 +1205,9 @@ export default function Page() {
         setDrag({ ...d, snap: { ...t, pull: 1 }, settling: true });
         const commit = () => {
           setGroups((prev) => {
-            if (prev.some((g) => g.items.some((it) => it.id === item.id)))
+            if (flattenGroups(prev).some((v) => v.group.items.some((it) => it.id === item.id)))
               return prev;
-            return prev.map((g) => {
+            return mapGroups(prev, (g) => {
               if (g.id !== t.groupId) return g;
               const front = t.index === 0;
               return {
@@ -1206,11 +1258,22 @@ export default function Page() {
         axis: connectSpecOf(item)?.axis ?? "x",
         items: [item],
       };
-      setGroups((prev) =>
-        prev.some((g) => g.items.some((it) => it.id === item.id))
-          ? prev
-          : [...prev, ng],
-      );
+      setGroups((prev) => {
+        if (flattenGroups(prev).some((v) => v.group.items.some((it) => it.id === item.id)))
+          return prev;
+        /* over a container the part nests into it, positioned relative to the
+         * container's origin, the way a GPUI child sits inside its parent */
+        if (d.nest) {
+          const target = findGroup(prev, d.nest);
+          if (target && isContainerGroup(target.group)) {
+            const child: Group = { ...ng, x: ng.x - target.wx, y: ng.y - target.wy };
+            return mapGroups(prev, (g) =>
+              g.id === target.group.id ? { ...g, children: [...(g.children ?? []), child] } : g,
+            );
+          }
+        }
+        return [...prev, ng];
+      });
       setDrag(null);
     };
 
@@ -1232,9 +1295,9 @@ export default function Page() {
     const cursorL = drag.px - drag.offX;
     const cursorT = drag.py - drag.offY;
     if (drag.snap) {
-      const g = groupsRef.current.find((x) => x.id === drag.snap!.groupId);
-      if (g) {
-        const r = restPos(g, drag.snap.index, sizeRef(drag.item));
+      const v = findGroup(groupsRef.current, drag.snap.groupId);
+      if (v) {
+        const r = restPos(v.group, v.wx, v.wy, drag.snap.index, sizeRef(drag.item));
         sx.set(lerp(cursorL, r.left, drag.snap.pull));
         sy.set(lerp(cursorT, r.top, drag.snap.pull));
         return;
@@ -1248,8 +1311,8 @@ export default function Page() {
   const itemRects = useCallback(() => {
     const out: { id: string; l: number; t: number; r: number; b: number }[] =
       [];
-    for (const g of groupsRef.current) {
-      for (const pl of layoutOf(g, widthsRef.current)) {
+    for (const v of flattenGroups(groupsRef.current)) {
+      for (const pl of layoutOf({ ...v.group, x: v.wx, y: v.wy }, widthsRef.current)) {
         out.push({ id: pl.item.id, l: pl.x, t: pl.y, r: pl.x + pl.w, b: pl.y + pl.h });
       }
     }
@@ -1360,7 +1423,7 @@ export default function Page() {
         instantRef.current.add(g.id);
         g.overBin = inBin(e.clientX);
         setGesture({ ...g });
-        setGroups((gs) => gs.map((gr) => (gr.id === g.id ? { ...gr, x: Math.round(g.gx + dx), y: Math.round(g.gy + dy) } : gr)));
+        setGroups((gs) => mapGroups(gs, (gr) => (gr.id === g.id ? { ...gr, x: Math.round(g.gx + dx), y: Math.round(g.gy + dy) } : gr)));
         return;
       }
       if (g.kind === "frame") {
@@ -1417,7 +1480,7 @@ export default function Page() {
       setGesture(null);
       // a group dragged onto the parts panel is deleted, like a single part
       if (g?.kind === "group" && g.moved && inBin(e.clientX)) {
-        setGroups((gs) => gs.filter((x) => x.id !== g.id));
+        setGroups((gs) => mapGroups(gs, (x) => (x.id === g.id ? null : x)));
         setSelectedIds([]);
       }
     };
@@ -1451,8 +1514,8 @@ export default function Page() {
   /* ---------- editing ---------- */
   const primaryId = selectedIds[selectedIds.length - 1] ?? null;
   const selected = useMemo(() => {
-    for (const g of groups) {
-      const it = g.items.find((i) => i.id === primaryId);
+    for (const v of flattenGroups(groups)) {
+      const it = v.group.items.find((i) => i.id === primaryId);
       if (it) return it;
     }
     return drag?.item.id === primaryId ? (drag?.item ?? null) : null;
@@ -1488,12 +1551,17 @@ export default function Page() {
 
   const applyPatch = (id: string, patch: Partial<Item>) => {
     const resizes = "size" in patch || "size2" in patch;
-    setGroups((prev) =>
-      prev.map((g) => {
+    setGroups((prev) => {
+      /* the resize re-centring trick only makes sense for a top-level group,
+       * whose coordinates are the world's; a nested group stays put relative
+       * to its container */
+      const host = resizes ? flattenGroups(prev).find((v) => v.group.items.some((it) => it.id === id)) : undefined;
+      const topLevel = host && !host.parent ? host.group.id : null;
+      return mapGroups(prev, (g) => {
         const idx = g.items.findIndex((it) => it.id === id);
         if (idx < 0) return g;
         const next = { ...g.items[idx], ...patch };
-        const { dx, dy } = resizes ? resizeShift(g, g.items[idx], next) : { dx: 0, dy: 0 };
+        const { dx, dy } = resizes && g.id === topLevel ? resizeShift(g, g.items[idx], next) : { dx: 0, dy: 0 };
         if (dx || dy) instantRef.current.add(g.id);
         return {
           ...g,
@@ -1501,8 +1569,8 @@ export default function Page() {
           y: g.y + dy,
           items: g.items.map((it, i) => (i === idx ? next : it)),
         };
-      }),
-    );
+      });
+    });
     if (dragRef.current?.item.id === id) {
       dragRef.current.item = { ...dragRef.current.item, ...patch };
     }
@@ -1558,7 +1626,7 @@ export default function Page() {
     const move = (e: PointerEvent) => {
       const r = partResizeRef.current;
       if (!r) return;
-      const g = groupsRef.current.find((gg) => gg.items.some((it) => it.id === r.id));
+      const g = flattenGroups(groupsRef.current).find((v) => v.group.items.some((it) => it.id === r.id))?.group;
       const item = g?.items.find((it) => it.id === r.id);
       if (!item) return;
       const spec = KIND_SPEC[item.kind];
@@ -1596,22 +1664,25 @@ export default function Page() {
     const ids = new Set(selectedIds);
     snapshot();
     setGroups((prev) =>
-      prev
-        .map((g) => {
-          if (g.free) return collapseFree({ ...g, items: g.items.filter((it) => !ids.has(it.id)) }, widthsRef.current);
-          let x = g.x;
-          let y = g.y;
-          let items = g.items;
-          while (items.length && ids.has(items[0].id)) {
-            const sz = sizeOf(items[0], widthsRef.current);
-            if (g.axis === "x") x += sz.w + GAP;
-            else y += sz.h + GAP;
-            items = items.slice(1);
-          }
-          if (x !== g.x || y !== g.y) instantRef.current.add(g.id);
-          return { ...g, x, y, items: items.filter((it) => !ids.has(it.id)) };
-        })
-        .filter((g) => g.items.length > 0),
+      mapGroups(prev, (g) => {
+        if (g.free) {
+          const rest = collapseFree({ ...g, items: g.items.filter((it) => !ids.has(it.id)) }, widthsRef.current);
+          return rest.items.length ? rest : null;
+        }
+        let x = g.x;
+        let y = g.y;
+        let items = g.items;
+        while (items.length && ids.has(items[0].id)) {
+          const sz = sizeOf(items[0], widthsRef.current);
+          if (g.axis === "x") x += sz.w + GAP;
+          else y += sz.h + GAP;
+          items = items.slice(1);
+        }
+        items = items.filter((it) => !ids.has(it.id));
+        if (!items.length) return null;
+        if (x !== g.x || y !== g.y) instantRef.current.add(g.id);
+        return { ...g, x, y, items };
+      }),
     );
     setSelectedIds([]);
   }, [selectedIds, snapshot]);
@@ -1619,19 +1690,12 @@ export default function Page() {
   const duplicateSelected = useCallback(() => {
     if (!selected) return;
     /* a selected hand-made group is copied whole, keeping its layout */
-    const fg = groupsRef.current.find((g) => g.free && g.items.some((it) => it.id === selected.id));
-    if (fg && fg.items.every((it) => selectedIds.includes(it.id))) {
-      const idMap = new Map(fg.items.map((it) => [it.id, uid()]));
-      const pos: Record<string, { x: number; y: number }> = {};
-      for (const it of fg.items) pos[idMap.get(it.id)!] = fg.pos?.[it.id] ?? { x: 0, y: 0 };
-      const copyG: Group = {
-        ...fg,
-        id: uid(),
-        x: fg.x + 24,
-        y: fg.y + 24,
-        pos,
-        items: fg.items.map((it) => ({ ...it, id: idMap.get(it.id)!, tabs: it.tabs?.map((t) => ({ ...t })) })),
-      };
+    const fgVisit = flattenGroups(groupsRef.current).find((v) => v.group.free && v.group.items.some((it) => it.id === selected.id));
+    const fg = fgVisit?.group;
+    if (fg && fgVisit && fg.items.every((it) => selectedIds.includes(it.id))) {
+      const copyG = cloneGroup(fg);
+      copyG.x = fgVisit.wx + 24;
+      copyG.y = fgVisit.wy + 24;
       snapshot();
       setGroups((prev) => [...prev, copyG]);
       setSelectedIds(copyG.items.map((it) => it.id));
@@ -1661,7 +1725,7 @@ export default function Page() {
   /** the free group the whole selection belongs to, if it is exactly one */
   const selectedGroup = useMemo(() => {
     if (selectedIds.length === 0) return null;
-    const g = groups.find((x) => x.free && x.items.some((it) => it.id === selectedIds[0]));
+    const g = flattenGroups(groups).find((v) => v.group.free && v.group.items.some((it) => it.id === selectedIds[0]))?.group;
     if (!g) return null;
     const ids = new Set(g.items.map((it) => it.id));
     return selectedIds.every((id) => ids.has(id)) && selectedIds.length === g.items.length ? g : null;
@@ -1673,43 +1737,71 @@ export default function Page() {
     const ids = new Set(selectedIds);
     if (ids.size < 2) return;
     const rects = new Map(itemRects().map((r) => [r.id, r]));
+    const visits = flattenGroups(groupsRef.current);
     const picked: Item[] = [];
     let top = -1;
+    /* the picked parts must all sit in the same level of the tree: grouping
+     * across containers would tear them out of their parents */
+    let parentId: string | null | undefined;
+    let shared = true;
     groupsRef.current.forEach((g, i) => {
       for (const it of g.items) if (ids.has(it.id)) {
         picked.push(it);
         top = i;
+        if (parentId === undefined) parentId = null;
+        else if (parentId !== null) shared = false;
       }
     });
-    if (picked.length < 2) return;
+    for (const v of visits) {
+      if (!v.parent) continue;
+      for (const it of v.group.items) if (ids.has(it.id)) {
+        picked.push(it);
+        if (parentId === undefined) parentId = v.parent.id;
+        else if (parentId !== v.parent.id) shared = false;
+      }
+    }
+    if (picked.length < 2 || !shared) return;
     const l = Math.min(...picked.map((it) => rects.get(it.id)!.l));
     const t = Math.min(...picked.map((it) => rects.get(it.id)!.t));
     const pos: Record<string, { x: number; y: number }> = {};
     for (const it of picked) pos[it.id] = { x: rects.get(it.id)!.l - l, y: rects.get(it.id)!.t - t };
-    const ng: Group = { id: uid(), x: l, y: t, axis: "x", items: picked, free: true, pos };
     snapshot();
     setGroups((prev) => {
-      const out: Group[] = [];
-      prev.forEach((g, i) => {
+      /* remove the picked items tree-aware: same run-shift as deleteSelected */
+      const stripped = mapGroups(prev, (g) => {
         if (g.free) {
           const rest = g.items.filter((it) => !ids.has(it.id));
-          if (rest.length) out.push(collapseFree({ ...g, items: rest }, widthsRef.current));
-        } else {
-          let x = g.x;
-          let y = g.y;
-          let items = g.items;
-          while (items.length && ids.has(items[0].id)) {
-            const sz = sizeOf(items[0], widthsRef.current);
-            if (g.axis === "x") x += sz.w + GAP;
-            else y += sz.h + GAP;
-            items = items.slice(1);
-          }
-          items = items.filter((it) => !ids.has(it.id));
-          if (items.length) {
-            if (x !== g.x || y !== g.y) instantRef.current.add(g.id);
-            out.push({ ...g, x, y, items });
-          }
+          return rest.length ? collapseFree({ ...g, items: rest }, widthsRef.current) : null;
         }
+        let x = g.x;
+        let y = g.y;
+        let items = g.items;
+        while (items.length && ids.has(items[0].id)) {
+          const sz = sizeOf(items[0], widthsRef.current);
+          if (g.axis === "x") x += sz.w + GAP;
+          else y += sz.h + GAP;
+          items = items.slice(1);
+        }
+        items = items.filter((it) => !ids.has(it.id));
+        if (!items.length) return null;
+        if (x !== g.x || y !== g.y) instantRef.current.add(g.id);
+        return { ...g, x, y, items };
+      });
+      if (parentId) {
+        /* the items came from a container's children, so the new group lands
+         * there too, its origin counted from the container's world origin */
+        const pv = findGroup(stripped, parentId);
+        if (!pv) return stripped;
+        const ng: Group = { id: uid(), x: l - pv.wx, y: t - pv.wy, axis: "x", items: picked, free: true, pos };
+        return mapGroups(stripped, (g) =>
+          g.id === parentId ? { ...g, children: [...(g.children ?? []), ng] } : g,
+        );
+      }
+      const ng: Group = { id: uid(), x: l, y: t, axis: "x", items: picked, free: true, pos };
+      /* the new free group takes the layer slot of the topmost run involved */
+      const out: Group[] = [];
+      stripped.forEach((g, i) => {
+        out.push(g);
         if (i === top) out.push(ng);
       });
       return out;
@@ -1724,7 +1816,7 @@ export default function Page() {
     snapshot();
     const singles: Group[] = explodeGroup(g, widthsRef.current).map((run) => ({ ...run, id: uid() }));
     for (const sg of singles) instantRef.current.add(sg.id);
-    setGroups((prev) => prev.flatMap((x) => (x.id === g.id ? singles : [x])));
+    setGroups((prev) => replaceGroup(prev, g.id, singles));
   }, [selectedGroup, snapshot]);
 
   const nudge = useCallback(
@@ -1758,11 +1850,28 @@ export default function Page() {
       if (selectedIds.length === 0) return;
       const ids = new Set(selectedIds);
       snapshotFor("nudge:" + selectedIds.join(","));
+      /* the groups to shift, minus any whose ancestor is also shifting:
+       * children ride along with their container, so both moving would
+       * double the step */
+      const visits = flattenGroups(groupsRef.current);
+      const parentOf = new Map(visits.filter((v) => v.parent).map((v) => [v.group.id, v.parent!.id]));
+      const moving = new Set(
+        visits.filter((v) => v.group.items.some((it) => ids.has(it.id))).map((v) => v.group.id),
+      );
+      for (const v of visits) {
+        let a = parentOf.get(v.group.id);
+        while (a !== undefined) {
+          if (moving.has(a)) {
+            moving.delete(v.group.id);
+            break;
+          }
+          a = parentOf.get(a);
+        }
+      }
+      for (const id of moving) instantRef.current.add(id);
       setGroups((prev) =>
-        prev.map((g) =>
-          g.items.some((it) => ids.has(it.id))
-            ? { ...g, x: g.x + dx, y: g.y + dy }
-            : g,
+        mapGroups(prev, (g) =>
+          moving.has(g.id) ? { ...g, x: g.x + dx, y: g.y + dy } : g,
         ),
       );
     },
@@ -1812,8 +1921,10 @@ export default function Page() {
     if (frame !== "window" || isMobile) return null;
     if (selectedFrame) return selectedFrame;
     if (!primaryId) return null;
-    const g = groups.find((g) => g.items.some((it) => it.id === primaryId));
-    return g ? (frameOfGroup(g, frames, widths) ?? null) : null;
+    const v = flattenGroups(groups).find((v) => v.group.items.some((it) => it.id === primaryId));
+    /* a nested group's frame is decided by its world position, not its
+     * container-relative one */
+    return v ? (frameOfGroup({ ...v.group, x: v.wx, y: v.wy }, frames, widths) ?? null) : null;
   }, [frame, isMobile, selectedFrame, primaryId, groups, frames, widths]);
 
   const nextFrameX = () =>
@@ -2008,7 +2119,7 @@ export default function Page() {
         return;
       }
       snapshot();
-      setGroups((gs) => gs.map((g) => (g.items.some((it) => it.id === itemId) ? { ...g, items: g.items.map((it) => (it.id === itemId ? { ...it, note, noteHistory: pushHistory(it.noteHistory, it.note) } : it)) } : g)));
+      setGroups((gs) => mapGroups(gs, (g) => (g.items.some((it) => it.id === itemId) ? { ...g, items: g.items.map((it) => (it.id === itemId ? { ...it, note, noteHistory: pushHistory(it.noteHistory, it.note) } : it)) } : g)));
       showAiNote(t("aiApplied", lang));
     } catch (e) {
       if (!ac.signal.aborted) showToast(aiErrorText(e, lang), 4000, "danger");
@@ -2048,9 +2159,9 @@ export default function Page() {
       );
       setFrames((fs) => fs.filter((f) => f.id !== id));
       setGroups((gs) =>
-        gs
-          .filter((g) => !gone.has(g.id))
-          .map((g) => ({
+        mapGroups(
+          gs.filter((g) => !gone.has(g.id)),
+          (g) => ({
             ...g,
             items: g.items.map((it) => {
               const next = { ...it };
@@ -2061,7 +2172,8 @@ export default function Page() {
               }
               return next;
             }),
-          })),
+          }),
+        ),
       );
       setSelectedFrameId(null);
       setSelectedIds((cur) => cur.filter((x) => !groupsRef.current.some((g) => gone.has(g.id) && g.items.some((it) => it.id === x))));
@@ -2084,23 +2196,7 @@ export default function Page() {
       .filter(
         (g) => frameOfGroup(g, framesRef.current, widthsRef.current)?.id === id,
       )
-      .map((g) => {
-        const idMap = new Map(g.items.map((it) => [it.id, uid()]));
-        const pos = g.pos
-          ? Object.fromEntries(Object.entries(g.pos).map(([id, o]) => [idMap.get(id) ?? id, o]))
-          : undefined;
-        return {
-          ...g,
-          id: uid(),
-          x: g.x + dx,
-          pos,
-          items: g.items.map((it) => ({
-            ...it,
-            id: idMap.get(it.id)!,
-            tabs: it.tabs?.map((t) => ({ ...t })),
-          })),
-        };
-      });
+      .map((g) => cloneGroup(g, dx));
     setFrames((fs) => [...fs, nf]);
     setGroups((gs) => [...gs, ...copies]);
     setSelectedFrameId(nf.id);
@@ -2130,6 +2226,59 @@ export default function Page() {
   /** the runs of one screen drawn with plain divs: the export layer */
   const renderExport = (f: Frame) => {
     const gs = groups.filter((g) => frameOfGroup(g, frames, widths)?.id === f.id);
+    /* one group, placed relative to (ox, oy); children carry their own
+     * container-relative coordinates, so they render at a zero offset */
+    const renderExportGroup = (g: Group, ox: number, oy: number): React.ReactNode =>
+      g.free ? (
+        <div key={g.id} style={{ position: "absolute", left: g.x - ox, top: g.y - oy }}>
+          {((corners) =>
+          layoutOf(g, widths).map((pl) => (
+            <div key={pl.item.id} style={{ position: "absolute", left: pl.x - g.x, top: pl.y - g.y }}>
+              <KitStatic
+                item={pl.item}
+                palette={p}
+                radii={corners.get(pl.item.id)}
+                style={MEASURED.includes(pl.item.kind) ? undefined : { width: pl.w, height: pl.h }}
+              />
+            </div>
+          )))(freeRadii(g, widths))}
+          {g.children?.map((c) => renderExportGroup(c, 0, 0))}
+        </div>
+      ) : (
+        <div
+          key={g.id}
+          style={{
+            position: "absolute",
+            left: g.x - ox,
+            top: g.y - oy,
+            display: "flex",
+            flexDirection: g.axis === "x" ? "row" : "column",
+            alignItems: g.axis === "x" ? "center" : "stretch",
+            gap: GAP,
+          }}
+        >
+          {g.items.map((it, i) => {
+            const conn = connectSpecOf(it);
+            const n = g.items.length;
+            const radii =
+              conn && n > 1
+                ? runRadii(g.axis, i === 0, i === n - 1, false, false, 0, conn.outer, conn.inner)
+                : conn
+                  ? uniformRadii(conn.outer)
+                  : baseRadii(it);
+            return (
+              <KitStatic
+                key={it.id}
+                item={it}
+                palette={p}
+                radii={radii}
+                style={MEASURED.includes(it.kind) ? undefined : { width: sizeOf(it, widths).w, height: sizeOf(it, widths).h }}
+              />
+            );
+          })}
+          {g.children?.map((c) => renderExportGroup(c, 0, 0))}
+        </div>
+      );
     return (
       <div
         data-export={f.id}
@@ -2141,54 +2290,7 @@ export default function Page() {
           overflow: "hidden",
         }}
       >
-        {gs.map((g) =>
-          g.free ? (
-            ((corners) =>
-            layoutOf(g, widths).map((pl) => (
-              <div key={pl.item.id} style={{ position: "absolute", left: pl.x - f.x, top: pl.y - f.y }}>
-                <KitStatic
-                  item={pl.item}
-                  palette={p}
-                  radii={corners.get(pl.item.id)}
-                  style={MEASURED.includes(pl.item.kind) ? undefined : { width: pl.w, height: pl.h }}
-                />
-              </div>
-            )))(freeRadii(g, widths))
-          ) : (
-          <div
-            key={g.id}
-            style={{
-              position: "absolute",
-              left: g.x - f.x,
-              top: g.y - f.y,
-              display: "flex",
-              flexDirection: g.axis === "x" ? "row" : "column",
-              alignItems: g.axis === "x" ? "center" : "stretch",
-              gap: GAP,
-            }}
-          >
-            {g.items.map((it, i) => {
-              const conn = connectSpecOf(it);
-              const n = g.items.length;
-              const radii =
-                conn && n > 1
-                  ? runRadii(g.axis, i === 0, i === n - 1, false, false, 0, conn.outer, conn.inner)
-                  : conn
-                    ? uniformRadii(conn.outer)
-                    : baseRadii(it);
-              return (
-                <KitStatic
-                  key={it.id}
-                  item={it}
-                  palette={p}
-                  radii={radii}
-                  style={MEASURED.includes(it.kind) ? undefined : { width: sizeOf(it, widths).w, height: sizeOf(it, widths).h }}
-                />
-              );
-            })}
-          </div>
-          ),
-        )}
+        {gs.map((g) => renderExportGroup(g, f.x, f.y))}
       </div>
     );
   };
@@ -2327,8 +2429,8 @@ export default function Page() {
       ang: number;
       t: Transition;
     }[] = [];
-    for (const g of groups) {
-      for (const it of g.items) {
+    for (const v of flattenGroups(groups)) {
+      for (const it of v.group.items) {
         for (const { slot, action } of actionsOf(it)) {
         if (action.to === BACK_TARGET) continue;
         const f = frames.find((x) => x.id === action.to);
@@ -2367,7 +2469,7 @@ export default function Page() {
   const patchLink = (linkId: string, fn: (a: Action) => Action | undefined) => {
     const [itemId, slot] = linkId.split("|");
     setGroups((gs) =>
-      gs.map((g) => ({
+      mapGroups(gs, (g) => ({
         ...g,
         items: g.items.map((it) => {
           if (it.id !== itemId) return it;
@@ -2416,10 +2518,20 @@ export default function Page() {
   const frameOf = useMemo(() => {
     const m = new Map<string, string>();
     if (frame !== "window") return m;
-    for (const g of groups) {
-      const f = frameOfGroup(g, frames, widths);
-      if (f) m.set(g.id, f.id);
-    }
+    /* a nested group inherits its top-level ancestor's frame: its own
+     * coordinates are relative to the container, so they say nothing */
+    const walk = (g: Group, fid?: string) => {
+      if (fid) m.set(g.id, fid);
+      else {
+        const f = frameOfGroup(g, frames, widths);
+        if (f) {
+          m.set(g.id, f.id);
+          fid = f.id;
+        }
+      }
+      for (const c of g.children ?? []) walk(c, fid);
+    };
+    for (const g of groups) walk(g);
     return m;
   }, [groups, frames, frame, widths]);
 
@@ -2427,7 +2539,7 @@ export default function Page() {
   const layersFrame = useMemo(() => {
     if (frame !== "window") return null;
     if (primaryId) {
-      const g = groups.find((x) => x.items.some((it) => it.id === primaryId));
+      const g = flattenGroups(groups).find((v) => v.group.items.some((it) => it.id === primaryId))?.group;
       const fid = g ? frameOf.get(g.id) : undefined;
       if (fid) return frames.find((f) => f.id === fid) ?? null;
     }
@@ -2453,6 +2565,10 @@ export default function Page() {
       const instantG = instantRef.current.has(g.id);
       const allOn = g.items.every((it) => selectedSet.has(it.id));
       const corners = freeRadii(g, widths);
+      /* the selection box covers nested children too */
+      const sb = subtreeBounds(g, widths);
+      const nestHi = drag?.active && drag.nest === g.id;
+      const bb = nestHi ? groupBounds(g, widths) : null;
       return (
         <motion.div
           key={g.id}
@@ -2475,16 +2591,33 @@ export default function Page() {
               />
             </div>
           ))}
+          {/* child coordinates are relative to this group's origin */}
+          {g.children?.map((c) => renderGroup(c, 0, 0))}
           {allOn && (
             <div
               aria-hidden
               style={{
                 position: "absolute",
-                left: -6,
-                top: -6,
-                width: groupBounds(g, widths).r - g.x + 12,
-                height: groupBounds(g, widths).b - g.y + 12,
+                left: sb.l - g.x - 6,
+                top: sb.t - g.y - 6,
+                width: sb.w + 12,
+                height: sb.h + 12,
                 border: `${1.5 / view.z}px dashed ${p.primary}`,
+                borderRadius: 10,
+                pointerEvents: "none",
+              }}
+            />
+          )}
+          {bb && (
+            <div
+              aria-hidden
+              style={{
+                position: "absolute",
+                left: bb.l - g.x - 4,
+                top: bb.t - g.y - 4,
+                width: bb.w + 8,
+                height: bb.h + 8,
+                border: `1.5px solid ${p.primary}`,
                 borderRadius: 10,
                 pointerEvents: "none",
               }}
@@ -2508,6 +2641,8 @@ export default function Page() {
     }
     const m = cells.length;
     const instant = instantRef.current.has(g.id);
+    const nestHi = drag?.active && drag.nest === g.id;
+    const bb = nestHi ? groupBounds(g, widths) : null;
 
     return (
       <motion.div
@@ -2574,6 +2709,23 @@ export default function Page() {
             />
           );
         })}
+        {/* child coordinates are relative to this group's origin */}
+        {g.children?.map((c) => renderGroup(c, 0, 0))}
+        {bb && (
+          <div
+            aria-hidden
+            style={{
+              position: "absolute",
+              left: bb.l - g.x - 4,
+              top: bb.t - g.y - 4,
+              width: bb.w + 8,
+              height: bb.h + 8,
+              border: `1.5px solid ${p.primary}`,
+              borderRadius: 10,
+              pointerEvents: "none",
+            }}
+          />
+        )}
       </motion.div>
     );
   };
@@ -2584,7 +2736,8 @@ export default function Page() {
     if (isMobile || handMode || drag?.active) return null;
     if (selectedIds.length !== 1) return null;
     const id = selectedIds[0];
-    for (const g of groups) {
+    for (const v of flattenGroups(groups)) {
+      const g = v.group;
       const idx = g.items.findIndex((it) => it.id === id);
       if (idx < 0) continue;
       const item = g.items[idx];
@@ -2592,14 +2745,15 @@ export default function Page() {
       let x: number;
       let y: number;
       if (g.free) {
-        const pl = layoutOf(g, widths).find((q) => q.item.id === id);
+        /* handles stick to world coordinates, not container-relative ones */
+        const pl = layoutOf({ ...g, x: v.wx, y: v.wy }, widths).find((q) => q.item.id === id);
         if (!pl) return null;
         x = pl.x;
         y = pl.y;
       } else {
         const off = prefixOf(g, idx);
-        x = g.axis === "x" ? g.x + off : g.x;
-        y = g.axis === "x" ? g.y : g.y + off;
+        x = g.axis === "x" ? v.wx + off : v.wx;
+        y = g.axis === "x" ? v.wy : v.wy + off;
       }
       const sz = sizeOf(item, widths);
       return { item, x, y, w: sz.w, h: sz.h };
@@ -2836,6 +2990,18 @@ export default function Page() {
                       setRightTab("edit");
                     }}
                     onReorder={reorderLayers}
+                    /* reorder one container's children to match the panel's order */
+                    onReorderChildren={(parentId, orderedIds) => {
+                      snapshotFor("layers:" + parentId);
+                      setGroups((prev) =>
+                        mapGroups(prev, (g) => {
+                          if (g.id !== parentId || !g.children) return g;
+                          const byId = new Map(g.children.map((c) => [c.id, c]));
+                          const next = orderedIds.map((id) => byId.get(id)).filter((c): c is Group => !!c);
+                          return next.length === g.children.length ? { ...g, children: next } : g;
+                        }),
+                      );
+                    }}
                   />
                 )}
                   </motion.div>
@@ -3053,9 +3219,7 @@ export default function Page() {
                     radii={(() => {
                       const conn = connectSpecOf(drag.item);
                       if (!conn || !drag.snap) return baseRadii(drag.item);
-                      const g = groupsRef.current.find(
-                        (x) => x.id === drag.snap!.groupId,
-                      );
+                      const g = findGroup(groupsRef.current, drag.snap!.groupId)?.group;
                       const mm = (g?.items.length ?? 0) + 1;
                       const k = drag.snap.index;
                       return runRadii(

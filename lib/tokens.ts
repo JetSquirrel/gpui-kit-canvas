@@ -575,6 +575,8 @@ export type KindSpec = {
   hasControls?: boolean;
   /** the part is a region of the window shell, so tidy pins it to an edge */
   region?: "top" | "bottom" | "left" | "right";
+  /** the part can parent other groups, the way a GPUI element nests children */
+  container?: boolean;
   connect?: ConnectSpec;
   size?: SizeSpec;
   defLabel: string;
@@ -626,6 +628,7 @@ export const KIND_SPEC: Record<Kind, KindSpec> = {
     hasTabs: true,
     hasCollapsed: true,
     region: "left",
+    container: true,
     size: { min: SIDEBAR_COLLAPSED_W, max: 420, step: 1, icon: "panel-left", presets: [SIDEBAR_COLLAPSED_W, 200, SIDEBAR_W, 320] },
     size2: { min: 120, max: WINDOW_H, step: 4, icon: "panel-bottom", presets: HEIGHT_PRESETS },
     defLabel: "Navigation",
@@ -910,6 +913,7 @@ export const KIND_SPEC: Record<Kind, KindSpec> = {
     w: CONTENT_W,
     h: 200,
     radius: R,
+    container: true,
     hasVariant: false,
     hasLabel: false,
     hasSupporting: false,
@@ -929,6 +933,7 @@ export const KIND_SPEC: Record<Kind, KindSpec> = {
     w: 320,
     h: 160,
     radius: R_LG,
+    container: true,
     hasVariant: false,
     hasLabel: true,
     hasSupporting: true,
@@ -988,6 +993,7 @@ export const KIND_SPEC: Record<Kind, KindSpec> = {
     w: 420,
     h: 0,
     radius: R_LG,
+    container: true,
     hasVariant: true,
     hasLabel: true,
     hasSupporting: true,
@@ -1007,6 +1013,7 @@ export const KIND_SPEC: Record<Kind, KindSpec> = {
     w: 380,
     h: WINDOW_H - TITLE_BAR_H,
     radius: 0,
+    container: true,
     hasVariant: false,
     hasLabel: true,
     hasSupporting: true,
@@ -1027,6 +1034,7 @@ export const KIND_SPEC: Record<Kind, KindSpec> = {
     w: 260,
     h: 0,
     radius: R_LG,
+    container: true,
     hasVariant: false,
     hasLabel: true,
     hasSupporting: true,
@@ -2221,7 +2229,150 @@ export type Group = {
   /** a hand-made group: parts keep their own offsets (in `pos`) and move as one layer */
   free?: boolean;
   pos?: Record<string, { x: number; y: number }>;
+  /** groups nested inside this one, the way a GPUI element nests children;
+   *  their x/y are relative to this group's origin, so they move with it */
+  children?: Group[];
 };
+
+/** a group whose first part is a container kind can parent other groups */
+export const isContainerGroup = (g: Group) => !!g.items[0] && !!KIND_SPEC[g.items[0].kind]?.container;
+
+export type GroupVisit = {
+  group: Group;
+  /** the group whose `children` holds this one; undefined at the top level */
+  parent?: Group;
+  /** this group's origin in world space: its own x/y plus every ancestor's */
+  wx: number;
+  wy: number;
+};
+
+/** depth-first walk of the group tree, in paint order */
+export function visitGroups(groups: Group[], fn: (v: GroupVisit) => void, parent?: Group, ox = 0, oy = 0) {
+  for (const g of groups) {
+    const wx = ox + g.x;
+    const wy = oy + g.y;
+    fn({ group: g, parent, wx, wy });
+    if (g.children) visitGroups(g.children, fn, g, wx, wy);
+  }
+}
+
+/** every group in the tree as a flat visit list */
+export const flattenGroups = (groups: Group[]): GroupVisit[] => {
+  const out: GroupVisit[] = [];
+  visitGroups(groups, (v) => out.push(v));
+  return out;
+};
+
+/** the group with this id, anywhere in the tree, and its parent */
+export function findGroup(groups: Group[], id: string): GroupVisit | undefined {
+  let hit: GroupVisit | undefined;
+  visitGroups(groups, (v) => {
+    if (v.group.id === id) hit = v;
+  });
+  return hit;
+}
+
+/** detaches the group with this id from wherever it sits in the tree */
+export function removeGroup(groups: Group[], id: string): Group | undefined {
+  for (let i = 0; i < groups.length; i++) {
+    if (groups[i].id === id) return groups.splice(i, 1)[0];
+  }
+  for (const g of groups) {
+    if (g.children) {
+      const hit = removeGroup(g.children, id);
+      if (hit) {
+        if (g.children.length === 0) delete g.children;
+        return hit;
+      }
+    }
+  }
+  return undefined;
+}
+
+/** nests `child` inside `parent`; `wx`/`wy` are the child's world-space origin,
+ *  stored relative to the parent's origin so it rides along with the parent */
+export function insertChild(parent: Group, child: Group, wx: number, wy: number, pwx: number, pwy: number) {
+  child.x = wx - pwx;
+  child.y = wy - pwy;
+  (parent.children ??= []).push(child);
+}
+
+/** applies `fn` to every group in the tree, returning a new tree. A null result
+ *  drops the group and hoists its children to the parent level, their origins
+ *  re-based so they stay where they were on the canvas. Children are normally
+ *  owned by the recursion, but when `fn` hands back a different `children`
+ *  reference (appending a nested group, reordering them) that rewrite wins. */
+export function mapGroups(groups: Group[], fn: (g: Group) => Group | null): Group[] {
+  const out: Group[] = [];
+  for (const g of groups) {
+    const mapped = fn(g);
+    if (!mapped) {
+      if (g.children) {
+        const hoisted = mapGroups(g.children, fn);
+        out.push(...hoisted.map((c) => ({ ...c, x: c.x + g.x, y: c.y + g.y })));
+      }
+      continue;
+    }
+    const next = { ...mapped };
+    if (mapped.children !== g.children) {
+      if (!next.children?.length) delete next.children;
+    } else if (g.children) {
+      const children = mapGroups(g.children, fn);
+      if (children.length) next.children = children;
+      else delete next.children;
+    } else {
+      delete next.children;
+    }
+    out.push(next);
+  }
+  return out;
+}
+
+/** swaps the group with this id for zero or more groups in the same slot,
+ *  at whatever level of the tree it sits */
+export function replaceGroup(groups: Group[], id: string, next: Group[]): Group[] {
+  const out: Group[] = [];
+  for (const g of groups) {
+    if (g.id === id) {
+      out.push(...next);
+      continue;
+    }
+    out.push(g.children ? { ...g, children: replaceGroup(g.children, id, next) } : g);
+  }
+  return out;
+}
+
+/** a deep copy with fresh ids everywhere: items, children, and the pos map */
+export function cloneGroup(g: Group, dx = 0, dy = 0): Group {
+  const idMap = new Map(g.items.map((it) => [it.id, uid()]));
+  const pos = g.pos
+    ? Object.fromEntries(Object.entries(g.pos).map(([id, o]) => [idMap.get(id) ?? id, { ...o }]))
+    : undefined;
+  return {
+    ...g,
+    id: uid(),
+    x: g.x + dx,
+    y: g.y + dy,
+    pos,
+    items: g.items.map((it) => ({ ...it, id: idMap.get(it.id)!, tabs: it.tabs?.map((t) => ({ ...t })) })),
+    children: g.children?.map((c) => cloneGroup(c)),
+  };
+}
+
+/** bounds of a group including everything nested inside it; `wx`/`wy` is the
+ *  group's own world-space origin */
+export function subtreeBounds(g: Group, widths: Record<string, number>, wx = g.x, wy = g.y) {
+  const own = groupBounds({ ...g, x: wx, y: wy }, widths);
+  let { l, t, r, b } = own;
+  for (const c of g.children ?? []) {
+    const cb = subtreeBounds(c, widths, wx + c.x, wy + c.y);
+    l = Math.min(l, cb.l);
+    t = Math.min(t, cb.t);
+    r = Math.max(r, cb.r);
+    b = Math.max(b, cb.b);
+  }
+  return { l, t, r, b, w: r - l, h: b - t };
+}
 
 export type FrameMode = "blank" | "window";
 
@@ -2262,7 +2413,11 @@ export function localizeItem(it: Item, to: Lang): Item {
 }
 
 export const localizeGroups = (groups: Group[], to: Lang): Group[] =>
-  groups.map((g) => ({ ...g, items: g.items.map((it) => localizeItem(it, to)) }));
+  groups.map((g) => ({
+    ...g,
+    items: g.items.map((it) => localizeItem(it, to)),
+    children: g.children ? localizeGroups(g.children, to) : undefined,
+  }));
 
 export const localizeFrames = (frames: Frame[], to: Lang): Frame[] =>
   frames.map((f) => ({ ...f, name: translateFrameName(f.name, to) }));

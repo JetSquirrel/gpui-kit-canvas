@@ -22,6 +22,7 @@ import {
   WINDOW_H,
   WINDOW_W,
   explodeGroup,
+  flattenGroups,
   frameH,
   frameOfGroup,
   frameW,
@@ -704,21 +705,17 @@ const overlapArea = (a: Rect, b: Rect) =>
 /** a window region owns its edge, so it never becomes another part's container */
 const REGION_KINDS: Kind[] = ["titleBar", "statusBar", "sidebar", "sheet"];
 
-/** Groups keep their canvas order (later = drawn on top). A run that sits fully inside an
- *  earlier, larger one is nested in it, so a panel with parts on it reads as one container. */
+/** The hierarchy is explicit: a group's `children` are its content, with x/y
+ *  relative to its origin, so world bounds come from accumulating offsets.
+ *  Groups keep their canvas order (later = drawn on top). */
 function layoutTree(groups: Group[], widths: Record<string, number>): LNode[] {
-  const nodes: LNode[] = groups.map((g) => ({ g, bb: groupBounds(g, widths), children: [] }));
-  const roots: LNode[] = [];
-  nodes.forEach((n, i) => {
-    let parent: LNode | null = null;
-    for (let j = 0; j < i; j++) {
-      const c = nodes[j];
-      if (REGION_KINDS.includes(c.g.items[0].kind)) continue;
-      if (contains(c.bb, n.bb) && area(c.bb) > area(n.bb) && (!parent || area(c.bb) < area(parent.bb))) parent = c;
-    }
-    (parent ? parent.children : roots).push(n);
-  });
-  return roots;
+  const build = (gs: Group[], ox: number, oy: number): LNode[] =>
+    gs.map((g) => {
+      const wx = ox + g.x;
+      const wy = oy + g.y;
+      return { g, bb: groupBounds({ ...g, x: wx, y: wy }, widths), children: build(g.children ?? [], wx, wy) };
+    });
+  return build(groups, 0, 0);
 }
 
 /** Siblings whose vertical extents overlap and that sit side by side form one
@@ -1267,10 +1264,19 @@ export function buildPrompt(doc: Doc, widths: Record<string, number>, onlyFrameI
   const only = onlyFrameId ? allFrames.find((f) => f.id === onlyFrameId) : undefined;
   const frames = only ? [only] : allFrames;
   /* canvas order is the layer order; rows are worked out per window. A hand-made
-   * group is written part by part, since it exists only to move things together. */
+   * group is written part by part, since it exists only to move things together;
+   * its nested groups move up to the same level, re-based into world space.
+   * A real run keeps its parts together; a container keeps its children. */
   const groups = doc.groups
     .filter((g) => !only || frameOfGroup(g, allFrames, widths)?.id === only.id)
-    .flatMap((g) => explodeGroup(g, widths));
+    .flatMap((g) =>
+      g.free
+        ? [
+            ...explodeGroup(g, widths),
+            ...(g.children ?? []).map((c) => ({ ...c, x: c.x + g.x, y: c.y + g.y })),
+          ]
+        : [g],
+    );
   const lines: string[] = [];
   const q = quote(lang);
   const ph = PH[lang];
@@ -1284,7 +1290,7 @@ export function buildPrompt(doc: Doc, widths: Record<string, number>, onlyFrameI
   }
 
   const kindsUsed: Kind[] = [];
-  for (const g of groups) for (const it of g.items) if (!kindsUsed.includes(it.kind)) kindsUsed.push(it.kind);
+  for (const { group: g } of flattenGroups(groups)) for (const it of g.items) if (!kindsUsed.includes(it.kind)) kindsUsed.push(it.kind);
 
   const title = only ? ph.titleOnly(q(only.name || ph.window)) : doc.title.trim() || ph.titleAll(frames.length);
   const mainFrame = frames[0];
@@ -1358,7 +1364,7 @@ export function buildPrompt(doc: Doc, widths: Record<string, number>, onlyFrameI
     describeWindow(lines, groups, null, widths, lang);
   }
 
-  const behavior = groups.flatMap((g) => notes(g, allFrames, lang));
+  const behavior = flattenGroups(groups).flatMap(({ group: g }) => notes(g, allFrames, lang));
   if (behavior.length) {
     lines.push("");
     lines.push(ph.hBehavior);

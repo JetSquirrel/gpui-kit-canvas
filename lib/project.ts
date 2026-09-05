@@ -1,4 +1,4 @@
-import { Doc, Group, KIND_ORDER, Kind, VARIANTS, isShell } from "./tokens";
+import { Doc, Group, KIND_ORDER, Kind, VARIANTS, groupBounds, isContainerGroup, isShell } from "./tokens";
 import { isLang } from "./i18n";
 
 /* A project file is the Doc as JSON, nothing more. Reading one back only checks
@@ -26,7 +26,7 @@ const validItem = (item: unknown) =>
   (item.note === undefined || typeof item.note === "string") &&
   validTabs(item.tabs);
 
-const validGroup = (group: unknown) =>
+const validGroup = (group: unknown): boolean =>
   isRecord(group) &&
   typeof group.id === "string" &&
   Number.isFinite(group.x) &&
@@ -34,7 +34,8 @@ const validGroup = (group: unknown) =>
   (group.axis === "x" || group.axis === "y") &&
   Array.isArray(group.items) &&
   group.items.length > 0 &&
-  group.items.every(validItem);
+  group.items.every(validItem) &&
+  (group.children === undefined || (Array.isArray(group.children) && group.children.length > 0 && group.children.every(validGroup)));
 
 const validFrame = (frame: unknown) =>
   isRecord(frame) &&
@@ -80,7 +81,8 @@ export function saveProject(doc: Doc) {
 export async function readProject(file: File): Promise<Doc | null> {
   try {
     const next: unknown = JSON.parse(await file.text());
-    return isProject(next) ? next : null;
+    if (!isProject(next)) return null;
+    return { ...next, groups: nestContained(next.groups) };
   } catch {
     return null;
   }
@@ -90,4 +92,51 @@ export async function readProject(file: File): Promise<Doc | null> {
 export const migrateKinds = (group: Group): Group => ({
   ...group,
   items: group.items.map((item) => (item.kind in KIND_ALIASES ? { ...item, kind: KIND_ALIASES[item.kind] } : item)),
+  children: group.children?.map(migrateKinds),
 });
+
+/* ---------- nesting flat documents ---------- */
+
+type Rect = { l: number; t: number; r: number; b: number };
+
+const rectArea = (r: Rect) => Math.max(0, r.r - r.l) * Math.max(0, r.b - r.t);
+const rectContains = (o: Rect, i: Rect, tol = 2) => i.l >= o.l - tol && i.t >= o.t - tol && i.r <= o.r + tol && i.b <= o.b + tol;
+
+/** a window region owns its edge, so it never nests inside another group */
+const NEST_EXCLUDE: Kind[] = ["titleBar", "statusBar", "sidebar", "sheet"];
+
+/** Brings a flat, world-space group list up to date with nesting: a group that
+ *  sits fully inside an earlier, larger container group becomes that group's
+ *  child, its coordinates re-based relative to the container. Mirrors the
+ *  containment rules the prompt builder always inferred. */
+export function nestContained(groups: Group[]): Group[] {
+  const out: Group[] = [];
+  const containers = (gs: Group[], ox: number, oy: number, into: { g: Group; wx: number; wy: number; bb: Rect }[]) => {
+    for (const g of gs) {
+      const wx = ox + g.x;
+      const wy = oy + g.y;
+      if (isContainerGroup(g)) into.push({ g, wx, wy, bb: groupBounds({ ...g, x: wx, y: wy }, {}) });
+      if (g.children) containers(g.children, wx, wy, into);
+    }
+  };
+  for (const g of groups) {
+    if (g.free || NEST_EXCLUDE.includes(g.items[0].kind)) {
+      out.push(g);
+      continue;
+    }
+    const bb = groupBounds(g, {});
+    const cands: { g: Group; wx: number; wy: number; bb: Rect }[] = [];
+    containers(out, 0, 0, cands);
+    let best: (typeof cands)[number] | null = null;
+    for (const c of cands) {
+      if (rectArea(c.bb) <= rectArea(bb) || !rectContains(c.bb, bb)) continue;
+      if (!best || rectArea(c.bb) < rectArea(best.bb)) best = c;
+    }
+    if (!best) {
+      out.push(g);
+      continue;
+    }
+    (best.g.children ??= []).push({ ...g, x: g.x - best.wx, y: g.y - best.wy });
+  }
+  return out;
+}
