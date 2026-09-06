@@ -1112,7 +1112,7 @@ const KIND_NOTES: Record<Lang, Partial<Record<Kind, string>>> = {
 
 const GENERAL: Record<Lang, string[]> = {
   ja: [
-    "実装の前に gpui-kit のスキル（`gpui-kit` と `gpui-kit-design-guides`）を読んでください。入っていない場合は https://gpui-kit.com/llms-full.txt 、https://gpui-kit.com/docs/design-guides.md 、https://gpui-kit.com/docs/coding-guides.md を取得します。API は絶対に推測せず、現物のシグネチャを検索して確認します。React や CSS、古い GPUI の例からの類推で書かないでください。",
+    "実装の前に gpui-kit のスキル（`gpui-kit` と `gpui-kit-design-guides`）を https://gpui-kit.com/skills/ からインストールして読んでください。入っていない場合は https://gpui-kit.com/llms-full.txt 、https://gpui-kit.com/docs/design-guides.md 、https://gpui-kit.com/docs/coding-guides.md を取得します。API は絶対に推測せず、現物のシグネチャを検索して確認します。React や CSS、古い GPUI の例からの類推で書かないでください。",
     "依存は `gpui-kit` クレート 1 つだけです。GPUI は `use gpui_kit::*;`、各レイヤーは `gpui_kit::component` / `gpui_kit::base` / `gpui_kit::assets` / `gpui_kit::platform` から辿ります。",
     "起動は `gpui_kit::application().with_assets(gpui_kit::assets::Assets).run(|cx| { gpui_kit::init(cx); ... })` の順で、最初に `gpui_kit::init(cx)` を呼び、ウィンドウのルートは `Root::new(view, window, cx)` にします。",
     "色・角丸・間隔はすべて `cx.theme()` のセマンティックトークンと rem ベースのヘルパーから取ります。アプリのコードに生の hex や rgb(...) を書かないでください。必要なロールが無ければテーマ／トークン層に定義します。",
@@ -1126,7 +1126,7 @@ const GENERAL: Record<Lang, string[]> = {
     "最後に Design Guides の Design review checklist と Coding Guides の Implementation checklist を成果物に対して 1 項目ずつ確認します。",
   ],
   en: [
-    "Before writing code, read the gpui-kit skills (`gpui-kit` and `gpui-kit-design-guides`). If they are not installed, fetch https://gpui-kit.com/llms-full.txt, https://gpui-kit.com/docs/design-guides.md and https://gpui-kit.com/docs/coding-guides.md. Never invent an API: search the current source for the real signature, and do not translate a React, CSS or older-GPUI example by analogy.",
+    "Before writing code, install the gpui-kit skills (`gpui-kit` and `gpui-kit-design-guides`) from https://gpui-kit.com/skills/ and read them. If skills cannot be installed, fetch https://gpui-kit.com/llms-full.txt, https://gpui-kit.com/docs/design-guides.md and https://gpui-kit.com/docs/coding-guides.md. Never invent an API: search the current source for the real signature, and do not translate a React, CSS or older-GPUI example by analogy.",
     "Depend on the `gpui-kit` crate alone. GPUI is `use gpui_kit::*;`, and the layers are `gpui_kit::component`, `gpui_kit::base`, `gpui_kit::assets` and `gpui_kit::platform`.",
     "Bootstrap with `gpui_kit::application().with_assets(gpui_kit::assets::Assets).run(|cx| { gpui_kit::init(cx); ... })`, calling `gpui_kit::init(cx)` first, and give the window a `Root::new(view, window, cx)`.",
     "Take every colour, radius and gap from `cx.theme()` semantic tokens and the rem-based helpers. No raw hex or rgb(...) in application code; if a role does not exist, define it in the theme/token layer.",
@@ -1140,7 +1140,7 @@ const GENERAL: Record<Lang, string[]> = {
     "Finish by running the Design review checklist from the Design Guides and the Implementation checklist from the Coding Guides against the work, item by item.",
   ],
   zh: [
-    "动手之前请先阅读 gpui-kit 的 skill（`gpui-kit` 与 `gpui-kit-design-guides`）。若未安装，则抓取 https://gpui-kit.com/llms-full.txt 、https://gpui-kit.com/docs/design-guides.md 和 https://gpui-kit.com/docs/coding-guides.md 。绝不要凭空编造 API：请在真实源码中搜索确切签名，也不要按 React、CSS 或旧版 GPUI 的例子类推。",
+    "动手之前请先从 https://gpui-kit.com/skills/ 安装并阅读 gpui-kit 的 skill（`gpui-kit` 与 `gpui-kit-design-guides`）。若无法安装 skill，则抓取 https://gpui-kit.com/llms-full.txt 、https://gpui-kit.com/docs/design-guides.md 和 https://gpui-kit.com/docs/coding-guides.md 。绝不要凭空编造 API：请在真实源码中搜索确切签名，也不要按 React、CSS 或旧版 GPUI 的例子类推。",
     "只依赖 `gpui-kit` 这一个 crate。GPUI 通过 `use gpui_kit::*;` 引入，各层分别是 `gpui_kit::component`、`gpui_kit::base`、`gpui_kit::assets` 和 `gpui_kit::platform`。",
     "启动流程为 `gpui_kit::application().with_assets(gpui_kit::assets::Assets).run(|cx| { gpui_kit::init(cx); ... })`，必须先调用 `gpui_kit::init(cx)`，窗口根节点使用 `Root::new(view, window, cx)`。",
     "所有颜色、圆角和间距都取自 `cx.theme()` 的语义 token 与基于 rem 的辅助函数。应用代码中不要出现原始 hex 或 rgb(...)；缺少所需角色时，请在主题／token 层中定义。",
@@ -1154,6 +1154,86 @@ const GENERAL: Record<Lang, string[]> = {
     "最后逐项对照 Design Guides 的 Design review checklist 与 Coding Guides 的 Implementation checklist 检查成果。",
   ],
 };
+
+/* ---------- getting started with gpui-kit ---------- */
+
+/* The Rust snippets are the same in every language; only the prose around them
+ * is translated. They mirror the Installation and Getting Started pages so the
+ * prompt teaches the toolkit itself, not only the design to build with it. */
+const CARGO_TOML = ["```toml", "[dependencies]", 'gpui-kit = "0.6"', 'anyhow = "1.0"', "```"];
+
+const APP_CODE = [
+  "```rust",
+  "use gpui_kit::component::button::*;",
+  "use gpui_kit::component::*;",
+  "use gpui_kit::*;",
+  "",
+  "pub struct HelloWorld;",
+  "",
+  "impl Render for HelloWorld {",
+  "    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {",
+  "        div()",
+  "            .v_flex()",
+  "            .gap_2()",
+  "            .size_full()",
+  "            .items_center()",
+  "            .justify_center()",
+  '            .child("Hello, World!")',
+  "            .child(",
+  '                Button::new("ok")',
+  "                    .primary()",
+  '                    .label("Let\'s Go!")',
+  '                    .on_click(|_, _, _| println!("Clicked!")),',
+  "            )",
+  "    }",
+  "}",
+  "",
+  "fn main() {",
+  "    let app = gpui_kit::application().with_assets(gpui_kit::assets::Assets);",
+  "",
+  "    app.run(move |cx| {",
+  "        // This must be called before using any GPUI Component features.",
+  "        gpui_kit::init(cx);",
+  "",
+  "        cx.spawn(async move |cx| {",
+  "            cx.open_window(WindowOptions::default(), |window, cx| {",
+  "                let view = cx.new(|_| HelloWorld);",
+  "                // This first level on the window, should be a Root.",
+  "                cx.new(|cx| Root::new(view, window, cx))",
+  "            })",
+  '            .expect("Failed to open window");',
+  "        })",
+  "        .detach();",
+  "    });",
+  "}",
+  "```",
+];
+
+const QUICKSTART_TEXT: Record<Lang, { cargo: string; app: string; learn: string }> = {
+  ja: {
+    cargo: "gpui-kit を Cargo.toml に追加します。GPUI と gpui-base は gpui-kit が引き込むので、アプリが GPUI を直接依存に書くことはありません:",
+    app: "最小構成のアプリはこの形です。`gpui_kit::init(cx)` は `app.run` の中で最初に呼び、ウィンドウの第 1 レベルは必ず `Root` にします:",
+    learn:
+      "ここから先はスキルに任せます。https://gpui-kit.com/skills/ から `gpui-kit` と `gpui-kit-design-guides` のスキルをインストールして読み、コンポーネントの API は https://gpui-kit.com/llms-full.txt で確認してから書いてください。",
+  },
+  en: {
+    cargo: "Add gpui-kit to Cargo.toml; it pulls in GPUI and gpui-base itself, so the app depends on this one crate and never lists GPUI:",
+    app: "The smallest working app looks like this. `gpui_kit::init(cx)` is the first call inside `app.run`, and the first level on a window is always a `Root`:",
+    learn:
+      "Take it from here with the skills: install the `gpui-kit` and `gpui-kit-design-guides` skills from https://gpui-kit.com/skills/ and read them, and check every component API against https://gpui-kit.com/llms-full.txt before writing code.",
+  },
+  zh: {
+    cargo: "在 Cargo.toml 中添加 gpui-kit；它会自行引入 GPUI 与 gpui-base，应用只依赖这一个 crate，不需要直接列出 GPUI：",
+    app: "最小可运行的应用如下。`gpui_kit::init(cx)` 必须是 `app.run` 闭包里的第一个调用，窗口的第一层始终是 `Root`：",
+    learn:
+      "接下来的用法交给技能：从 https://gpui-kit.com/skills/ 安装并阅读 `gpui-kit` 与 `gpui-kit-design-guides` 技能，每个组件的 API 都先对照 https://gpui-kit.com/llms-full.txt 再写代码。",
+  },
+};
+
+function quickstartLines(lang: Lang): string[] {
+  const t = QUICKSTART_TEXT[lang];
+  return [`- ${t.cargo}`, ...CARGO_TOML, `- ${t.app}`, ...APP_CODE, `- ${t.learn}`];
+}
 
 /* ---------- fixed phrases ---------- */
 
@@ -1187,6 +1267,7 @@ const PH = {
     freeform: "レイアウトを上から順に説明します。",
     hBehavior: "## 振る舞いとビューの切り替え",
     hParts: "## 使うコンポーネント",
+    hQuickStart: "## gpui-kit の使い方",
     hGeneral: "## 全体の指針",
   },
   en: {
@@ -1218,6 +1299,7 @@ const PH = {
     freeform: "The layout, from top to bottom:",
     hBehavior: "## Behaviour and navigation",
     hParts: "## Components to use",
+    hQuickStart: "## Using gpui-kit",
     hGeneral: "## General guidance",
   },
   zh: {
@@ -1249,6 +1331,7 @@ const PH = {
     freeform: "从上到下说明布局：",
     hBehavior: "## 行为与视图切换",
     hParts: "## 需要使用的组件",
+    hQuickStart: "## gpui-kit 使用方法",
     hGeneral: "## 整体原则",
   },
 };
@@ -1387,6 +1470,10 @@ export function buildPrompt(doc: Doc, widths: Record<string, number>, onlyFrameI
       lines.push(`- ${noun}: \`${spec.api}\`${note ? ` — ${note}` : ""}`);
     }
   }
+
+  lines.push("");
+  lines.push(ph.hQuickStart);
+  lines.push(...quickstartLines(lang));
 
   lines.push("");
   lines.push(ph.hGeneral);
