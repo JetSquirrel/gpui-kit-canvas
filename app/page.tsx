@@ -1722,6 +1722,62 @@ export default function Page() {
     setSelectedIds([copy.id]);
   }, [selected, selectedIds, itemRects, snapshot]);
 
+  /* The in-app clipboard: Ctrl+C keeps a copy of the selection (a whole group when
+   * the selection covers one) with its offset inside its window, so Ctrl+V can put it
+   * at the same spot on another window, or a step aside on the same one. */
+  const clipboardRef = useRef<{ group: Group; dx: number; dy: number; frameId: string | null } | null>(null);
+
+  const copySelected = useCallback(() => {
+    if (!selected) return;
+    const ids = new Set(selectedIds);
+    const visit = flattenGroups(groupsRef.current).find((v) => v.group.items.some((it) => it.id === selected.id));
+    if (!visit) return;
+    let group: Group;
+    /* a hand-made group the selection covers travels whole, nested children and all,
+     * lifted out of its parent into world space */
+    if (visit.group.free && visit.group.items.every((it) => ids.has(it.id))) {
+      group = { ...cloneGroup(visit.group), x: visit.wx, y: visit.wy };
+    } else {
+      const rect = itemRects().find((r) => r.id === selected.id);
+      if (!rect) return;
+      group = {
+        id: uid(),
+        x: rect.l,
+        y: rect.t,
+        axis: connectSpecOf(selected)?.axis ?? "x",
+        items: [{ ...selected, id: uid(), tabs: selected.tabs?.map((t) => ({ ...t })) }],
+      };
+    }
+    /* a group on no window keeps its canvas position; one on a window keeps its offset there */
+    const f = frameOfGroup(group, framesRef.current, widthsRef.current);
+    clipboardRef.current = { group, dx: f ? group.x - f.x : 0, dy: f ? group.y - f.y : 0, frameId: f?.id ?? null };
+  }, [selected, selectedIds, itemRects]);
+
+  const pasteClipboard = useCallback(() => {
+    const clip = clipboardRef.current;
+    if (!clip) return;
+    const fs = framesRef.current;
+    /* the window to paste into: the selected window, else the selection's, else the source */
+    let target = selectedFrameId ? fs.find((f) => f.id === selectedFrameId) : undefined;
+    if (!target && selected) {
+      const v = flattenGroups(groupsRef.current).find((x) => x.group.items.some((it) => it.id === selected.id));
+      if (v) target = frameOfGroup({ ...v.group, x: v.wx, y: v.wy }, fs, widthsRef.current);
+    }
+    if (!target) target = fs.find((f) => f.id === clip.frameId);
+    let x = target && clip.frameId ? target.x + clip.dx : clip.group.x;
+    let y = target && clip.frameId ? target.y + clip.dy : clip.group.y;
+    /* onto a spot already taken (the source, or an earlier paste) it steps aside like a duplicate */
+    while (flattenGroups(groupsRef.current).some((v) => v.wx === x && v.wy === y)) {
+      x += 24;
+      y += 24;
+    }
+    const copy: Group = { ...cloneGroup(clip.group), x, y };
+    snapshot();
+    setGroups((prev) => [...prev, copy]);
+    setSelectedIds(copy.items.map((it) => it.id));
+    setSelectedFrameId(null);
+  }, [selected, selectedFrameId, snapshot]);
+
   /** the free group the whole selection belongs to, if it is exactly one */
   const selectedGroup = useMemo(() => {
     if (selectedIds.length === 0) return null;
@@ -2335,6 +2391,19 @@ export default function Page() {
         else duplicateSelected();
         return;
       }
+      if (mod && e.key.toLowerCase() === "c") {
+        /* with nothing selected, or text highlighted somewhere, the browser keeps its own copy */
+        if (selectedIds.length === 0 || window.getSelection()?.toString()) return;
+        e.preventDefault();
+        copySelected();
+        return;
+      }
+      if (mod && e.key.toLowerCase() === "v") {
+        if (!clipboardRef.current) return;
+        e.preventDefault();
+        pasteClipboard();
+        return;
+      }
       if (mod && e.key.toLowerCase() === "g") {
         e.preventDefault();
         if (e.shiftKey) ungroupSelected();
@@ -2392,6 +2461,8 @@ export default function Page() {
   }, [
     deleteSelected,
     duplicateSelected,
+    copySelected,
+    pasteClipboard,
     groupSelected,
     ungroupSelected,
     nudge,

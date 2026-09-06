@@ -106,6 +106,7 @@ npm run check:api  -- ../gpui-kit   # 校验所有组件路径，并列出尚未
 | `+` `-` `0` | 放大、缩小、适应窗口 |
 | `Ctrl+Z` / `Ctrl+Shift+Z` | 撤销 / 重做 |
 | `Ctrl+D` | 复制 |
+| `Ctrl+C` / `Ctrl+V` | 复制 / 粘贴所选组件（也可跨窗口） |
 | `Ctrl+G` / `Ctrl+Shift+G` | 编组 / 取消编组 |
 | 方向键（`Shift` 为 10） | 微调 |
 | `Delete` | 删除所选组件，或所选窗口 |

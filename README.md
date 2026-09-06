@@ -174,6 +174,7 @@ up in the Rust source, so a part can never quietly claim an API that is not ther
 | `+` `-` `0` | Zoom in, zoom out, fit |
 | `Ctrl+Z` / `Ctrl+Shift+Z` | Undo / redo |
 | `Ctrl+D` | Duplicate |
+| `Ctrl+C` / `Ctrl+V` | Copy and paste the selection, across windows too |
 | `Ctrl+G` / `Ctrl+Shift+G` | Group / ungroup the selection |
 | Arrows (`Shift` = 10) | Nudge |
 | `Delete` | Delete the selected parts, or the selected window |
