@@ -2371,8 +2371,8 @@ export default function Page() {
           t.tagName === "TEXTAREA" ||
           t.isContentEditable);
       if (typing) return;
-      // the confirm dialog and the preview own the keyboard while they are up
-      if (confirmClear || previewId !== null) return;
+      // dialogs and the preview own the keyboard while they are up
+      if (confirmClear || pendingImport !== null || previewId !== null) return;
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.key.toLowerCase() === "z") {
         e.preventDefault();
@@ -2473,6 +2473,7 @@ export default function Page() {
     selectedFrameId,
     deleteFrame,
     confirmClear,
+    pendingImport,
     previewId,
   ]);
   const openPreviewRef = useRef(openPreview);
