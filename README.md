@@ -83,7 +83,11 @@ Expressive phone screens to gpui-kit desktop windows.
 - **Tidy** – one button pins the title bar to the top, the sidebar to the leading edge and the status
   bar to the bottom, lays the toolbar and breadcrumb out as bands under the title bar, centres a
   dialog, drops a notification into the trailing corner, and flows the rest on 16px panel padding.
-  Press it again to undo.
+  Press it again to undo. Its trailing half chooses where the body goes — from the top, centred,
+  against the status bar or spread out — which is saved on the window and written into the prompt.
+- **Align** – the right panel lines the selection up: left, centre, right, top, middle, bottom, or
+  spaced evenly. Several parts line up with each other; a lone part lines up with the body area Tidy
+  fills, or with its container when it sits inside one.
 - **Optional AI helper** – bring your own key (OpenAI, Claude, Gemini or DeepSeek) and let the model
   write a part's behaviour note or a window's description, in your language. The key stays in your
   browser and the request goes straight to the provider; there is no server in between.

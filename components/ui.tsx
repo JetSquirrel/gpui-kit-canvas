@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { COLOR_TOKENS, ColorToken, Palette, R_INNER, clamp } from "@/lib/tokens";
+import { useEffect, useRef, useState } from "react";
+import { COLOR_TOKENS, ColorToken, PLACES, Palette, Place, R_INNER, clamp } from "@/lib/tokens";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { t, useLang } from "@/lib/i18n";
 import { Icon } from "./KitNode";
@@ -749,13 +749,77 @@ export function ButtonRun({ children }: { children: React.ReactNode }) {
 
 export type TidyState = "tidy" | "undo" | "done";
 
+/** A small picture of where Tidy puts the body: the window as a dashed box, with the
+ *  rows drawn where they would land. gpui-kit ships no alignment icons, so this is drawn
+ *  rather than named. */
+export function PlaceGlyph({ place, size = 20 }: { place: Place; size?: number }) {
+  /* [y, height] of each row inside a 24-unit window box */
+  const bars: [number, number][] =
+    place === "top" ? [[5, 4], [11, 4]]
+    : place === "center" ? [[7, 4], [13, 4]]
+    : place === "bottom" ? [[9, 4], [15, 4]]
+    : [[4.5, 3], [10.5, 3], [16.5, 3]];
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x={2.5} y={2.5} width={19} height={19} rx={3} stroke="currentColor" strokeWidth={1.25} opacity={0.45} />
+      {bars.map(([y, h], i) => (
+        <rect key={i} x={6} y={y} width={12} height={h} rx={1.25} fill="currentColor" />
+      ))}
+    </svg>
+  );
+}
+
 /** One button that reads as "Tidy", turns into "Undo tidy" right after, and is
- *  disabled while the screen is already tidy. */
-export function TidyButton({ state, onClick, p, pill }: { state: TidyState; onClick: () => void; p: Palette; /** the toolbar version next to the zoom pill */ pill?: boolean }) {
+ *  disabled while the window is already tidy. With `onPlace` it becomes a split
+ *  button whose trailing half opens the body placements. */
+export function TidyButton({
+  state,
+  onClick,
+  p,
+  pill,
+  place,
+  onPlace,
+}: {
+  state: TidyState;
+  onClick: () => void;
+  p: Palette;
+  /** the toolbar version next to the zoom pill */
+  pill?: boolean;
+  /** where the window's body goes; with `onPlace` the button gains a trailing menu to change it */
+  place?: Place;
+  onPlace?: (place: Place) => void;
+}) {
   const lang = useLang();
   const done = state === "done";
   const label = state === "undo" ? t("tidyUndo", lang) : state === "done" ? t("tidyDone", lang) : t("tidy", lang);
-  return (
+  const [menu, setMenu] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  /* the menu closes on a click anywhere else or on Escape */
+  useEffect(() => {
+    if (!menu) return;
+    const away = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setMenu(false);
+    };
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      /* the editor also clears its selection on Escape; closing the menu is enough here */
+      e.stopPropagation();
+      setMenu(false);
+    };
+    document.addEventListener("pointerdown", away, true);
+    document.addEventListener("keydown", key, true);
+    return () => {
+      document.removeEventListener("pointerdown", away, true);
+      document.removeEventListener("keydown", key, true);
+    };
+  }, [menu]);
+  const split = !!onPlace;
+  const current = place ?? "top";
+  const placeLabel = (k: Place) => t(k === "top" ? "placeTop" : k === "center" ? "placeCenter" : k === "bottom" ? "placeBottom" : "placeSpread", lang);
+  const h = pill ? 40 : 44;
+  const bg = done ? "transparent" : state === "undo" ? p.muted : p.secondary;
+  const fg = done ? p.mutedForeground : state === "undo" ? p.mutedForeground : p.secondaryForeground;
+  const main = (
     <button
       onClick={onClick}
       disabled={done}
@@ -763,13 +827,14 @@ export function TidyButton({ state, onClick, p, pill }: { state: TidyState; onCl
       aria-label={label}
       className="kit-press"
       style={{
-        width: pill ? (done ? 40 : undefined) : "100%",
-        height: pill ? 40 : 44,
+        width: pill ? (done ? 40 : undefined) : split ? undefined : "100%",
+        flex: split && !pill ? 1 : undefined,
+        height: h,
         padding: done ? 0 : pill ? "0 16px 0 12px" : "0 16px",
-        borderRadius: pill ? 20 : 22,
+        borderRadius: split && !done ? `${h / 2}px ${R_INNER}px ${R_INNER}px ${h / 2}px` : h / 2,
         border: "none",
-        background: done ? "transparent" : state === "undo" ? p.muted : p.secondary,
-        color: done ? p.mutedForeground : state === "undo" ? p.mutedForeground : p.secondaryForeground,
+        background: bg,
+        color: fg,
         fontSize: 13,
         fontWeight: 600,
         cursor: done ? "default" : "pointer",
@@ -781,9 +846,89 @@ export function TidyButton({ state, onClick, p, pill }: { state: TidyState; onCl
         whiteSpace: "nowrap",
       }}
     >
-      <Icon name={state === "undo" ? "undo" : state === "done" ? "check" : "align_space_even"} size={done ? 22 : 20} />
+      <Icon name={state === "undo" ? "undo" : state === "done" ? "check" : "layout-dashboard"} size={done ? 22 : 20} />
       {!done && label}
     </button>
+  );
+  if (!split) return main;
+  /* a split button: tidy on the left, the placement menu behind the trailing half,
+   * 3px apart like a connected run */
+  return (
+    <div ref={ref} style={{ position: "relative", display: "flex", gap: 3, alignItems: "center", width: pill ? undefined : "100%" }}>
+      {main}
+      <button
+        onClick={() => setMenu((m) => !m)}
+        title={t("placement", lang)}
+        aria-label={t("placement", lang)}
+        aria-expanded={menu}
+        aria-haspopup="true"
+        className="kit-press"
+        style={{
+          height: h,
+          width: h,
+          borderRadius: done ? h / 2 : `${R_INNER}px ${h / 2}px ${h / 2}px ${R_INNER}px`,
+          border: "none",
+          background: bg,
+          color: fg,
+          cursor: "pointer",
+          display: "grid",
+          placeItems: "center",
+          flex: "0 0 auto",
+          opacity: done ? 0.7 : 1,
+        }}
+      >
+        <PlaceGlyph place={current} size={20} />
+      </button>
+      {menu && (
+        /* the placement choices as one compact row, floating off the trailing half */
+        <div
+          role="group"
+          aria-label={t("placement", lang)}
+          style={{
+            position: "absolute",
+            ...(pill ? { bottom: "100%", marginBottom: 8 } : { top: "100%", marginTop: 8 }),
+            right: 0,
+            display: "flex",
+            gap: 3,
+            padding: 4,
+            borderRadius: 24,
+            background: p.popover,
+            boxShadow: "0 2px 6px rgba(0,0,0,0.15), 0 8px 24px rgba(0,0,0,0.12)",
+            zIndex: 30,
+          }}
+        >
+          {PLACES.map((k) => {
+            const on = current === k;
+            return (
+              <button
+                key={k}
+                aria-pressed={on}
+                title={placeLabel(k)}
+                aria-label={placeLabel(k)}
+                onClick={() => {
+                  setMenu(false);
+                  onPlace(k);
+                }}
+                className="kit-press"
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  border: "none",
+                  background: on ? p.secondary : "transparent",
+                  color: on ? p.secondaryForeground : p.mutedForeground,
+                  cursor: "pointer",
+                  display: "grid",
+                  placeItems: "center",
+                }}
+              >
+                <PlaceGlyph place={k} size={22} />
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 

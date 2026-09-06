@@ -1,4 +1,4 @@
-import { Doc, Group, KIND_ORDER, Kind, VARIANTS, groupBounds, isContainerGroup, isShell } from "./tokens";
+import { Doc, Group, KIND_ORDER, Kind, VARIANTS, groupBounds, isContainerGroup, isPlace, isShell } from "./tokens";
 import { isLang } from "./i18n";
 
 /* A project file is the Doc as JSON, nothing more. Reading one back only checks
@@ -46,7 +46,8 @@ const validFrame = (frame: unknown) =>
   (frame.w === undefined || Number.isFinite(frame.w)) &&
   (frame.h === undefined || Number.isFinite(frame.h)) &&
   (frame.shell === undefined || isShell(frame.shell)) &&
-  (frame.note === undefined || typeof frame.note === "string");
+  (frame.note === undefined || typeof frame.note === "string") &&
+  (frame.place === undefined || isPlace(frame.place));
 
 /** whether a parsed file has the shape of a document the editor can open */
 export const isProject = (value: unknown): value is Doc =>

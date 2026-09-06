@@ -25,10 +25,11 @@ import {
  *    edge, the status bar across the bottom, a sheet on the edge it opens from,
  *    a toolbar and breadcrumb as bands under the title bar. A dialog centres in
  *    the window and a notification sits in the bottom-trailing corner.
- * 3. Everything else flows from the top of what is left, on 16px panel padding,
- *    which is the `lg` step of the semantic spacing scale. Rows, hand-made
- *    groups and intentional overlaps are kept as one unit, and a part keeps the
- *    side it was on.
+ * 3. Everything else flows down what is left, on 16px panel padding, which is
+ *    the `lg` step of the semantic spacing scale: from the top unless the window
+ *    asks for its body centred, against the status bar or spread out. Rows,
+ *    hand-made groups and intentional overlaps are kept as one unit, and a part
+ *    keeps the side it was on.
  * 4. A menu or popover belongs to whatever opened it, so it is left where the
  *    author put it.
  *
@@ -243,6 +244,62 @@ export function carryFrame(groups: Group[], frame: Frame, to: Frame, frames: Fra
   return { frames: nextFrames, groups: tidyFrame(resized, to, nextFrames, widths) ?? resized };
 }
 
+/** The regions claim their edges, narrowing what is left for the content: the title bar
+ *  across the top, the status bar across the bottom, a sidebar or sheet down a side, and
+ *  the bands under the title bar. Tidy records where each one lands; measuring the body
+ *  area only needs the box that remains, so `target` is optional. */
+function claimRegions(units: Unit[], fr: Rect, target?: Map<Unit, { l: number; t: number }>): Rect {
+  const content: Rect = { ...fr };
+  for (const u of units.filter(isTopRegion).sort((a, b) => a.bb.t - b.bb.t)) {
+    target?.set(u, { l: fr.l, t: content.t });
+    content.t += u.bb.b - u.bb.t;
+  }
+  for (const u of units.filter(isBottomRegion).sort((a, b) => b.bb.t - a.bb.t)) {
+    content.b -= u.bb.b - u.bb.t;
+    target?.set(u, { l: fr.l, t: content.b });
+  }
+  for (const u of units.filter(isSideRegion)) {
+    const w = u.bb.r - u.bb.l;
+    const h = u.bb.b - u.bb.t;
+    const side = u.kind === "sidebar" ? "left" : (u.side ?? "right");
+    if (side === "left") {
+      target?.set(u, { l: content.l, t: content.t });
+      content.l += w;
+    } else if (side === "right") {
+      target?.set(u, { l: content.r - w, t: content.t });
+      content.r -= w;
+    } else if (side === "top") {
+      target?.set(u, { l: content.l, t: content.t });
+      content.t += h;
+    } else {
+      content.b -= h;
+      target?.set(u, { l: content.l, t: content.b });
+    }
+  }
+  /* the bands run across the content, in the order the guides give them */
+  for (const kind of BANDS) {
+    for (const u of units.filter((x) => x.kind === kind).sort((a, b) => a.bb.t - b.bb.t)) {
+      target?.set(u, { l: content.l + WINDOW_MARGIN, t: content.t + (kind === "toolbar" ? 0 : TIGHT_GAP) });
+      content.t += (u.bb.b - u.bb.t) + (kind === "toolbar" ? 0 : TIGHT_GAP);
+    }
+  }
+  return content;
+}
+
+/** The area Tidy fills with body rows: inside the panel padding, beside the sidebar,
+ *  between the title bar and the status bar. Aligning a part on the window uses the same
+ *  box, so it lands where Tidy would put it and not under a region. */
+export function bodyRect(groups: Group[], frame: Frame, frames: Frame[], widths: Record<string, number>, except: Set<string> = new Set()): Rect {
+  const fr: Rect = { l: frame.x, t: frame.y, r: frame.x + frameW(frame), b: frame.y + frameH(frame) };
+  /* `except` names groups being moved: a region that is itself being aligned must not shape the body */
+  const mine = groups.filter((g) => !except.has(g.id) && frameOfGroup(g, frames, widths)?.id === frame.id);
+  const content = claimRegions(clusters(mine, widths), fr);
+  /* a crowded short window must not turn the box inside out */
+  const l = content.l + WINDOW_MARGIN;
+  const t = content.t + WINDOW_MARGIN;
+  return { l, t, r: Math.max(l, content.r - WINDOW_MARGIN), b: Math.max(t, content.b - WINDOW_MARGIN) };
+}
+
 /** The tidied groups of the document, or null when `frame` is already tidy. */
 export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths: Record<string, number>): Group[] | null {
   const fw = frameW(frame);
@@ -258,43 +315,7 @@ export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths
 
   const units = clusters(mine, widths);
   const target = new Map<Unit, { l: number; t: number }>();
-
-  /* the regions claim their edges first, narrowing what is left for the content */
-  const content: Rect = { ...fr };
-
-  for (const u of units.filter(isTopRegion).sort((a, b) => a.bb.t - b.bb.t)) {
-    target.set(u, { l: fr.l, t: content.t });
-    content.t += u.bb.b - u.bb.t;
-  }
-  for (const u of units.filter(isBottomRegion).sort((a, b) => b.bb.t - a.bb.t)) {
-    content.b -= u.bb.b - u.bb.t;
-    target.set(u, { l: fr.l, t: content.b });
-  }
-  for (const u of units.filter(isSideRegion)) {
-    const w = u.bb.r - u.bb.l;
-    const h = u.bb.b - u.bb.t;
-    const side = u.kind === "sidebar" ? "left" : (u.side ?? "right");
-    if (side === "left") {
-      target.set(u, { l: content.l, t: content.t });
-      content.l += w;
-    } else if (side === "right") {
-      target.set(u, { l: content.r - w, t: content.t });
-      content.r -= w;
-    } else if (side === "top") {
-      target.set(u, { l: content.l, t: content.t });
-      content.t += h;
-    } else {
-      content.b -= h;
-      target.set(u, { l: content.l, t: content.b });
-    }
-  }
-  /* the bands run across the content, in the order the guides give them */
-  for (const kind of BANDS) {
-    for (const u of units.filter((x) => x.kind === kind).sort((a, b) => a.bb.t - b.bb.t)) {
-      target.set(u, { l: content.l + WINDOW_MARGIN, t: content.t + (kind === "toolbar" ? 0 : TIGHT_GAP) });
-      content.t += (u.bb.b - u.bb.t) + (kind === "toolbar" ? 0 : TIGHT_GAP);
-    }
-  }
+  const content = claimRegions(units, fr, target);
   for (const u of units.filter(isCentred)) {
     target.set(u, {
       l: fr.l + Math.round((fw - (u.bb.r - u.bb.l)) / 2),
@@ -309,18 +330,42 @@ export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths
     target.set(u, { l: content.r - WINDOW_MARGIN - w, t: cornerBottom });
   }
 
-  /* everything else flows from the top of the content area on the panel padding;
-   * rows that would not fit are left where they are rather than pushed off the window */
+  /* everything else flows in rows down the content area on the panel padding;
+   * rows that would not fit are left where they are rather than pushed off the window.
+   * The rows are measured first, then the whole block is placed the way the window asks:
+   * from the top, centred, against the status bar, or spread out with equal gaps. */
   const flowing = units.filter((u) => !target.has(u) && !isPinnedByAuthor(u));
   const rows = rowsOf(flowing);
   const inner = content.r - content.l - WINDOW_MARGIN * 2;
   const limit = content.b - WINDOW_MARGIN;
-  let y = content.t + WINDOW_MARGIN;
+  const start = content.t + WINDOW_MARGIN;
+  const laid: { row: Unit[]; y: number; rowH: number }[] = [];
+  let y = start;
   let prev: Unit[] | null = null;
   for (const row of rows) {
     y += gapBefore(prev, row);
     const rowH = Math.max(...row.map((u) => u.bb.b - u.bb.t));
     if (y + rowH > limit) break;
+    laid.push({ row, y, rowH });
+    y += rowH;
+    prev = row;
+  }
+  const used = laid.length ? y - start : 0;
+  const spare = Math.max(0, limit - start - used);
+  const place = frame.place ?? "top";
+  /* when some rows did not fit they stay where they were, below the block, so the block
+   * stays at the top rather than moving down onto them */
+  const fits = laid.length === rows.length;
+  /* spreading shares all the free height equally above, between and below the rows,
+   * in place of the rows' own gaps; a lone row spreads to the middle, like centring */
+  const spreading = fits && place === "spread" && laid.length > 1;
+  const bodyH = laid.reduce((a, r) => a + r.rowH, 0);
+  const even = spreading ? (spare + used - bodyH) / (laid.length + 1) : 0;
+  const offset = !fits ? 0 : place === "center" || (place === "spread" && laid.length <= 1) ? Math.round(spare / 2) : place === "bottom" ? spare : 0;
+  let stacked = 0;
+  laid.forEach(({ row, y: rowY, rowH }, index) => {
+    const yy = spreading ? start + Math.round(even * (index + 1)) + stacked : rowY + offset;
+    stacked += rowH;
     if (row.length === 1) {
       const u = row[0];
       const w = u.bb.r - u.bb.l;
@@ -331,7 +376,7 @@ export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths
           : a === "right"
             ? content.r - WINDOW_MARGIN - w
             : content.l + Math.round((content.r - content.l - w) / 2);
-      target.set(u, { l, t: y });
+      target.set(u, { l, t: yy });
     } else {
       const ws = row.map((u) => u.bb.r - u.bb.l);
       const total = ws.reduce((s, w) => s + w, 0);
@@ -351,13 +396,11 @@ export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths
             : content.l + WINDOW_MARGIN;
       row.forEach((u, i) => {
         const h = u.bb.b - u.bb.t;
-        target.set(u, { l: Math.round(x), t: y + Math.round((rowH - h) / 2) });
+        target.set(u, { l: Math.round(x), t: yy + Math.round((rowH - h) / 2) });
         x += ws[i] + (gaps[i] ?? 0) + extra;
       });
     }
-    y += rowH;
-    prev = row;
-  }
+  });
 
   /* apply each unit's shift to every group it holds */
   const shift = new Map<string, { dx: number; dy: number }>();

@@ -128,6 +128,12 @@ export function MobileInspector({
     for (let i = 0; i < n; i++) next.push(tabs[i] ? { ...tabs[i] } : { ...defaults[i % defaults.length] });
     onChange({ tabs: next });
   };
+  /** a dropdown has as many options as the author wants, rather than a count to pick from */
+  const isSelect = item.kind === "select";
+  const addOption = () => {
+    const defaults = defaultTabsFor(item.kind);
+    onChange({ tabs: [...tabs, { ...defaults[tabs.length % defaults.length] }] });
+  };
 
   return (
     <div>
@@ -177,14 +183,16 @@ export function MobileInspector({
       )}
 
       {spec.hasTabs && (
-        <Row icon="layout-dashboard" label={t("tabs", lang)} p={p}>
-          <Segmented
-            options={(item.kind === "toolbar" ? [2, 3, 4, 5, 6] : [2, 3, 4, 5]).map((n) => ({ key: String(n), label: String(n) }))}
-            value={String(tabs.length)}
-            onChange={(k) => setTabCount(Number(k))}
-            p={p}
-            height={44}
-          />
+        <Row icon="layout-dashboard" label={t(isSelect ? "options" : "tabs", lang)} p={p}>
+          {!isSelect && (
+            <Segmented
+              options={(item.kind === "toolbar" ? [2, 3, 4, 5, 6] : [2, 3, 4, 5]).map((n) => ({ key: String(n), label: String(n) }))}
+              value={String(tabs.length)}
+              onChange={(k) => setTabCount(Number(k))}
+              p={p}
+              height={44}
+            />
+          )}
           <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
             {tabs.map((tab, i) => (
               <div key={i} style={{ display: "flex", gap: 6, alignItems: "center" }}>
@@ -194,9 +202,22 @@ export function MobileInspector({
                 {item.kind !== "toolbar" && (
                   <Field value={tab.label} onChange={(label) => onChange({ tabs: tabs.map((x, j) => (j === i ? { ...x, label } : x)) })} placeholder={t("label", lang)} p={p} height={48} />
                 )}
+                {isSelect && tabs.length > 1 && (
+                  <IconBtn icon="close" p={p} size={48} onClick={() => onChange({ tabs: tabs.filter((_, j) => j !== i) })} title={t("removeOption", lang)} />
+                )}
               </div>
             ))}
           </div>
+          {isSelect && (
+            <button
+              onClick={addOption}
+              className="kit-press"
+              style={{ marginTop: 8, height: 48, width: "100%", borderRadius: 24, border: `1px solid ${p.border}`, background: "transparent", color: p.primary, fontSize: 14, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+            >
+              <Icon name="plus" size={20} />
+              {t("addOption", lang)}
+            </button>
+          )}
           {tabSlot !== null && tabs[tabSlot] && (
             <div style={{ marginTop: 8 }}>
               <IconPicker value={tabs[tabSlot].icon || null} onChange={(icon) => onChange(setIconSlot(item, `tab:${tabSlot}`, icon))} palette={p} />

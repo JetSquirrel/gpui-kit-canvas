@@ -13,6 +13,7 @@ import {
   Kind,
   KIND_SPEC,
   Palette,
+  Place,
   RADII,
   Shell,
   DEFAULT_SHELL,
@@ -1179,6 +1180,7 @@ const PH = {
     hLayout: "## ウィンドウ構成",
     empty: "ウィンドウにはまだ部品が置かれていません。",
     windows: (names: string[]) => `ウィンドウ（ビュー）は ${names.length} つあり、${names.join("、")}です。`,
+    placement: (place: Place) => (place === "center" ? "本文の部品はウィンドウの縦中央にまとめて配置します。" : place === "bottom" ? "本文の部品はウィンドウの下側（ステータスバーの上）に寄せて配置します。" : "本文の部品はコンテンツ領域の高さいっぱいに均等な間隔で配置します（1 行だけなら縦中央）。"),
     windowHead: (name: string, size: string, bg: string | undefined, has: boolean) =>
       `${name}ウィンドウ（${size}${bg ? `、背景は ${bg}` : ""}）${has ? "の中身は次の通りです。重なっている部品はその旨を書いています。" : "はまだ空です。"}`,
     loose: "ウィンドウの外に置かれている部品（共通パーツや参考）:",
@@ -1209,6 +1211,7 @@ const PH = {
     hLayout: "## Layout",
     empty: "Nothing has been placed in the window yet.",
     windows: (names: string[]) => `There are ${names.length} windows (views): ${names.join(", ")}.`,
+    placement: (place: Place) => (place === "center" ? "The body parts sit together in the vertical center of the window." : place === "bottom" ? "The body parts sit toward the bottom of the window, above the status bar." : "The body parts are spread over the height of the content area with equal gaps (a single row sits in the vertical center)."),
     windowHead: (name: string, size: string, bg: string | undefined, has: boolean) =>
       `The ${name} window, ${size}${bg ? ` on ${bg}` : ""}${has ? " — overlapping parts are called out as such:" : ", is still empty."}`,
     loose: "Parts placed outside the windows (shared parts or references):",
@@ -1239,6 +1242,7 @@ const PH = {
     hLayout: "## 窗口结构",
     empty: "窗口中还没有放置任何组件。",
     windows: (names: string[]) => `共有 ${names.length} 个窗口（视图）：${names.join("、")}。`,
+    placement: (place: Place) => (place === "center" ? "正文组件集中放在窗口的垂直中央。" : place === "bottom" ? "正文组件靠窗口底部（状态栏上方）放置。" : "正文组件在内容区高度上等距分布（只有一行时垂直居中）。"),
     windowHead: (name: string, size: string, bg: string | undefined, has: boolean) =>
       `${name}窗口（${size}${bg ? `，背景为 ${bg}` : ""}）的结构如下${has ? "（重叠的组件会特别说明）：" : "：目前为空。"}`,
     loose: "放在窗口之外的组件（公共部件或参考）：",
@@ -1352,6 +1356,7 @@ export function buildPrompt(doc: Doc, widths: Record<string, number>, onlyFrameI
           gs.length > 0,
         ),
       );
+      if (gs.length > 0 && f.place && f.place !== "top") lines.push(ph.placement(f.place));
       describeWindow(lines, gs, { l: f.x, t: f.y, r: f.x + frameW(f), b: f.y + frameH(f) }, widths, lang);
     });
     if (loose.length && !only) {

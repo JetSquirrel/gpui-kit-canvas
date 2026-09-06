@@ -27,6 +27,8 @@ import {
   connectSpecOf,
   Doc,
   Frame,
+  Place,
+  AlignKind,
   FRAME_GAP,
   FRAME_LABEL_H,
   FrameMode,
@@ -89,7 +91,7 @@ import { LangMenu } from "@/components/Menus";
 import { AiActionKey, AiPanel, aiErrorText } from "@/components/AiPanel";
 import { TidyState } from "@/components/ui";
 import { AiSettings, DEFAULT_AI, hasKey, isSecureUrl, loadAiSettings, proposeBehavior, proposeDescription, pushHistory, saveAiSettings } from "@/lib/ai";
-import { carryFrame, tidyFrame } from "@/lib/tidy";
+import { bodyRect, carryFrame, tidyFrame } from "@/lib/tidy";
 import { migrateKinds, readProject, saveProject } from "@/lib/project";
 import { ColorPanel } from "@/components/ColorPanel";
 import { MotionPanel, ShapePanel, TypePanel } from "@/components/ThemePanel";
@@ -128,6 +130,11 @@ type Snap = { groupId: string; index: number; pull: number };
 /** alignment guide: the snapped position plus the line to draw */
 type Guide = { x?: number; y?: number; gx?: number; gy?: number };
 const GUIDE_PX = 7;
+
+/** gpui-kit's 4px step, the one every part's size moves on: a coordinate rounded
+ *  to it, measured from the window's own corner */
+const GRID = 4;
+const onGrid = (v: number, origin: number) => origin + Math.round((v - origin) / GRID) * GRID;
 const FRAME_MARGIN = WINDOW_MARGIN;
 
 type DragState = {
@@ -1251,10 +1258,12 @@ export default function Page() {
         return;
       }
       if (d.fromPalette) snapshot();
+      /* off any guide, the part settles on the 4px grid of the window it lands on */
+      const landed = frameOfGroup({ id: "", x: rawX, y: rawY, axis: "x", items: [item] }, framesRef.current, widthsRef.current);
       const ng: Group = {
         id: uid(),
-        x: Math.round(rawX),
-        y: Math.round(rawY),
+        x: d.guide?.gx !== undefined ? Math.round(rawX) : onGrid(rawX, landed?.x ?? 0),
+        y: d.guide?.gy !== undefined ? Math.round(rawY) : onGrid(rawY, landed?.y ?? 0),
         axis: connectSpecOf(item)?.axis ?? "x",
         items: [item],
       };
@@ -1423,7 +1432,17 @@ export default function Page() {
         instantRef.current.add(g.id);
         g.overBin = inBin(e.clientX);
         setGesture({ ...g });
-        setGroups((gs) => mapGroups(gs, (gr) => (gr.id === g.id ? { ...gr, x: Math.round(g.gx + dx), y: Math.round(g.gy + dy) } : gr)));
+        setGroups((gs) => {
+          /* a moved group settles on the 4px grid of the window it is over; a nested one
+           * settles on its parent's, since its x/y is relative to that */
+          const nested = !!findGroup(gs, g.id)?.parent;
+          return mapGroups(gs, (gr) => {
+            if (gr.id !== g.id) return gr;
+            const moved = { ...gr, x: g.gx + dx, y: g.gy + dy };
+            const f = nested ? undefined : frameOfGroup(moved, framesRef.current, widthsRef.current);
+            return { ...moved, x: onGrid(moved.x, f?.x ?? 0), y: onGrid(moved.y, f?.y ?? 0) };
+          });
+        });
         return;
       }
       if (g.kind === "frame") {
@@ -1787,6 +1806,118 @@ export default function Page() {
     return selectedIds.every((id) => ids.has(id)) && selectedIds.length === g.items.length ? g : null;
   }, [groups, selectedIds]);
 
+  /** Lines the selected parts up, or spaces them evenly. Whole groups move: a connected
+   *  run or a hand-made group is one unit, like in Tidy. Several parts line up with each
+   *  other's bounding box; a lone part lines up with the body area Tidy fills, or with its
+   *  container when it sits inside one, so it never leaves the box it belongs to. A unit
+   *  that would land on a sibling steps away from the edge it was aligned to until it is clear. */
+  const alignSelected = useCallback(
+    (kind: AlignKind) => {
+      const ids = new Set(selectedIds);
+      const widths = widthsRef.current;
+      const visits = flattenGroups(groupsRef.current);
+      const units = visits.filter((v) => v.group.items.some((it) => ids.has(it.id)));
+      if (units.length === 0) return;
+      const distributing = kind === "distributeH" || kind === "distributeV";
+      const horizontal = kind === "left" || kind === "centerH" || kind === "right" || kind === "distributeH";
+      /* world bounds, so a nested group is measured where it is drawn */
+      const boxOf = (g: Group, wx: number, wy: number) => {
+        const b = subtreeBounds(g, widths, wx, wy);
+        return { l: b.l, t: b.t, r: b.r, b: b.b };
+      };
+      const rects = new Map(units.map((v) => [v.group.id, boxOf(v.group, v.wx, v.wy)] as const));
+      let bb = units
+        .map((v) => rects.get(v.group.id)!)
+        .reduce((a, r) => ({ l: Math.min(a.l, r.l), t: Math.min(a.t, r.t), r: Math.max(a.r, r.r), b: Math.max(a.b, r.b) }));
+      if (units.length === 1) {
+        if (distributing) return;
+        const v = units[0];
+        if (v.parent) {
+          /* inside a container the part lines up within it, on the panel padding */
+          const pv = visits.find((x) => x.group === v.parent)!;
+          const box = groupBounds({ ...pv.group, x: pv.wx, y: pv.wy }, widths);
+          bb = { l: box.l + WINDOW_MARGIN, t: box.t + WINDOW_MARGIN, r: box.r - WINDOW_MARGIN, b: box.b - WINDOW_MARGIN };
+          if (bb.r < bb.l) bb = { ...bb, r: bb.l };
+          if (bb.b < bb.t) bb = { ...bb, b: bb.t };
+        } else {
+          const f = frameOfGroup({ ...v.group, x: v.wx, y: v.wy }, framesRef.current, widths);
+          if (!f) return;
+          const body = bodyRect(groupsRef.current, f, framesRef.current, widths, new Set([v.group.id]));
+          bb = { l: body.l, t: body.t, r: body.r, b: body.b };
+        }
+      }
+      /* only parts at the same level of the tree can be in the way: a container holds its
+       * children, so it is never an obstacle to them */
+      const parent = units[0].parent;
+      const level = units.every((v) => v.parent === parent) ? (parent ? (parent.children ?? []) : groupsRef.current) : [];
+      const others = level
+        .filter((g) => !units.some((v) => v.group.id === g.id))
+        .map((g) => {
+          const v = visits.find((x) => x.group.id === g.id)!;
+          return boxOf(g, v.wx, v.wy);
+        });
+      const shift = new Map<string, { dx: number; dy: number }>();
+      if (distributing) {
+        const sorted = [...units].sort((a, b) =>
+          horizontal ? rects.get(a.group.id)!.l - rects.get(b.group.id)!.l : rects.get(a.group.id)!.t - rects.get(b.group.id)!.t,
+        );
+        const sizes = sorted.map((v) => {
+          const r = rects.get(v.group.id)!;
+          return horizontal ? r.r - r.l : r.b - r.t;
+        });
+        const span = horizontal ? bb.r - bb.l : bb.b - bb.t;
+        const gap = (span - sizes.reduce((a, w) => a + w, 0)) / (sorted.length - 1);
+        let pos = horizontal ? bb.l : bb.t;
+        sorted.forEach((v, i) => {
+          const r = rects.get(v.group.id)!;
+          shift.set(v.group.id, horizontal ? { dx: Math.round(pos) - r.l, dy: 0 } : { dx: 0, dy: Math.round(pos) - r.t });
+          pos += sizes[i] + gap;
+        });
+      } else {
+        const hits = (r: { l: number; t: number; r: number; b: number }) => others.filter((o) => o.l < r.r && o.r > r.l && o.t < r.b && o.b > r.t);
+        /* stepping away from the aligned edge: right of a left edge, up from a bottom edge; a centre tries both ways */
+        const dir = kind === "left" || kind === "top" ? 1 : kind === "right" || kind === "bottom" ? -1 : 0;
+        for (const v of units) {
+          const r = rects.get(v.group.id)!;
+          const w = r.r - r.l;
+          const h = r.b - r.t;
+          const ax = kind === "left" ? bb.l : kind === "centerH" ? Math.round((bb.l + bb.r) / 2 - w / 2) : kind === "right" ? bb.r - w : r.l;
+          const ay = kind === "top" ? bb.t : kind === "centerV" ? Math.round((bb.t + bb.b) / 2 - h / 2) : kind === "bottom" ? bb.b - h : r.t;
+          /* candidates stay inside the reference box; with no clear spot the plain alignment wins */
+          let x = ax;
+          let y = ay;
+          let clear = false;
+          for (let tries = 0, sign = dir || 1; tries < 12; tries++, sign = dir || -sign) {
+            const blocking = hits({ l: x, t: y, r: x + w, b: y + h });
+            if (!blocking.length) {
+              clear = true;
+              break;
+            }
+            const step = 8 + (horizontal ? Math.max(...blocking.map((o) => o.r - o.l)) : Math.max(...blocking.map((o) => o.b - o.t)));
+            if (horizontal) x = clamp(x + sign * step * (dir ? 1 : tries + 1), bb.l, Math.max(bb.l, bb.r - w));
+            else y = clamp(y + sign * step * (dir ? 1 : tries + 1), bb.t, Math.max(bb.t, bb.b - h));
+          }
+          if (!clear) {
+            x = ax;
+            y = ay;
+          }
+          shift.set(v.group.id, { dx: x - r.l, dy: y - r.t });
+        }
+      }
+      if (![...shift.values()].some((s) => s.dx || s.dy)) return;
+      snapshot();
+      /* a nested group's x/y is relative to its parent, which is not moving, so the same
+       * shift applies at any depth */
+      setGroups((prev) =>
+        mapGroups(prev, (g) => {
+          const s = shift.get(g.id);
+          return s && (s.dx || s.dy) ? { ...g, x: g.x + s.dx, y: g.y + s.dy } : g;
+        }),
+      );
+    },
+    [selectedIds, snapshot],
+  );
+
   /** Pull the selected parts out of their runs into one free group that keeps
    *  their positions. It takes the layer slot of the topmost run involved. */
   const groupSelected = useCallback(() => {
@@ -2115,6 +2246,20 @@ export default function Page() {
     const after = tidyFrame(groupsRef.current, f, framesRef.current, widthsRef.current);
     if (!after) return;
     snapshot();
+    tidyRef.current = { frameId: f.id, before: groupsRef.current, after };
+    setGroups(after);
+  };
+
+  /** sets where Tidy puts a window's body, then tidies it that way */
+  const setPlace = (f: Frame, place: Place) => {
+    const next: Frame = { ...f, place: place === "top" ? undefined : place };
+    /* one undo step covers both the setting and the tidy it causes */
+    snapshot();
+    const nextFrames = framesRef.current.map((o) => (o.id === f.id ? next : o));
+    setFrames(nextFrames);
+    tidyRef.current = null;
+    const after = tidyFrame(groupsRef.current, next, nextFrames, widthsRef.current);
+    if (!after) return;
     tidyRef.current = { frameId: f.id, before: groupsRef.current, after };
     setGroups(after);
   };
@@ -3475,8 +3620,10 @@ export default function Page() {
             }}
             onAddFrame={addFrame}
             onPreview={() => openPreview()}
-            tidy={tidyState ?? undefined}
+            tidy={selectedIds.length > 1 ? undefined : tidyState ?? undefined}
             onTidy={tidyTarget ? () => tidy(tidyTarget) : undefined}
+            place={tidyTarget?.place}
+            onPlace={tidyTarget ? (pl) => setPlace(tidyTarget, pl) : undefined}
             note={aiNote}
             onSaveProject={() => saveProject(doc)}
             onOpenProject={() => projectFileRef.current?.click()}
@@ -3687,6 +3834,7 @@ export default function Page() {
                   frames={frames}
                   tidy={tidyState ?? "done"}
                   onTidy={() => tidy(selectedFrame)}
+                  onPlace={(pl) => setPlace(selectedFrame, pl)}
                   ai={{ ready: aiReady, reason: aiReason, busy: aiBusy && aiFrameId === selectedFrame.id, onRun: () => runAi("describe", selectedFrame), onCancel: cancelAi }}
                 />
               ) : rightTab === "edit" ? (
@@ -3706,6 +3854,7 @@ export default function Page() {
                   onChange={patchSelected}
                   onDelete={deleteSelected}
                   onDuplicate={duplicateSelected}
+                  onAlign={alignSelected}
                   multi={selectedIds.length}
                   grouped={!!selectedGroup}
                   onGroup={groupSelected}

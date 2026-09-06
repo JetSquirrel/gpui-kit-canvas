@@ -2095,7 +2095,17 @@ export type Frame = {
   note?: string;
   /** what `note` said before the AI rewrote it */
   noteHistory?: string[];
+  /** where Tidy puts the body rows between the bars: from the top unless the author says otherwise */
+  place?: Place;
 };
+
+/** how Tidy stacks the body of a window: from the top, centred, against the status bar, or spread out */
+export type Place = "top" | "center" | "bottom" | "spread";
+export const PLACES: Place[] = ["top", "center", "bottom", "spread"];
+export const isPlace = (v: unknown): v is Place => v === "top" || v === "center" || v === "bottom" || v === "spread";
+
+/** how a selection of parts is lined up: an edge or centre to share, or equal gaps along an axis */
+export type AlignKind = "left" | "centerH" | "right" | "distributeH" | "top" | "centerV" | "bottom" | "distributeV";
 
 export const frameW = (f: Frame) => f.w ?? WINDOW_W;
 export const frameH = (f: Frame) => f.h ?? WINDOW_H;
